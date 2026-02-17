@@ -1,0 +1,257 @@
+P-124 — /app/clubs/[clubId]/sesion/[sessionId] (MODO SESIÓN / EVENTO) — WORDELIA
+REQUISITOS: RESPETA P-001 (TOKENS + COMPONENTES OFICIALES) Y EL LAYOUT BASE POST-LOGIN DE P-002 (TOPBAR + NAV + ÁREA CENTRAL CON CONTAINER). NO REDEFINIR ESTILO. IDIOMA: ESPAÑOL.
+
+TIPO: PÁGINA APP (experiencia enfocada, semi-síncrona)
+RUTA: /app/clubs/[clubId]/sesion/[sessionId]
+POSICIÓN EN FLUJO: desde P-122 (Resumen: “Próxima sesión”) o desde listado de sesiones (si existe), o desde un checkpoint.
+
+OBJETIVO (1 frase):
+Dar una experiencia de sesión guiada y ordenada: agenda + preguntas + espacio de conversación con slow mode, control de spoilers, y cierre con resumen (IA) y próximos pasos.
+
+USUARIO OBJETIVO:
+Miembros en directo y moderación. Debe funcionar sin “ruido de chat”.
+
+========================
+A) COMPONENTES (OBLIGATORIOS)
+========================
+Componentes oficiales (P-001):
+- Container
+- SectionHeader
+- Card (default + featured + compact)
+- Tabs
+- Button (primary/secondary/ghost)
+- Chip
+- Badge
+- AvatarStack
+- Divider
+- Modal (iniciar sesión, editar sesión, reportar, confirmar spoilers)
+- SkeletonCard
+- EmptyState
+- ErrorState
+- “SpoilerGuard”
+- (Opcional) Countdown/Timer simple (si existe componente oficial; si no, texto)
+
+No crear componentes nuevos.
+
+========================
+B) ESTRUCTURA / LAYOUT
+========================
+Dentro del layout post-login:
+- En desktop: layout 7/5 (izquierda “Guía/Agenda”, derecha “Conversación en vivo”)
+- En mobile: Tabs internas “Agenda / Chat / Resumen”.
+
+HEADER (SectionHeader)
+- Eyebrow: “SESIÓN”
+- Título (teal): “[Título de la sesión]”
+- Subtítulo: “[Nombre del club] · [Libro/Checkpoint] · [fecha y hora]”
+- Badges:
+  - Estado: “Programada / En curso / Finalizada”
+  - Slow mode: “1 mensaje / 30s” (si aplica)
+  - Spoilers: “Por niveles” + SpoilerGuard
+- Acciones:
+  - Botón ghost: “Volver al club”
+  - Botón outline: “Invitar” (solo mods o si el club lo permite)
+  - Botón ghost: “Ajustes” (solo mods)
+
+========================
+C) COLUMNA IZQUIERDA — AGENDA + PREGUNTAS (DESKTOP)
+========================
+CARD featured: “Agenda”
+- Mostrar bloques con hora relativa o duración:
+  1) “Bienvenida (5 min)”
+  2) “Primera ronda (15 min)”
+  3) “Preguntas clave (25 min)”
+  4) “Cierre (10 min)”
+- Si la sesión está en curso:
+  - Indicador “Estás aquí” en el bloque actual (highlight suave)
+  - Botón ghost (mods): “Avanzar al siguiente bloque”
+- Si está programada:
+  - Mostrar “Empieza en: 12 min” (texto simple o mini countdown)
+  - Botón coral: “Entrar cuando empiece” (deshabilitado hasta X min antes, opcional)
+
+CARD: “Preguntas del día”
+- Lista de 6–10 preguntas (con posibilidad de “revelar” por bloques):
+  - Cada pregunta como item con:
+    - Checkbox “Hecha” (solo mods o personal)
+    - Botón ghost: “Llevar al chat” (publica la pregunta como mensaje destacado)
+- Selector “Nivel de spoilers” (chips):
+  - “Sin spoilers” (default)
+  - “Suave”
+  - “Total”
+Microcopy: “Si dudas, mantén el nivel en ‘sin spoilers’.”
+
+CARD: “Materiales” (opcional)
+- Links: “Guía IA del checkpoint”, “ADN del libro”, “Reglas del club”
+- Mantenerlo compacto.
+
+CARD: “Participantes”
+- AvatarStack + contador
+- Link: “Ver lista” (abre modal con lista y estados)
+- Mostrar estado de asistencia:
+  - “Conectados: 8” (si existe)
+  - Si no, omitir.
+
+========================
+D) COLUMNA DERECHA — CONVERSACIÓN EN VIVO (DESKTOP)
+========================
+CARD principal: “Chat en vivo”
+- Encabezado del chat:
+  - Chip toggle: “Ocultar spoilers” (refleja preferencia)
+  - Badge slow mode activo (si aplica)
+  - Botón ghost: “Fijados” (abre lista de mensajes fijados)
+- Feed de mensajes (estilo limpio):
+  - Cada mensaje:
+    - Avatar + nombre + hora
+    - spoiler_level badge + SpoilerGuard
+    - contenido (colapsado si mild/full y usuario strict)
+    - acciones: “Reaccionar”, “Responder”, “Reportar”
+- Mensajes fijados:
+  - Tipo “Pregunta destacada” (publicada por mods)
+  - Se muestran arriba con borde sutil.
+
+INPUT de mensaje (sticky abajo)
+- Textarea 1–3 líneas:
+  Placeholder: “Escribe una idea breve…”
+- Selector spoiler_level junto al input (chips pequeños):
+  “Sin spoilers” default / “Suave” / “Total”
+- Botón coral: “Enviar”
+- Si slow mode:
+  - Tras enviar, deshabilitar input y mostrar “Puedes enviar de nuevo en 25s”
+- Microcopy bajo input:
+  “Mejor corto y claro. Dejemos espacio a todas las voces.”
+
+========================
+E) MÓVIL — TABS INTERNAS
+========================
+En mobile, bajo el header:
+Tabs: “Agenda” | “Chat” | “Resumen”
+- Agenda muestra cards de agenda/preguntas
+- Chat muestra el feed + input sticky
+- Resumen muestra el estado y (si finalizada) el resumen IA
+
+========================
+F) FLUJO DE ESTADO DE SESIÓN
+========================
+
+ESTADO 1: Programada
+- Mostrar fecha/hora
+- CTA para añadir a calendario (placeholder)
+- Bloque “Preparación”:
+  - “Lee hasta…” (si linked a checkpoint)
+  - “Guía sin spoilers” (CTA)
+- Chat: read-only (opcional) o abierto pero con banner “Empieza pronto”
+
+ESTADO 2: En curso
+- Agenda con bloque actual destacado
+- Chat habilitado + slow mode (si aplica)
+- Mods tienen controles:
+  - “Publicar pregunta” (fijar mensaje)
+  - “Activar/ajustar slow mode” (solo UI placeholder si no hay backend aún)
+  - “Cerrar sesión” (abre confirmación)
+
+ESTADO 3: Finalizada
+- Chat pasa a modo lectura (o sigue abierto pero sin input, según preferencia)
+- Aparece CARD “Resumen” (IA) + “Preguntas abiertas”
+- CTA:
+  - “Ver checkpoint” (si aplica)
+  - “Próximo hito” (siguiente checkpoint/sesión)
+  - “Compartir resumen” (si permitido)
+
+========================
+G) RESUMEN (IA) — DIFERENCIADOR
+========================
+CARD featured: “Resumen de la sesión (IA)”
+- Selector spoilers: “Sin spoilers / Suave / Total”
+- Secciones:
+  - “Ideas clave” (3–6 bullets)
+  - “Citas memorables” (si hay, pero muy cortas)
+  - “Preguntas abiertas” (3)
+  - “Próximos pasos” (1–2)
+- Botón ghost: “Regenerar” (solo mods o limitado)
+- Microcopy:
+  “El resumen es orientativo. Si algo no encaja, lo ajustamos entre todos.”
+
+========================
+H) MODERACIÓN EN SESIÓN (LIGHT)
+========================
+- Reportar mensaje (modal)
+- Mods: ocultar mensaje, silenciar usuario (24h), fijar pregunta
+- Indicador discreto “Reglas del club” accesible en menú
+
+========================
+I) MODALES CLAVE
+========================
+1) Confirmar cierre (mods)
+- “¿Cerrar sesión?”
+- “Al cerrar, se generará un resumen.”
+- Botón coral: “Cerrar y generar resumen”
+- Ghost: “Cancelar”
+
+2) Publicar pregunta (mods)
+- Select pregunta (lista) o textarea
+- Selector spoiler_level
+- Botón: “Publicar y fijar”
+
+3) Reportar
+- Motivo (select): “Spoiler sin marcar” “Falta de respeto” “Spam” “Otro”
+- Detalles
+- Botón: “Enviar”
+
+4) Participantes
+- Lista de miembros (nombre + rol)
+- (Opcional) indicador “conectado”
+
+========================
+J) ESTADOS (OBLIGATORIOS)
+========================
+LOADING:
+- Skeleton del header + 2 cards izquierda + feed chat.
+
+EMPTY (sin preguntas/agenda aún)
+- “La sesión está lista. Añade una agenda o importa una guía.”
+- Botón (mods): “Generar agenda con IA” (placeholder)
+
+EMPTY (sin mensajes)
+- “¿Rompemos el hielo?”
+- Chips sugeridos:
+  “¿Qué te llamó la atención?” “¿Qué símbolo viste?” “¿Qué te incomodó?”
+
+ERROR:
+- ErrorState:
+  “No pudimos cargar la sesión”
+  Botón: “Reintentar”
+  Link: “Volver al club”
+
+========================
+K) DATOS (CAMPOS NECESARIOS)
+========================
+- session: { session_id, club_id, title, status, starts_at, ends_at?, slow_mode_seconds?, checkpoint_id? }
+- club: { name, spoiler_policy }
+- context: { work_title, author, checkpoint_label? , range_label? }
+- agenda_blocks: [{ id, title, duration_min, order_index, is_current? }]
+- questions: [{ id, text, spoiler_level_suggested?, is_done? }]
+- pinned_messages: [{ id, type:'question', content, created_at }]
+- messages: [{ id, user:{name,avatar,role}, created_at, content, spoiler_level, parent_id? }]
+- ai_summary: { available, spoiler_level, key_points[], open_questions[], next_steps[] }
+- user_prefs: { spoiler_mode, hide_spoilers_toggle }
+
+========================
+L) MICROCOPY (TEXTOS EXACTOS)
+========================
+- Chat placeholder: “Escribe una idea breve…”
+- Input microcopy: “Mejor corto y claro. Dejemos espacio a todas las voces.”
+- Resumen microcopy: “El resumen es orientativo. Si algo no encaja, lo ajustamos entre todos.”
+- Agenda microcopy: “Si dudas, mantén el nivel en ‘sin spoilers’.”
+
+========================
+ENTREGA
+========================
+Renderiza /app/club/[clubId]/sesion/[sessionId] completa (desktop + mobile) con:
+- Layout 2 columnas (agenda/preguntas + chat)
+- Estados: Programada / En curso / Finalizada
+- Slow mode UX
+- SpoilerGuard en mensajes y preguntas
+- Resumen IA (sin spoilers por defecto) y flujo de cierre de sesión
+- Modales clave (cerrar, publicar pregunta, reportar, participantes)
+- Estados loading/empty/error
+- Tono calmado y community.

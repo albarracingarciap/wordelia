@@ -1,0 +1,205 @@
+P-120 — /app/clubs (DESCUBRIR CLUBS + TUS CLUBS) — WORDELIA
+REQUISITOS: RESPETA P-001 (TOKENS + COMPONENTES OFICIALES) Y EL LAYOUT BASE POST-LOGIN DE P-002 (TOPBAR + NAV + ÁREA CENTRAL CON CONTAINER). NO REDEFINIR ESTILO. IDIOMA: ESPAÑOL.
+
+TIPO: PÁGINA APP
+RUTA: /app/clubs
+POSICIÓN EN FLUJO: accesible desde SideNav “Clubs”, y desde landing CTA “Explorar clubs” (si logged-in).
+
+OBJETIVO (1 frase):
+Permitir descubrir clubs con señal clara y sin ruido, y gestionar “Tus clubs” (activos/archivados), con filtros útiles (ritmo, nivel, sin spoilers, formato) y entrada fácil a crear/unirse.
+
+USUARIO OBJETIVO:
+Lector que busca conversación cuidada; también moderadores que quieren crear un club.
+
+========================
+A) COMPONENTES (OBLIGATORIOS)
+========================
+Componentes oficiales (P-001):
+- Container
+- SectionHeader
+- Tabs
+- SearchBar
+- Select
+- Chip
+- Card (default + featured)
+- Button (primary/secondary/ghost)
+- Badge
+- ClubCard
+- BookCard (opcional para “libros que se están leyendo”)
+- AvatarStack
+- SkeletonCard
+- EmptyState
+- ErrorState
+- Divider
+- Modal (opcional: “Unirme por invitación”)
+
+No crear componentes nuevos.
+
+========================
+B) ESTRUCTURA / LAYOUT
+========================
+Dentro del layout post-login:
+- Container max 1200px
+- Estructura general:
+  1) Header
+  2) Tabs (Tus clubs / Explorar)
+  3) Controles (search + filtros)
+  4) Grids de contenido (cards)
+
+HEADER (SectionHeader)
+- Eyebrow: “CLUBS”
+- Título (teal): “Clubs de lectura”
+- Subtítulo (gris cálido): “Conversaciones cuidadas, a tu ritmo (y sin spoilers).”
+- Acciones (derecha desktop / debajo mobile):
+  - Botón coral: “Crear un club” -> /app/clubs/crear (P-121)
+  - Botón outline: “Unirme con código” (abre modal o input inline)
+Microcopy pequeño: “Puedes entrar a un club con invitación en segundos.”
+
+TABS PRINCIPALES (2)
+- Tab 1 (activo por defecto): “Tus clubs”
+- Tab 2: “Explorar”
+
+========================
+C) TAB 1 — “TUS CLUBS”
+========================
+Sección superior: “Activos”
+- Grid de ClubCards (2 columnas desktop, 1 en mobile), máx 6 visibles + “Ver todos”.
+- Cada ClubCard (reutilizar componente P-001) debe mostrar:
+  - Nombre del club
+  - Libro actual (title/author + portada mini)
+  - Progreso del club (checkpoint actual + próximo hito)
+  - Ritmo (chip): “2 cap/semana” o “Semanal”
+  - Badges: “Sin spoilers” / “Nivel: intermedio” / “Online”
+  - AvatarStack miembros (3–5)
+  - CTA primario pequeño: “Entrar”
+  - Link ghost: “Check-in”
+- Si el club tiene evento cercano (si existe):
+  - Badge: “Sesión: dom 19:00”
+  - o “Checkpoint vence: jue”
+
+Sección: “Archivados” (colapsable)
+- Accordion o bloque con título “Archivados”
+- Lista compacta (cards pequeñas) con:
+  - nombre + último libro + fecha final
+  - CTA: “Ver”
+- Mantenerlo discreto.
+
+EMPTY (sin clubs)
+- EmptyState:
+  - Título: “Tu próxima conversación empieza aquí”
+  - Texto: “Explora clubs que ya están leyendo o crea uno con tu gente.”
+  - Botón coral: “Explorar clubs”
+  - Botón outline: “Crear un club”
+- Mini guía en bullets (máx 3):
+  “Elige un libro · Marca ritmo · Conversa por checkpoints (sin spoilers)”
+
+========================
+D) TAB 2 — “EXPLORAR”
+========================
+CONTROLES (barra fija bajo tabs)
+- SearchBar placeholder: “Buscar clubs por libro, tema o estilo…”
+- Filtros como Chips (scroll horizontal en mobile):
+  - “Sin spoilers” (toggle)
+  - “Ritmo: suave” (dropdown o chip)
+  - “Nivel: todos”
+  - “Formato: papel/ebook/audio”
+  - “Idioma”
+  - “Tamaño” (pequeño/medio/grande)
+- Select de orden:
+  - “Más activos”
+  - “Empiezan pronto”
+  - “Nuevos”
+  - “Mejor encaje” (placeholder)
+- Botón ghost: “Limpiar filtros”
+
+SECCIÓN: “Destacados para ti” (suave)
+- 1 Card featured con 3 ClubCards en fila (scroll) o grid 3:
+  - Título: “Destacados para ti”
+  - Sub: “Por tus gustos y tu ritmo”
+- Cada ClubCard aquí incluye un badge:
+  “Buen encaje” (discreto) o “Buen debate”.
+
+SECCIÓN: “Clubs que empiezan pronto”
+- Grid 2x2 de ClubCards
+- Badge visible: “Empieza en 3 días”
+- CTA: “Ver detalles”
+
+SECCIÓN: “Clubs por temática”
+- Filas horizontales (carousels suaves) por categoría:
+  - “Clásicos con calma”
+  - “Distopías”
+  - “Ensayo y debate”
+  - “Misterio”
+- Cada fila: 6 ClubCards compactas, scroll horizontal con snap.
+
+CTA de exploración final (discreta)
+- Card con texto:
+  “¿No encuentras el tuyo? Crea uno en 1 minuto.”
+  Botón coral: “Crear un club”
+
+========================
+E) MODAL “UNIRME CON CÓDIGO” (OPCIONAL)
+========================
+Modal compacto:
+- Título: “Unirme con invitación”
+- Input: “Código o enlace”
+- Botón coral: “Unirme”
+- Microcopy: “Si el club es privado, el código te abre la puerta.”
+
+========================
+F) ESTADOS (OBLIGATORIOS)
+========================
+LOADING:
+- Skeleton de tabs + barra de filtros + 6 ClubCards.
+
+EMPTY (explorar sin resultados):
+- EmptyState:
+  - Título: “No encontramos clubs con esos filtros”
+  - Texto: “Prueba a aflojar un poco el ritmo o cambiar la temática.”
+  - Botón ghost: “Limpiar filtros”
+  - Botón outline: “Crear un club”
+
+ERROR:
+- ErrorState:
+  “No pudimos cargar los clubs”
+  Botón: “Reintentar”
+  Link: “Centro de ayuda”
+
+========================
+G) DATOS (CAMPOS NECESARIOS)
+========================
+- my_clubs_active: [{
+    club_id, name, member_avatars[],
+    current_work: { work_id, title, author, cover_url },
+    pace_label, level_label, spoiler_policy_label,
+    next_milestone: { type, label, due_at },
+    last_activity_at
+  }]
+- my_clubs_archived: [{ club_id, name, last_work_title, ended_at }]
+- explore_featured: [club summary...]
+- explore_starting_soon: [club summary...]
+- explore_by_theme: [{ theme_label, clubs: [...] }]
+- filters: { spoiler_free, pace, level, format, language, size, sort }
+
+========================
+H) MICROCOPY (TEXTOS EXACTOS)
+========================
+- Search placeholder (Explorar): “Buscar clubs por libro, tema o estilo…”
+- Botón: “Crear un club”
+- Botón: “Unirme con código”
+- Label filtros: “Sin spoilers”
+- Featured title: “Destacados para ti”
+- Starting soon title: “Clubs que empiezan pronto”
+- Final CTA: “¿No encuentras el tuyo? Crea uno en 1 minuto.”
+
+========================
+I) ENTREGA
+========================
+Renderiza /app/clubs completa (desktop + mobile) con:
+- Header + acciones
+- Tabs “Tus clubs / Explorar”
+- Controles de búsqueda y filtros
+- Grids y filas por temática
+- Modal “Unirme con invitación”
+- Estados loading/empty/error
+- Tono calmado y community, evitando ruido tipo “red social agresiva”.

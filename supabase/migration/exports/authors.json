@@ -1,0 +1,100 @@
+[
+  {
+    "id": "24fa4d96-0914-4806-abe0-02d8bec4b6d8",
+    "name": "George Orwell",
+    "bio": null,
+    "photo_url": null,
+    "created_at": "2026-02-10T10:47:31.525324+00:00"
+  },
+  {
+    "id": "847f63c9-dfa2-482f-8eeb-f39347598d4d",
+    "name": "José Saramago",
+    "bio": null,
+    "photo_url": null,
+    "created_at": "2026-02-10T10:52:15.295029+00:00"
+  },
+  {
+    "id": "678b3020-67e2-45aa-8b0e-7fc838987c04",
+    "name": "Gabriel García Márquez",
+    "bio": null,
+    "photo_url": null,
+    "created_at": "2026-02-10T18:28:30.748173+00:00"
+  },
+  {
+    "id": "5398cede-fc48-472b-bece-a9e605def264",
+    "name": "David Uclés",
+    "bio": null,
+    "photo_url": null,
+    "created_at": "2026-02-10T18:29:38.979209+00:00"
+  },
+  {
+    "id": "90c2649c-4cc0-4fa7-aba7-d08f8805ecc6",
+    "name": "Frank Herbert",
+    "bio": null,
+    "photo_url": null,
+    "created_at": "2026-02-10T19:00:12.977643+00:00"
+  },
+  {
+    "id": "aab6892c-ab18-4cc7-89ac-9fc270ef9d29",
+    "name": "Alexandre Dumas",
+    "bio": null,
+    "photo_url": null,
+    "created_at": "2026-02-10T19:08:42.341532+00:00"
+  },
+  {
+    "id": "41d4df58-856a-42df-bd47-385cf88cdb91",
+    "name": "Thomas Mann",
+    "bio": null,
+    "photo_url": null,
+    "created_at": "2026-02-10T19:10:04.413695+00:00"
+  },
+  {
+    "id": "ac4bca21-9f01-4057-bb9f-ca6e6537e1e0",
+    "name": "Sthendal",
+    "bio": null,
+    "photo_url": null,
+    "created_at": "2026-02-10T19:17:56.136444+00:00"
+  },
+  {
+    "id": "568d6a63-8c77-4d30-a99d-c679db9c7c86",
+    "name": "Mircea Cartarescu",
+    "bio": null,
+    "photo_url": null,
+    "created_at": "2026-02-10T19:20:46.400919+00:00"
+  },
+  {
+    "id": "bb209494-c3cd-4b1d-bf35-7b3300f49142",
+    "name": "David Foster Wallace",
+    "bio": null,
+    "photo_url": null,
+    "created_at": "2026-02-10T19:23:04.614714+00:00"
+  },
+  {
+    "id": "3eebb7a9-e499-44d9-b239-f3e371c0d51f",
+    "name": "James Joyce",
+    "bio": null,
+    "photo_url": null,
+    "created_at": "2026-02-10T21:00:03.840201+00:00"
+  },
+  {
+    "id": "d29c3820-d6ba-4bd2-8a64-163c081065ab",
+    "name": "William C. Carter",
+    "bio": null,
+    "photo_url": null,
+    "created_at": "2026-02-10T23:03:25.406686+00:00"
+  },
+  {
+    "id": "f28b24b2-4432-40f3-8c84-e568f38b14a7",
+    "name": "Pedro Albarracin García",
+    "bio": null,
+    "photo_url": null,
+    "created_at": "2026-02-10T23:17:39.716741+00:00"
+  },
+  {
+    "id": "0ddb9b96-b904-4b42-aa54-75a5151ea07e",
+    "name": "Émile Zola",
+    "bio": null,
+    "photo_url": null,
+    "created_at": "2026-02-12T17:50:46.847073+00:00"
+  }
+]

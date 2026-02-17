@@ -1,0 +1,283 @@
+P-122 — /app/clubs/[clubId] (PÁGINA DE CLUB — OVERVIEW) — WORDELIA
+REQUISITOS: RESPETA P-001 (TOKENS + COMPONENTES OFICIALES) Y EL LAYOUT BASE POST-LOGIN DE P-002 (TOPBAR + NAV + ÁREA CENTRAL CON CONTAINER). NO REDEFINIR ESTILO. IDIOMA: ESPAÑOL.
+
+TIPO: PÁGINA APP
+RUTA: /app/clubs/[clubId]
+POSICIÓN EN FLUJO: desde P-120 (Tus clubs/Explorar) y tras crear club en P-121.
+
+OBJETIVO (1 frase):
+Ser el “hogar” del club: ver progreso y próximos hitos, conversar con orden (general/checkpoints/anuncios), hacer check-in, entrar en modo sesión/evento, y acceder a herramientas IA del libro sin spoilers.
+
+USUARIO OBJETIVO:
+Miembro y moderación. Debe funcionar tanto para lector casual como para grupo analítico.
+
+========================
+A) COMPONENTES (OBLIGATORIOS)
+========================
+Componentes oficiales (P-001):
+- Container
+- SectionHeader
+- Tabs
+- Card (default + featured + compact)
+- Button (primary/secondary/ghost)
+- Chip
+- Badge
+- AvatarStack
+- ClubCard (opcional como header compacto)
+- BookCard (compacta, para libro actual)
+- Accordion (para “Reglas” o “IA”)
+- SearchBar (para buscar en conversaciones, opcional)
+- Divider
+- Modal (invitar, configuración, reportar)
+- EmptyState
+- ErrorState
+- SkeletonCard
+- “SpoilerGuard” (badge + tooltip)
+- “ConsigueloPanel” (integración opcional en el lateral)
+
+No crear componentes nuevos.
+
+========================
+B) ESTRUCTURA / LAYOUT
+========================
+Dentro del layout post-login:
+- Container max 1200px
+- Layout desktop: 8/4 (contenido principal / panel lateral)
+- Mobile: 1 columna con panel lateral convertido en secciones apiladas.
+
+HEADER DEL CLUB (SectionHeader + bloque de club)
+- Eyebrow: “CLUB”
+- Título (teal): nombre del club
+- Subtítulo: “Leyendo ahora: [Título del libro] — [Autor]”
+- Badges en línea:
+  - Privacidad: “Público/Privado/Secreto”
+  - Spoilers: “Por niveles” + SpoilerGuard (tooltip “Marca spoilers para cuidar el ritmo de todos”)
+  - Ritmo: “Semanal / 2 cap/semana”
+- Acciones (derecha):
+  - Botón coral: “Hacer check-in”
+  - Botón outline: “Invitar”
+  - Botón ghost: “Ajustes” (solo mods; miembros ven “Info”)
+Microcopy pequeño:
+“Conversación cuidada. Sin prisa.”
+
+========================
+C) NAVEGACIÓN INTERNA (TABS)
+========================
+Tabs principales (4)
+1) “Resumen”
+2) “Conversación”
+3) “Checkpoints”
+4) “Anuncios”
+(Opcional 5º: “Sesiones” si ya existe eventos; si no, mostrar “Próxima sesión” en Resumen)
+
+Regla: el tab activo se guarda (sticky) al scrollear en desktop.
+
+========================
+D) TAB 1 — RESUMEN (HOME DEL CLUB)
+========================
+
+SECCIÓN 1: PROGRESO ACTUAL (Card featured)
+- Título: “Dónde estamos”
+- Mostrar:
+  - Checkpoint actual: “Checkpoint 2”
+  - Rango: “p. 61–120” / “cap. 4–7” / “hasta 35%”
+  - Fecha límite (si existe): “Vence: jueves”
+  - CTA primary small: “Ir al checkpoint”
+  - CTA ghost: “Ver plan completo”
+- Indicador suave (barra fina) del progreso del plan (ej: 2/6)
+
+SECCIÓN 2: PRÓXIMO ENCUENTRO / HITO (Card)
+- Si hay evento/sesión próxima:
+  - “Próxima sesión: domingo · 19:00 · 60 min”
+  - Botón outline: “Abrir modo sesión”
+- Si no hay sesiones:
+  - “Próximo hito: Checkpoint 3”
+  - Botón outline: “Crear sesión” (solo mods) / “Ver calendario” (placeholder)
+
+SECCIÓN 3: ACCESO RÁPIDO A CONVERSACIÓN (Card)
+- “Últimos mensajes”
+- Lista de 3 posts recientes (snippet 1 línea + autor + fecha)
+- Botón ghost: “Ir a conversación”
+
+SECCIÓN 4: HERRAMIENTAS IA DEL CLUB (Accordion o Card)
+- Título: “IA literaria (sin spoilers)”
+- 3 AITool rows (no cards grandes, mantener calmado):
+  1) “ADN del libro” — “Temas, símbolos, voz narrativa…”
+     - Botón: “Abrir”
+  2) “Guía de discusión” — “Preguntas por checkpoint”
+     - Botón: “Abrir”
+  3) “Mapa emocional” — “Tensión, calma, giros…”
+     - Botón: “Abrir”
+- Nota: “Controlas el nivel de spoilers al abrir.”
+- Chips: “Sin spoilers / Suave / Total” (default sin spoilers)
+
+========================
+E) TAB 2 — CONVERSACIÓN (GENERAL)
+========================
+
+BARRA SUPERIOR (compacta)
+- Botón coral pequeño: “Nuevo post”
+- Chip toggle: “Ocultar spoilers” (refleja preferencia del usuario)
+- (Opcional) SearchBar: “Buscar en el club…”
+
+FEED DE POSTS (lista)
+- Cada PostCard incluye:
+  - Avatar + nombre + fecha
+  - Badge spoiler_level (none/mild/full) + SpoilerGuard
+  - Contenido (colapsar si mild/full y usuario en modo estricto)
+  - Acciones ghost: “Responder”, “Reaccionar”, “Reportar”
+  - Si mod: “Ocultar” “Fijar” (si post_type=announcement)
+- Replies: indentado, máximo 2 niveles (para no hacer árbol infinito)
+- “Cargar más” en lugar de scroll infinito agresivo.
+
+CREAR POST (Modal)
+- Título: “Nuevo post”
+- Textarea: placeholder “Comparte una idea, una pregunta o una sensación…”
+- Selector spoiler_level (chips):
+  - “Sin spoilers” (default)
+  - “Suave”
+  - “Total”
+- Toggle: “Publicar en checkpoint…” (si ON, select de checkpoint)
+- Botón coral: “Publicar”
+- Microcopy: “Si dudas, marca spoiler suave. Así cuidamos a todo el mundo.”
+
+EMPTY conversación:
+- “Aún no hay mensajes. ¿Rompemos el hielo?”
+- Botón: “Escribir primer post”
+- Sugerencias (3 chips):
+  “¿Qué esperas del libro?” “¿Qué te intriga?” “¿Qué tono te está dejando?”
+
+========================
+F) TAB 3 — CHECKPOINTS (PLAN + HILOS)
+========================
+
+LISTA DE CHECKPOINTS (Card list)
+- Cada fila muestra:
+  - “Checkpoint 1” + rango + fecha (si existe)
+  - Indicador: “x check-ins” + “x mensajes”
+  - CTA primary small: “Abrir”
+- El checkpoint “actual” se destaca (borde teal pálido).
+
+AL ABRIR CHECKPOINT (panel interno o navegación a P-123)
+- Vista mini dentro de P-122 (si quieres) o CTA a P-123:
+  - “Hacer check-in”
+  - “Guía IA para este tramo”
+  - “Hilo del checkpoint”
+
+EMPTY checkpoints (si aún no definidos):
+- Mostrar para mods:
+  “Aún no hay checkpoints. ¿Creamos un plan suave?”
+  Botón coral: “Crear checkpoints”
+- Miembros:
+  “El plan se está preparando. Mientras tanto, conversa en el hilo general.”
+
+========================
+G) TAB 4 — ANUNCIOS (TABLÓN)
+========================
+- Lista de posts tipo announcement (solo mods pueden crear)
+- UI clara, sin ruido, con fechas.
+- Botón (solo mods): “Nuevo anuncio”
+- Empty:
+  “Aquí aparecerán fechas y avisos del club.”
+
+========================
+H) PANEL LATERAL (DESKTOP) / SECCIONES (MOBILE)
+========================
+
+CARD 1: “Libro del club”
+- BookCard compacta del libro actual + CTA:
+  - Outline: “Ver ficha”
+  - Ghost: “Consíguelo” (scroll a bloque si está)
+- Chips: idioma/edición (si aplica)
+
+CARD 2: “Miembros”
+- AvatarStack + contador total
+- Botón ghost: “Ver miembros”
+- Si mod: “Gestionar”
+
+CARD 3: “Reglas”
+- Accordion con 3–5 reglas (editables por mods)
+- Link: “Reportar un problema”
+
+CARD 4 (opcional, si habilitas): “Consíguelo” (local-first)
+- Insertar ConsigueloPanel compacto:
+  - “Librería cerca de ti” + “Más librerías” + “Alternativas online” colapsable
+- Mantenerlo discreto.
+
+CARD 5 (solo mods): “Herramientas de moderación”
+- Botones ghost:
+  - “Revisar reportes”
+  - “Invitación y código”
+  - “Ajustes de spoilers”
+
+========================
+I) MODALES CLAVE
+========================
+1) INVITAR
+- “Enlace de invitación” + copiar
+- “Código” + copiar + “Regenerar” (solo mods)
+- Microcopy: “Puedes revocarlo cuando quieras.”
+
+2) AJUSTES/INFO DEL CLUB
+- Para miembros: info básica + salir del club
+- Para mods: privacidad, spoilers, reglas, ritmo, gestionar miembros
+
+3) REPORTAR
+- Motivo (select): “Spoiler sin marcar” “Falta de respeto” “Spam” “Otro”
+- Detalles (textarea)
+- Botón: “Enviar reporte”
+
+========================
+J) ESTADOS (OBLIGATORIOS)
+========================
+LOADING:
+- Skeleton del header + tabs + 2–3 cards principales + 3 posts skeleton.
+
+EMPTY (club sin actividad):
+- Resumen muestra:
+  - “Todavía no hay conversación”
+  - CTA “Hacer el primer post”
+  - CTA “Crear primera sesión” (mods)
+- Checkpoints empty según rol (ver arriba)
+
+ERROR:
+- ErrorState:
+  “No pudimos cargar el club”
+  Botón: “Reintentar”
+  Link: “Centro de ayuda”
+
+========================
+K) DATOS (CAMPOS NECESARIOS)
+========================
+- club: { club_id, name, description, privacy, spoiler_policy, pace_label, language, rules[] }
+- membership: { user_role, joined_at }
+- current_reading: { work_id, title, author, cover_url, edition_id?, progress_measure, checkpoints_count }
+- checkpoints: [{ checkpoint_id, title, range_label, due_at, order_index, stats: { checkins, posts } }]
+- current_checkpoint: { checkpoint_id, title, range_label, due_at, index, total }
+- recent_posts: [{ post_id, user: {name, avatar}, created_at, content_snippet, spoiler_level, replies_count }]
+- announcements: [{ post_id, created_at, content, pinned? }]
+- members_preview: { total, avatars[] }
+- ia_tools: { dna_available, guide_available, emotion_map_available }
+- user_prefs: { spoiler_mode, hide_spoilers_toggle }
+
+========================
+L) MICROCOPY (TEXTOS EXACTOS)
+========================
+- Header subtitle: “Conversación cuidada. Sin prisa.”
+- Check-in CTA: “Hacer check-in”
+- Nuevo post placeholder: “Comparte una idea, una pregunta o una sensación…”
+- Spoiler helper: “Si dudas, marca spoiler suave. Así cuidamos a todo el mundo.”
+- Empty conversación: “Aún no hay mensajes. ¿Rompemos el hielo?”
+
+========================
+ENTREGA
+========================
+Renderiza /app/club/[clubId] completa (desktop + mobile) con:
+- Header + badges + acciones
+- Tabs (Resumen/Conversación/Checkpoints/Anuncios)
+- Feed de posts con niveles de spoiler y colapsado
+- Acceso a herramientas IA (sin spoilers) desde Resumen
+- Panel lateral con libro, miembros, reglas y (opcional) ConsigueloPanel
+- Modales: Invitar, Nuevo post, Ajustes/Info, Reportar
+- Estados loading/empty/error
+- Tono calmado y community.

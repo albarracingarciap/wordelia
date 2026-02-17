@@ -1,0 +1,16 @@
+{
+  "exportedAt": "2026-02-15T20:11:07.902Z",
+  "tables": {
+    "profiles": 1,
+    "authors": 14,
+    "books": 15,
+    "user_books": 0,
+    "lists": 0,
+    "list_items": 0,
+    "reading_sessions": 0,
+    "book_notes": 0,
+    "badges": 9,
+    "user_badges": 1
+  },
+  "totalRecords": 40
+}

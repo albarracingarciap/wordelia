@@ -1,0 +1,481 @@
+DISEÑA LAS SIGUIENTES SECCIONES CONSECUTIVAS PARA UNA LANDING PAGE (DESKTOP + MOBILE) DE UNA APP DE LECTURA LLAMADA “Wordelia”. ESTILO CÁLIDO, COMMUNITY, LIMPIO Y MODERNO. PRIORIDAD: CLARIDAD + EMOCIÓN SUAVE. IDIOMA: ESPAÑOL.
+
+=== GUÍA DE ESTILO (TOKENS) ===
+- Fondo principal: crema / marfil muy claro (#FFFAEF).
+- Texto principal: gris cálido oscuro (#737373).
+- Títulos: verde petróleo/teal (#336871).
+- Acento / CTA: coral suave (#D56962) con texto blanco.
+- Superficies (cards): blanco roto (#FFFFFF o #FBF7F1) con borde muy sutil.
+- Sombras: muy ligeras (soft shadow), nada duro.
+- Tipografía: serif elegante para H1 (sensación literaria) + sans legible para cuerpo y UI.
+- Radio: 14–18px para botones y cards.
+- Grid: 12 columnas desktop, ancho máximo contenido 1120–1200px, padding lateral 24–32px.
+- Espaciados: generosos (hero 80–96px top/bottom en desktop, 56–72px en mobile).
+
+=== SECCIÓN 1: BARRA DE NAVEGACIÓN (NAV) ===
+Objetivo: menú corto con foco en comunidad y producto. Solo un botón “Entrar”.
+- Barra superior fija (sticky) con fondo crema semitransparente + blur suave. Altura 72px desktop / 64px mobile.
+- Izquierda: logo sencillo “Wordelia” (puede ser icono + wordmark).
+- Centro (desktop): enlaces del menú en una línea, con spacing cómodo y hover subrayado sutil:
+  1) Mi lectura
+  2) Explorar
+  3) Clubs
+  4) IA Literaria
+  5) Educación
+  6) Librerías
+  7) Recursos
+- Derecha (desktop): botón secundario estilo “pill” con borde (outline) o relleno muy suave:
+  Botón: “Entrar”
+- En mobile: menú hamburguesa a la derecha + logo a la izquierda. Al abrir, panel lateral con los enlaces en vertical y el botón “Entrar” destacado al final.
+- Accesibilidad: contraste correcto, focus visible, área clicable mínima 44px.
+
+Añade anchors/IDs para scroll:
+- Mi lectura -> #mi-lectura
+- Explorar -> #explorar
+- Clubs -> #clubs
+- IA Literaria -> #ia-literaria
+- Educación -> #educacion
+- Librerías -> #librerias
+- Recursos -> #recursos
+
+=== SECCIÓN 2: HERO (CON CHIPS) ===
+Objetivo: presentar propuesta de valor + CTA “Empezar gratis” + chips como resumen rápido.
+Layout (desktop):
+- Dos columnas 55/45.
+- Columna izquierda: texto + CTAs + chips.
+- Columna derecha: ilustración/visual suave (abstracta, un círculo grande con degradado teal/coral, o una composición de papeles/libro minimalista). No usar fotos realistas.
+
+Contenido (izquierda):
+- H1 (serif grande, 52–60px desktop / 36–42px mobile):
+  “Donde las palabras importan… y donde cada libro merece su tiempo”
+- Subheadline (sans, 18–20px desktop / 16–18px mobile, tono cálido):
+  “Lee a tu ritmo, guarda tus momentos y comparte la historia con gente que también la vive. Seguimiento, clubs y guías sin spoilers para conversar mejor.”
+- CTAs (en fila desktop, en columna mobile):
+  - Botón primario (coral, pill, grande): “Empezar gratis”
+  - Botón secundario (outline/ghost): “Explorar clubs”
+- Microcopy bajo CTAs (pequeño, gris cálido):
+  “Gratis para empezar. Sin prisas, sin ruido.”
+
+CHIPS (debajo del microcopy, en una fila con wrap; estilo pastilla con borde suave):
+- Chip 1: “Mi lectura”
+- Chip 2: “Clubs”
+- Chip 3: “Guías sin spoilers”
+- Chip 4: “Mapa emocional”
+Comportamiento chips:
+- Hover: fondo ligeramente más marcado.
+- Click: hacen scroll a secciones relevantes:
+  - Mi lectura -> #mi-lectura (si no existe todavía, prepara el anchor para futuro)
+  - Clubs -> #clubs
+  - Guías sin spoilers -> #ia-literaria
+  - Mapa emocional -> #ia-literaria
+
+Detalles visuales hero:
+- Mucho aire en la parte superior.
+- H1 con color teal.
+- Botón primario coral con sombra suave, hover un poco más oscuro.
+- Ilustración derecha: abstracta y amable, no distraiga.
+
+Responsive:
+- Mobile: todo en columna, CTAs apilados, chips con wrap, hero más compacto pero con aire.
+
+=== SECCIÓN 3: HERRAMIENTAS IA (FEATURES IA) ===
+ID de sección: #ia-literaria
+Objetivo: explicar 4 herramientas de IA literaria con ilustraciones cálidas y copy corto, + CTA secundario.
+
+Fondo: mismo crema, con un separador suave desde el hero (curva/onda muy sutil o simplemente más padding).
+Estructura:
+- Título centrado (teal, sans o serif según consistencia): 
+  “Herramientas que enriquecen una experiencia compartida”
+- Subtítulo centrado (gris cálido):
+  “Hechas por lectores para leer mejor juntos: más conversación, más matices, menos spoilers.”
+
+Grid de 4 cards (desktop en una fila; tablet 2x2; mobile 1 columna):
+Cada card:
+- Ilustración estilo community (tipo “gusanos leyendo” o personajes simples y cálidos, paleta coral/teal/crema).
+- Título (teal, semibold):
+- Texto (gris cálido, corto y accionable):
+1) Card: “Checkpoints inteligentes”
+   Texto: “Paradas naturales para comentar lo importante, sin perder el ritmo.”
+2) Card: “Mapas emocionales”
+   Texto: “Una curva de cómo se siente el libro… y de cómo lo vive tu grupo.”
+3) Card: “Guías de discusión”
+   Texto: “Preguntas que abren conversación, adaptadas al ritmo y al tipo de club.”
+4) Card: “Análisis literario”
+   Texto: “Temas, símbolos y personajes explicados con cuidado (y control de spoilers).”
+
+Bajo las cards (centrado):
+- Línea puente breve (gris cálido, opcional pero recomendado):
+  “Y para tu día a día: progreso, notas y tu rincón de lectura.”
+- Botón CTA (coral, pill): “Ver una demo”
+  (si prefieres conectarlo con editorial: “Probar con el libro del mes”, pero por defecto usa “Ver una demo”.)
+
+Interacciones:
+- Cards con hover: elevación muy sutil + borde ligeramente más marcado.
+- Botón CTA con hover.
+- Animación ligera de aparición al hacer scroll (fade-up suave), sin exagerar.
+
+RESPONSIVE:
+- Mobile: todo centrado, H1 más pequeño, CTAs en columna, chips con wrap, cards una por fila.
+- Mantener paddings generosos para que se sienta “calmado” y premium.
+
+
+=== SECCIÓN 4: CLUBS DE LECTURA===
+ID DE SECCIÓN: #clubs
+
+=== OBJETIVO ===
+Convertir el interés en acción mostrando “clubs reales” (no solo libros) con información útil: ritmo, inicio, nivel, miembros, y un guiño tangible a las herramientas de IA (ADN/Guías/Mapa emocional) con control de spoilers.
+
+=== ESTRUCTURA GENERAL (DESKTOP) ===
+- Fondo: crema/marfil claro como el resto, con separación generosa (80–96px top/bottom).
+- Contenedor centrado max 1200px.
+
+1) Encabezado centrado:
+- Título (teal, grande, friendly):
+  “Elige un club y empieza hoy”
+- Subtítulo (gris cálido):
+  “Estas herramientas cobran vida en los clubs: ritmo compartido, conversación cuidada y guías sin spoilers.”
+
+2) FILTROS RÁPIDOS (CHIPS) justo debajo del subtítulo, centrados:
+- Chips estilo pastilla con borde suave, wrap en desktop y scroll horizontal en mobile.
+- Texto chips (selección única por defecto, pero permite multi si la herramienta lo soporta):
+  - “Empieza esta semana”
+  - “Casual”
+  - “Debate”
+  - “Análisis”
+  - “Clásicos”
+  - “Distopía”
+  - “En español”
+  - “Presencial”
+- Interacción: hover suave, seleccionado con fondo teal muy pálido + borde teal.
+
+3) GRID DE 4 TARJETAS DE CLUB (DESKTOP: 4 columnas; TABLET: 2x2; MOBILE: 1 columna):
+Cada tarjeta debe sentirse cálida y tangible:
+- Card con fondo blanco roto, borde sutil, sombra ligera, radio 16px.
+- Layout interno: portada del libro a la izquierda/arriba + info a la derecha/abajo según breakpoint.
+- Elementos por tarjeta:
+
+A) Encabezado de la card:
+- Nombre del club (teal, semibold):
+  Ejemplos (4 clubs):
+  1) “Mundo Distópico”
+  2) “Resistencia Psicológica”
+  3) “Justicia Social”
+  4) “Alegría Social”
+- Debajo, libro (gris cálido):
+  “Libro: El cuento de la criada” (puedes repetir libro en el mock o variar ligeramente si lo prefieres, pero mantén coherencia visual con portada).
+- Mini etiqueta opcional (pill pequeña):
+  “Sin spoilers” o “Spoilers por niveles”
+
+B) Metadatos clave (en una fila con iconos pequeños, 3 items):
+- Ritmo: “2 capítulos/semana” (o “4 semanas”)
+- Inicio: “Empieza: Lun 12” (fecha ficticia) o “Empieza esta semana”
+- Nivel: “Nivel: Debate” (o “Casual/Análisis”)
+
+C) Señales IA (badges pequeños, 2–3 por tarjeta):
+- “ADN del libro”
+- “Guía por capítulos”
+- “Mapa emocional”
+- (Opcional) “Checkpoints”
+Badges con fondo crema suave y borde sutil, texto teal/coral.
+
+D) Comunidad (línea pequeña):
+- “76 lectores” (contador ficticio) + “Quedan 12 plazas” (opcional, urgencia suave).
+- Avatar stack mini (3–5 círculos) para dar sensación de comunidad.
+
+E) Acciones:
+- Botón primario coral (pill, full width en mobile):
+  “Unirme”
+- Link secundario debajo (texto teal, subrayado al hover):
+  “Ver detalles”
+- Link pequeño opcional (gris/teal):
+  “Ver ADN / Guía” (si no quieres 2 links, integra esto en “Ver detalles”).
+
+4) CTA FINAL BAJO EL GRID (CENTRADO):
+- Botón secundario outline:
+  “Ver todos los clubs”
+- Botón primario coral:
+  “Crear un club”
+- Microcopy pequeño debajo:
+  “A tu ritmo. Con conversación cuidada.”
+
+=== RESPONSIVE (MOBILE) ===
+- Chips en scroll horizontal (sin romper layout).
+- Cards en columna, portada arriba, botones full width.
+- Espaciado generoso, legible, sin saturar.
+
+=== DETALLES DE ESTILO / INTERACCIÓN ===
+- Hover en cards: elevación muy sutil + borde ligeramente más marcado.
+- Animación al entrar en viewport: fade-up suave.
+- Mantén coherencia tipográfica: títulos en teal, textos en gris cálido, CTA coral.
+
+
+=== SECCIÓN 5: LIBRO DEL MES ===
+ID DE SECCIÓN: #libro-del-mes
+
+=== OBJETIVO ===
+Crear una “puerta de entrada” universal: una propuesta curada con comunidad + preview tangible de IA (sin spoilers) + acciones claras para unirse o explorar ADN/guía.
+
+=== ESTRUCTURA GENERAL ===
+- Fondo: crema/marfil claro, con separación generosa (80–96px top/bottom desktop; 56–72px mobile).
+- Contenedor centrado max 1200px.
+- Estilo editorial suave: se siente “cuidado” y humano.
+
+1) ENCABEZADO (centrado):
+- Eyebrow pequeño (gris cálido, mayúsculas suaves o tracking leve):
+  “LECTURA COMPARTIDA”
+- Título (teal, friendly, tamaño grande):
+  “Libro del mes”
+- Subtítulo (gris cálido):
+  “Una lectura para empezar fácil: club abierto + guías sin spoilers para conversar mejor.”
+
+2) BLOQUE PRINCIPAL (layout 2 columnas desktop 55/45; mobile en columna):
+- Contenedor tipo “feature panel” con fondo blanco roto (#FBF7F1), borde sutil y radio 18px, sombra muy suave.
+- Padding interno 28–32px desktop, 20–24px mobile.
+
+COLUMNA IZQUIERDA (LIBRO + CONTEXTO):
+A) Portada grande del libro (card pequeña con sombra suave) + a la derecha/abajo:
+- Título del libro (teal, semibold)
+- Autor (gris cálido)
+- 3 chips/etiquetas (pills) con borde sutil:
+  - “Distopía”
+  - “Debate”
+  - “Lectura media”
+  (ajusta tags si prefieres, pero mantén 3)
+B) “Por qué lo elegimos” (texto corto, cálido, 2–3 líneas):
+  “Porque abre conversaciones importantes y se disfruta más cuando la leemos juntos, paso a paso.”
+C) Mini datos (fila con iconos pequeños, 3 items):
+  - “Ritmo sugerido: 4 semanas”
+  - “Ideal para club”
+  - “Modo sin spoilers”
+D) Prueba social ligera:
+- Avatar stack (3–5 círculos) + texto pequeño:
+  “Ya hay 248 lectores dentro”
+
+COLUMNA DERECHA (PREVIEW IA TANGIBLE, SIN HUMO):
+A) Subtítulo pequeño (teal):
+  “ADN del libro (vista previa)”
+B) Mini-panel con 4–6 bullets visuales (cada uno con icono simple y texto):
+  - “Temas: poder, identidad, resistencia”
+  - “Tono: inquietante, íntimo”
+  - “Complejidad: accesible”
+  - “Para debatir: libertad, control, moral”
+  - “Personajes: arco y tensiones (sin spoilers)”
+C) Mini “Mapa emocional” (gráfico suave y abstracto):
+- Una línea/curva simple con 4 puntos (sin datos exactos), etiqueta:
+  “Mapa emocional (sin spoilers)”
+D) “2 preguntas de la guía” (preview, 2 bullets):
+  - “¿Qué decisiones te parecieron inevitables… y por qué?”
+  - “¿Qué símbolos te han llamado la atención hasta ahora?”
+
+3) ACCIONES (debajo del bloque principal, centradas):
+- Botón primario coral (pill, grande):
+  “Unirme al club del mes”
+- Botones secundarios (outline/ghost, en fila desktop, apilados mobile):
+  “Ver ADN completo”
+  “Ver guía de discusión”
+- Microcopy pequeño debajo:
+  “Entras cuando quieras. A tu ritmo.”
+
+4) DETALLE VISUAL EXTRA (opcional pero recomendado):
+- Un separador sutil debajo (línea fina o pequeña onda) para conectar con siguientes secciones.
+- Mantén el mismo tono ilustrado/community (puede haber un pequeño icono de libro o personajes leyendo en un rincón del panel, muy discreto).
+
+=== INTERACCIONES ===
+- Hover en panel principal: muy sutil (ligera elevación).
+- Hover en botones: coral un poco más intenso; outline se rellena suavemente.
+- Animación al entrar en viewport: fade-up suave, sin exagerar.
+
+=== RESPONSIVE ===
+- Mobile: columna única.
+- Portada centrada arriba, luego título/autor/tags, luego preview IA, luego CTAs full width.
+- Chips/tags con wrap.
+
+
+=== SECCIÓN 6: TESTIMONIOS ===
+
+ID DE SECCIÓN: #testimonios
+
+=== OBJETIVO ===
+Aportar confianza y cercanía: probar que Wordelia funciona en la vida real para lectores y para clubs. Testimonios concretos, cálidos y creíbles. Enfocado en 2 segmentos: “Lectores” y “Clubs”.
+
+=== ESTRUCTURA GENERAL ===
+- Fondo: crema/marfil claro, con padding generoso (80–96px desktop; 56–72px mobile).
+- Contenedor centrado max 1200px.
+
+1) ENCABEZADO (centrado):
+- Eyebrow pequeño (gris cálido):
+  “COMUNIDAD”
+- Título (teal, friendly):
+  “Historias que se leen mejor en compañía”
+- Subtítulo (gris cálido):
+  “Lo que cuentan lectores y clubs que ya están dentro.”
+
+2) TABS / SWITCHER (centrado, debajo del subtítulo):
+- Dos tabs estilo pill, con borde sutil y estado activo:
+  - Tab 1 (activo por defecto): “Lectores”
+  - Tab 2: “Clubs”
+- Interacción: hover suave; tab activo con fondo teal muy pálido + texto teal.
+
+3) GRID DE TESTIMONIOS (4 CARDS) — cambia según tab seleccionado:
+- Desktop: 2 columnas x 2 filas (gap 20–24px).
+- Tablet: 2 columnas.
+- Mobile: 1 columna.
+- Cada card: fondo blanco roto (#FBF7F1 o #FFFFFF), borde sutil, sombra suave, radio 16–18px, padding 22–26px.
+
+ELEMENTOS DENTRO DE CADA CARD:
+A) Header pequeño:
+- Avatar ilustrado circular (o inicial) + nombre + rol corto.
+  Ejemplo formato:
+  “Laura · Lectora” / “Sergio · Moderador de club”
+- Ubicación o detalle suave en gris:
+  “Valencia” / “Club de 12 personas”
+
+B) Cita (texto principal, 2–3 líneas, cálida, creíble):
+- Evitar claims exagerados. Hablar de beneficios concretos (checkpoints, guías, tracking, sin spoilers).
+
+C) “Badges” de funciones mencionadas (2–3 máximo):
+- Pills pequeñas con borde sutil:
+  “Mi lectura”
+  “Checkpoints”
+  “Guías sin spoilers”
+  “Mapa emocional”
+  “ADN del libro”
+  “Moderación”
+(elige según la cita)
+
+D) Mini detalle (opcional, una línea en gris):
+- “Ritmo: 2 capítulos/semana” o “Racha: 3 semanas leyendo”
+
+=== CONTENIDO DE TESTIMONIOS (TEXTO EXACTO) ===
+TAB “Lectores” (4 cards):
+1) “Antes me costaba mantener el hábito. Con ‘Mi lectura’ y las notas, leer volvió a sentirse mío.”
+   Badges: “Mi lectura”, “Notas”
+2) “Me encanta poder leer a mi ritmo sin miedo a spoilers. Las guías me ayudan a fijarme en detalles.”
+   Badges: “Guías sin spoilers”, “Análisis literario”
+3) “Las estadísticas son suaves, no te presionan. Solo te acompañan. Y eso cambia todo.”
+   Badges: “Mi lectura”, “Estadísticas”
+4) “El mapa emocional me ayudó a entender por qué ciertas partes me golpeaban más. Fue bonito.”
+   Badges: “Mapa emocional”, “Diario”
+
+TAB “Clubs” (4 cards):
+1) “Nuestro club se quedaba en ‘me gustó/no me gustó’. Con checkpoints, la conversación ganó profundidad.”
+   Badges: “Checkpoints”, “Guías de discusión”
+2) “La guía por capítulos nos dio estructura sin hacerlo rígido. Cada sesión salió natural.”
+   Badges: “Guías de discusión”, “Ritmo”
+3) “El control de spoilers es oro. Nadie se corta por miedo y nadie se arruina el libro.”
+   Badges: “Sin spoilers”, “Moderación”
+4) “El ADN del libro nos dio temas y símbolos para debatir sin sentirnos ‘en clase’. Muy disfrutable.”
+   Badges: “ADN del libro”, “Análisis literario”
+
+Nombres sugeridos (usar mezcla y calidez, sin apellidos):
+- Laura, Marta, Dani, Irene (Lectores)
+- Sergio, Paula, Nuria, Álex (Clubs)
+Ubicaciones (opcionales, España):
+- Valencia, Madrid, Sevilla, Bilbao
+
+4) CTA SUAVE AL FINAL (centrado, debajo del grid):
+- Texto pequeño (gris cálido):
+  “¿Te apetece vivirlo con calma?”
+- Botón primario coral (pill):
+  “Empezar gratis”
+- Link secundario (teal):
+  “Explorar clubs”
+
+=== INTERACCIONES ===
+- Hover en cards: elevación muy sutil.
+- Tabs: transición suave al cambiar (fade/crossfade).
+- Animación al entrar en viewport: fade-up suave.
+
+=== RESPONSIVE ===
+- Mobile: tabs en fila con scroll si hace falta; cards full width; botón “Empezar gratis” full width.
+
+
+
+=== SECCION FINAL: FOOTER ===
+
+=== BLOQUE 1: PRE-FOOTER (CTA FINAL) ===
+ID: #cta-final
+OBJETIVO: cerrar con un recordatorio amable y convertir sin presión.
+
+- Fondo: panel destacado con blanco roto (#FBF7F1) o crema ligeramente más oscuro, borde sutil y radio grande (18–22px). Sombra muy suave.
+- Ancho: dentro del contenedor (max 1200px), centrado.
+- Padding: 40–48px desktop, 24–28px mobile.
+- Layout desktop: 2 columnas 60/40.
+  - Izquierda: título + texto.
+  - Derecha: CTAs alineados a la derecha (en mobile apilados).
+
+Contenido:
+- Eyebrow pequeño (gris cálido): “ÚLTIMO PASO”
+- Título (teal, friendly, 32–38px desktop / 24–28px mobile):
+  “Empieza con el club del mes o crea el tuyo”
+- Texto (gris cálido, 1–2 líneas):
+  “A tu ritmo, con conversación cuidada y guías sin spoilers para disfrutar más cada página.”
+- Botones:
+  - Primario coral (pill, grande): “Empezar gratis”
+  - Secundario outline/ghost: “Explorar clubs”
+- Microcopy debajo de botones (pequeño, gris):
+  “Gratis para empezar. Cancelas cuando quieras.”
+
+Interacciones:
+- Botón coral hover: ligeramente más intenso.
+- Botón outline hover: relleno crema muy suave.
+
+=== BLOQUE 2: FOOTER ===
+ID: #footer
+OBJETIVO: navegación, confianza, recursos y legales. Debe sentirse cálido, no corporativo frío.
+
+- Fondo: teal muy oscuro/desaturado (p. ej. #234A4E aprox) o gris verdoso oscuro, con texto en marfil claro.
+- Separador superior: una línea sutil o una onda suave desde el crema al teal oscuro.
+- Padding: 64–80px desktop, 48–56px mobile.
+- Contenedor max 1200px.
+
+Estructura desktop (4 columnas + bloque superior de marca):
+A) FILA SUPERIOR (marca):
+- Logo “Wordelia” (en claro) + frase corta:
+  “Una comunidad para leer con calma.”
+- A la derecha: iconos de redes sociales (placeholders) + un mini campo de newsletter opcional:
+  - Input: “Tu email”
+  - Botón pequeño coral: “Suscribirme”
+  (Si prefieres no newsletter aquí, solo deja redes.)
+
+B) FILA DE LINKS (4 columnas):
+1) Columna “Producto”
+   - Mi lectura (link -> #mi-lectura)
+   - Explorar (link -> #explorar)
+   - Clubs (link -> #clubs)
+   - IA Literaria (link -> #ia-literaria)
+
+2) Columna “Para…”
+   - Educación (link -> #educacion)
+   - Librerías (link -> #librerias)
+   - Recursos (link -> #recursos)
+
+3) Columna “Recursos”
+   - Blog / Revista
+   - Guías
+   - Centro de ayuda (FAQ)
+   - Contacto
+
+4) Columna “Legal”
+   - Política de privacidad
+   - Términos de uso
+   - Cookies
+   - Normas de comunidad
+
+Estilo links:
+- Texto marfil claro, opacidad 0.9.
+- Hover: subrayado sutil + opacidad 1.0.
+- Títulos de columna: en marfil, semibold, con spacing inferior 12–16px.
+
+C) FILA INFERIOR (muy discreta):
+- Izquierda: “© 2026 Wordelia. Todos los derechos reservados.”
+- Derecha: “Hecho para lectores.” (opcional)
+- Añade selección de idioma pequeña si quieres (ES/EN) pero por defecto solo ES.
+
+RESPONSIVE:
+- Mobile: marca arriba, luego columnas en acordeón o apiladas (2 columnas por fila o una por fila).
+- Newsletter (si existe) pasa a ancho completo.
+- Mantén targets 44px y buen contraste.
+
+
+ENTREGA: genera el diseño completo de estas secciones en orden, coherentes con la tipografía, con la jerarquía correcta, espaciados consistentes y el estilo cálido/community descrito.

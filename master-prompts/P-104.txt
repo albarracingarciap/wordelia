@@ -1,0 +1,199 @@
+P-104 — /app/mi-lectura/estadisticas (ESTADÍSTICAS) — WORDELIA
+REQUISITOS: RESPETA prompt_landing_page (TOKENS + COMPONENTES OFICIALES) Y EL LAYOUT BASE POST-LOGIN DE P-002 (TOPBAR + NAV + ÁREA CENTRAL CON CONTAINER). NO REDEFINIR ESTILO. IDIOMA: ESPAÑOL.
+
+TIPO: PÁGINA APP
+RUTA: /app/mi-lectura/estadisticas
+POSICIÓN EN FLUJO: accesible desde P-100 (“Tu semana en calma”) y desde P-103 (“Tu diario”).
+
+OBJETIVO (1 frase):
+Mostrar estadísticas útiles y amables (sin presión): ritmo de lectura, tiempo, formatos, géneros y hábitos, con visualizaciones suaves y explicaciones humanas; todo con control de privacidad.
+
+USUARIO OBJETIVO:
+Lector que quiere entender su ritmo (no competir). Debe sentirse “StoryGraph vibes” pero más calmado.
+
+========================
+A) COMPONENTES (OBLIGATORIOS)
+========================
+Componentes oficiales (P-001):
+- Container
+- SectionHeader
+- Tabs
+- Card (default + featured)
+- Button (primary/secondary/ghost)
+- Chip
+- Badge
+- Select
+- Divider
+- SkeletonCard
+- EmptyState
+- ErrorState
+- (Opcional) Accordion para “Privacidad y datos”
+
+No crear componentes nuevos.
+NOTA: Si Antigravity permite gráficos, usar visualizaciones simples (barras/lineas) con estilo minimal; si no, usar “stats cards” + mini sparklines.
+
+========================
+B) ESTRUCTURA / LAYOUT
+========================
+Dentro del layout post-login:
+- Container max 1200px
+- Layout desktop: 3 secciones verticales con grids; mobile 1 columna.
+
+HEADER (SectionHeader)
+- Eyebrow: “MI LECTURA”
+- Título (teal): “Estadísticas”
+- Subtítulo (gris cálido): “Sin comparaciones. Solo tu ritmo.”
+- Acciones:
+  - Select rango: “Últimos 7 días / 30 días / 12 meses / Todo”
+  - Botón ghost: “Privacidad” (abre panel/accordion)
+
+CHIPS DE CONTEXTO (debajo del header)
+- “Racha actual: 3 días”
+- “Sesiones: 12”
+- “Páginas: 820” (o “Minutos: 430” si audio)
+- “Libros terminados: 2”
+Microcopy pequeño: “Estas cifras se basan en tus registros.”
+
+TABS PRINCIPALES (4)
+- “Resumen”
+- “Ritmo”
+- “Biblioteca”
+- “Emociones”
+(“Resumen” activo por defecto)
+
+========================
+C) TAB 1 — RESUMEN (AMABLE)
+========================
+GRID superior (4 Cards métricas)
+- Card 1: “Sesiones”
+- Card 2: “Tiempo” (minutos)
+- Card 3: “Páginas” (o progreso agregado)
+- Card 4: “Libros terminados”
+Cada card incluye:
+- número grande
+- mini texto “vs período anterior” (opcional, en tono suave: “un poco más / similar / un poco menos”, sin flechas agresivas)
+
+Card featured: “Tu semana en calma”
+- Mini gráfico lineal o barras (7 puntos/días) de sesiones o minutos
+- Texto interpretativo (1–2 líneas):
+  “Tu mejor momento suele ser a última hora. ¿Te va bien ese ritmo?”
+- Botón outline: “Ajustar recordatorios” (placeholder)
+
+Card: “Formatos”
+- Donut/barras (si se puede) o lista:
+  - Papel 60%
+  - Ebook 25%
+  - Audio 15%
+- Microcopy: “No hay formato mejor. El tuyo es el que te acompaña.”
+
+========================
+D) TAB 2 — RITMO
+========================
+Sección: “Progreso a lo largo del tiempo”
+- Card con gráfico (línea) por semanas (si rango >= 30 días) o por días (si 7 días).
+- Toggle chip: “Páginas” / “Minutos” / “Sesiones”
+- Texto interpretativo:
+  “Cuando registras aunque sea poquito, tu hábito se sostiene.”
+
+Sección: “Días y momentos”
+- 2 Cards lado a lado (desktop):
+  1) “Días de la semana” (barras)
+  2) “Momento del día” (mañana/tarde/noche) (barras)
+- En mobile se apilan.
+
+========================
+E) TAB 3 — BIBLIOTECA (GÉNEROS / TEMAS)
+========================
+Sección: “Géneros y temas”
+- Card con ranking de tags (top 8) (barras horizontales):
+  - Distopía
+  - Clásicos
+  - Feminismo
+  - Misterio
+- Chip: “Ver más”
+- Microcopy:
+  “Basado en los libros que has añadido y terminado.”
+
+Sección: “Autores recurrentes”
+- Lista de 5 autores con contador:
+  “Ursula K. Le Guin — 3 libros”
+- Botón ghost: “Explorar autores”
+
+Sección: “Longitud y complejidad (suave)”
+- 2 métricas:
+  - “Promedio páginas: 320”
+  - “Lecturas cortas vs largas”
+- Nota: “Esto no es un examen. Es una foto de tus gustos.”
+
+========================
+F) TAB 4 — EMOCIONES (OPT-IN)
+========================
+IMPORTANTE: este tab debe respetar privacidad y consentimiento.
+- Si el usuario NO ha activado mood tracking:
+  EmptyState:
+  - Título: “¿Te apetece registrar cómo te sientes al leer?”
+  - Texto: “Solo si quieres. Te ayuda a descubrir qué libros te acompañan mejor.”
+  - Botón coral: “Activar emociones”
+  - Botón outline: “Ahora no”
+- Si está activo:
+  Sección: “Mapa emocional”
+  - Card con distribución de moods (barras):
+    Calm / Inspired / Tense / Sad ...
+  Sección: “Emociones por libro”
+  - Lista de 3–5 libros con mood dominante
+  Sección: “Notas que más te movieron”
+  - 3 snippets de notas (link a P-103)
+
+========================
+G) PRIVACIDAD (PANEL/ACCORDION)
+========================
+Bloque accesible desde “Privacidad”:
+- Toggle: “Mantener mis estadísticas en privado” (por defecto ON)
+- Toggle: “Permitir estadísticas en clubs (solo agregadas)” (por defecto OFF)
+- Toggle: “Registrar emociones (opt-in)” (por defecto OFF)
+Microcopy: “Tú decides qué compartes. Siempre.”
+
+========================
+H) ESTADOS (OBLIGATORIOS)
+========================
+LOADING:
+- Skeleton de cards métricas + skeleton de 2–3 charts/cards grandes.
+
+EMPTY (sin sesiones registradas):
+- EmptyState:
+  - Título: “Aún no hay datos… y está bien”
+  - Texto: “Cuando registres alguna sesión, verás aquí tu ritmo con calma.”
+  - Botón coral: “Registrar lectura”
+  - Botón outline: “Explorar libros”
+- Mostrar solo algunas cards con “0” y explicaciones suaves.
+
+ERROR:
+- ErrorState:
+  “No pudimos cargar tus estadísticas”
+  Botón: “Reintentar”
+  Link: “Centro de ayuda”
+
+========================
+I) DATOS (CAMPOS NECESARIOS)
+========================
+- range: { from, to, preset }
+- summary: { sessions, minutes, pages, finished_books, streak_days }
+- timeseries: [{ date_or_week, sessions, minutes, pages }]
+- distribution_formats: [{ format, value }]
+- distribution_days: [{ day, value }]
+- distribution_dayparts: [{ part, value }]
+- top_tags: [{ tag, count }]
+- top_authors: [{ author, count }]
+- mood_opt_in: boolean
+- mood_distribution: [{ mood, count }]
+- mood_by_book: [{ work_id, title, mood, count }]
+- notes_highlights: [{ note_id, snippet, work_title }]
+
+========================
+J) ENTREGA
+========================
+Renderiza /app/mi-lectura/estadisticas completa (desktop + mobile) con:
+- Header + selector de rango + panel de privacidad
+- Tabs (Resumen/Ritmo/Biblioteca/Emociones)
+- Visualizaciones minimalistas o cards con sparklines
+- Estados loading/empty/error y el flujo opt-in de emociones.

@@ -1,0 +1,245 @@
+P-123 — /app/clubs/[clubId]/checkpoints (CHECKPOINTS + CHECK-INS + HILO) — WORDELIA
+REQUISITOS: RESPETA P-001 (TOKENS + COMPONENTES OFICIALES) Y EL LAYOUT BASE POST-LOGIN DE P-002 (TOPBAR + NAV + ÁREA CENTRAL CON CONTAINER). NO REDEFINIR ESTILO. IDIOMA: ESPAÑOL.
+
+TIPO: PÁGINA APP
+RUTA: /app/clubs/[clubId]/checkpoints
+POSICIÓN EN FLUJO: desde P-122 Tab “Checkpoints” (CTA “Ver plan completo” o “Abrir checkpoint”).
+
+OBJETIVO (1 frase):
+Convertir el plan de lectura en conversación ordenada: ver todos los checkpoints, abrir uno para hacer check-in (emociones/ideas/preguntas), acceder a guía IA por tramo y debatir en un hilo ligado al checkpoint con control de spoilers.
+
+USUARIO OBJETIVO:
+Miembros (participación) y moderación (gestión del plan).
+
+========================
+A) COMPONENTES (OBLIGATORIOS)
+========================
+Componentes oficiales (P-001):
+- Container
+- SectionHeader
+- Tabs
+- Card (default + featured + compact)
+- Button (primary/secondary/ghost)
+- Chip
+- Badge
+- Select
+- Divider
+- Modal (check-in, editar checkpoint, crear checkpoint, reportar)
+- SkeletonCard
+- EmptyState
+- ErrorState
+- “SpoilerGuard”
+- (Opcional) Accordion para “Guía IA” y “Reglas”
+
+No crear componentes nuevos.
+
+========================
+B) ESTRUCTURA / LAYOUT
+========================
+Dentro del layout post-login:
+- Container max 1200px
+- Layout desktop: 4/8 (sidebar checkpoints / detalle checkpoint)
+- Mobile: 1 columna con selector de checkpoint arriba.
+
+HEADER (SectionHeader)
+- Eyebrow: “CLUB”
+- Título (teal): “Checkpoints”
+- Subtítulo: “Lee por tramos, conversa con calma.”
+- Acciones:
+  - Botón ghost: “Volver al club” -> /app/club/[clubId]
+  - Botón coral (solo mods): “Añadir checkpoint”
+  - Botón outline (solo mods): “Editar plan” (opcional: abre modo edición)
+
+Chips contextuales (debajo)
+- “Libro: [título]”
+- “Ritmo: semanal”
+- “Spoilers: por niveles” + SpoilerGuard
+- “Checkpoint actual: 2/6”
+
+========================
+C) SIDEBAR — LISTA DE CHECKPOINTS (DESKTOP) / SELECTOR (MOBILE)
+========================
+DESKTOP (col izquierda):
+- Card list con checkpoints ordenados
+- Cada fila incluye:
+  - Título: “Checkpoint 1”
+  - Rango: “p. 1–60” / “cap. 1–3” / “hasta 20%”
+  - Badge estado:
+    - “Actual” (teal suave)
+    - “Próximo”
+    - “Completado”
+  - Meta pequeña:
+    - “Vence: jue” (si due_at)
+    - “Check-ins: 8” + “Mensajes: 23”
+- Click en fila abre el detalle a la derecha.
+
+MOBILE:
+- Select “Elegir checkpoint”
+- Debajo, chips “Anterior / Siguiente” para navegar.
+
+========================
+D) PANEL DETALLE DEL CHECKPOINT (COLUMNA DERECHA)
+========================
+Al seleccionar un checkpoint, renderizar:
+
+CARD 1 (featured): “Checkpoint [n]”
+- Título grande + rango + fecha (si existe)
+- Mini descripción (si existe)
+- Acciones:
+  - Botón coral: “Hacer check-in”
+  - Botón outline: “Abrir guía IA”
+  - Botón ghost: “Ver hilo”
+- Si el usuario ya hizo check-in:
+  - Badge: “Tu check-in está hecho”
+  - Link: “Editar check-in” (abre modal)
+
+CARD 2: “Guía de discusión (IA)” (Accordion o Card)
+- Debe permitir seleccionar nivel de spoilers:
+  Chips: “Sin spoilers” (default) / “Suave” / “Total”
+- Contenido:
+  - 4–6 preguntas del tramo (listado)
+  - 2 temas clave (bullets)
+  - 1 “detalle literario” (símbolo/voz/estructura) (opcional)
+- Botón ghost: “Regenerar” (solo mods o limitado por usuario)
+- Microcopy:
+  “La guía cambia según el nivel de spoilers. Tú mandas.”
+
+CARD 3: “Check-ins del club”
+- Tabs internas (2):
+  - “Check-ins”
+  - “Hilo”
+TAB A: Check-ins
+- Lista de check-ins (cards compactas):
+  - Avatar + nombre + fecha
+  - Mood (si existe) como chip (calm/tense/inspired…)
+  - Sentiment (si existe) como badge discreto (no numérico visible por defecto)
+  - Texto (colapsado si spoiler_level mild/full y usuario en modo estricto)
+  - Secciones opcionales:
+    - “Pregunta” (si existe)
+    - “Cita” (si existe; mostrar microcopy “cita corta”)
+  - Acciones: “Responder” (abre hilo anclado o reply) + “Reaccionar” + “Reportar”
+- Orden:
+  - Por defecto: “Más recientes”
+  - Select pequeño: “Más recientes / Destacados (mods)”
+
+TAB B: Hilo (discussion)
+- Feed de posts ligados al checkpoint (discussion_post con checkpoint_id)
+- Crear post inline o modal:
+  - Botón coral pequeño “Nuevo mensaje”
+  - Textarea “Comparte tu idea sobre este tramo…”
+  - Selector spoiler_level (chips)
+  - Botón “Publicar”
+- SpoilerGuard aplicado idéntico a P-122.
+
+========================
+E) MODAL “HACER CHECK-IN”
+========================
+Modal calmado, 3–5 campos máximo:
+
+- Título: “Check-in — [Checkpoint n]”
+- Selector spoiler_level (chips):
+  “Sin spoilers” (default) / “Suave” / “Total”
+- Mood (chips opcionales):
+  “Calma” “Tensión” “Tristeza” “Inspiración” “Confusión” …
+- Campos (opcionales, no todos obligatorios):
+  1) Textarea: “¿Qué te dejó este tramo?”
+     Placeholder: “Una idea, una emoción, una imagen…”
+  2) Input/textarea pequeña: “Una pregunta para el club (opcional)”
+  3) Input/textarea pequeña: “Una cita corta (opcional)”
+     Microcopy: “Mejor corta, por respeto a autores/editoriales.”
+- Toggle privacidad (si permites check-ins privados; por defecto OFF):
+  “Solo para moderación” (opcional)
+- Acciones:
+  - Botón coral: “Guardar check-in”
+  - Botón outline: “Guardar y abrir hilo”
+  - Ghost: “Cancelar”
+
+Si ya existe check-in:
+- El modal entra en modo “Editar check-in”
+- Botón: “Guardar cambios”
+
+========================
+F) MODOS DE EDICIÓN (SOLO MODS)
+========================
+1) Añadir checkpoint
+- Modal “Nuevo checkpoint”:
+  - Título
+  - Range type + start/end
+  - Due date opcional
+  - Orden (auto al final)
+  - Botón coral: “Crear”
+
+2) Editar checkpoint
+- Modal “Editar checkpoint”:
+  - Cambiar rango, fecha, título
+  - Botón “Guardar”
+  - Botón danger suave “Eliminar checkpoint” (confirmación)
+
+3) “Destacar check-in”
+- En cada check-in: botón mod “Destacar” (pin)
+- (Si no hay tabla, usar campo boolean en check-in o tabla aparte; en UI tratarlo como highlight)
+
+========================
+G) ESTADOS (OBLIGATORIOS)
+========================
+LOADING:
+- Skeleton de lista de checkpoints + skeleton del panel detalle + skeleton feed.
+
+EMPTY (sin checkpoints)
+- Para mods:
+  EmptyState:
+  - Título: “Aún no hay plan de lectura”
+  - Texto: “Crea checkpoints para conversar sin spoilers y con orden.”
+  - Botón coral: “Crear checkpoints”
+- Para miembros:
+  - “El plan se está preparando. Mientras tanto, conversa en el hilo general del club.”
+  - Botón outline: “Ir al club”
+
+EMPTY (checkpoint sin check-ins/hilo)
+- “Sé la primera voz en este tramo.”
+- Botón coral: “Hacer check-in”
+- Botón outline: “Escribir en el hilo”
+
+ERROR:
+- ErrorState:
+  “No pudimos cargar los checkpoints”
+  Botón: “Reintentar”
+  Link: “Centro de ayuda”
+
+========================
+H) DATOS (CAMPOS NECESARIOS)
+========================
+- club: { club_id, name, spoiler_policy, pace_label }
+- current_book: { work_id, title, author, cover_url, progress_measure }
+- user_prefs: { spoiler_mode }
+- checkpoints: [{
+    checkpoint_id, title, range_label, due_at, order_index,
+    is_current, is_completed,
+    stats: { checkins_count, posts_count }
+  }]
+- selected_checkpoint_detail:
+  - checkpoint_id, title, range_label, due_at, description?
+  - my_checkin?: { id, mood, spoiler_level, content, question, quote, created_at }
+  - guide_ai?: { available, spoiler_level, questions[], themes[], detail? }
+  - checkins: [{ id, user:{name,avatar}, mood, spoiler_level, content, question, quote, created_at, is_highlighted? }]
+  - posts: [{ post_id, user, created_at, content, spoiler_level, parent_post_id? }]
+
+========================
+I) MICROCOPY (TEXTOS EXACTOS)
+========================
+- Subtítulo header: “Lee por tramos, conversa con calma.”
+- Guía IA microcopy: “La guía cambia según el nivel de spoilers. Tú mandas.”
+- Empty checkpoint: “Sé la primera voz en este tramo.”
+- Nuevo post placeholder: “Comparte tu idea sobre este tramo…”
+
+========================
+ENTREGA
+========================
+Renderiza /app/club/[clubId]/checkpoints completa (desktop + mobile) con:
+- Lista de checkpoints + panel detalle
+- Modal de check-in completo (crear/editar)
+- Guía IA por tramo con niveles de spoiler
+- Feed de check-ins y feed de hilo del checkpoint
+- Acciones de moderación (añadir/editar checkpoints, destacar check-ins)
+- Estados loading/empty/error
+- Tono calmado y community, con fuerte control de spoilers.

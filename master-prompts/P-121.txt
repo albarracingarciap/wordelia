@@ -1,0 +1,274 @@
+P-121 — /app/clubs/crear (WIZARD CREAR CLUB) — WORDELIA
+REQUISITOS: RESPETA P-001 (TOKENS + COMPONENTES OFICIALES) Y EL LAYOUT BASE POST-LOGIN DE P-002 (TOPBAR + NAV + ÁREA CENTRAL CON CONTAINER). NO REDEFINIR ESTILO. IDIOMA: ESPAÑOL.
+
+TIPO: PÁGINA APP (wizard paso a paso)
+RUTA: /app/clubs/crear
+POSICIÓN EN FLUJO: desde /app/clubs (P-120) botón “Crear un club”.
+
+OBJETIVO (1 frase):
+Crear un club en menos de 2 minutos con decisiones sencillas: nombre + libro + ritmo + spoilers + privacidad + invitaciones, manteniendo un tono cálido y calmado.
+
+USUARIO OBJETIVO:
+Moderador/creador de club (lector que convoca a su gente).
+
+========================
+A) COMPONENTES (OBLIGATORIOS)
+========================
+Componentes oficiales (P-001):
+- Container
+- SectionHeader
+- Card (featured)
+- Tabs (para pasos o secciones)
+- Input
+- Select
+- SearchBar
+- Chip
+- Badge
+- Button (primary/secondary/ghost)
+- Divider
+- Modal (opcional: “Vista previa del club”)
+- SkeletonCard
+- EmptyState
+- ErrorState
+
+No crear componentes nuevos.
+
+========================
+B) ESTRUCTURA / LAYOUT
+========================
+Dentro del layout post-login:
+- Container max 800–900px
+- Wizard con barra de progreso superior (4–5 pasos), estilo calmado (sin gamificación fuerte).
+- Botones “Atrás / Siguiente” persistentes al pie (sticky suave), con CTA coral.
+
+HEADER (SectionHeader)
+- Eyebrow: “CLUBS”
+- Título (teal): “Crear un club”
+- Subtítulo (gris cálido): “Un espacio pequeño puede dar conversaciones enormes.”
+- Acción ghost: “Cancelar” (vuelve a /app/clubs)
+
+BARRA DE PASOS (Tabs o stepper)
+- Paso 1: “Identidad”
+- Paso 2: “Libro”
+- Paso 3: “Ritmo”
+- Paso 4: “Normas”
+- Paso 5: “Invitar”
+Mostrar progreso (ej. “Paso 1 de 5”) y permitir volver a pasos previos.
+
+========================
+C) PASO 1 — IDENTIDAD DEL CLUB
+========================
+Card featured con campos:
+
+1) Nombre del club (Input)
+- Label: “Nombre del club”
+- Placeholder: “Lecturas con calma”, “Clásicos en compañía…”
+- Helper: “Puedes cambiarlo luego.”
+
+2) Descripción (Textarea corta)
+- Label: “¿De qué va este club?”
+- Placeholder: “Leemos sin prisa y debatimos con respeto…”
+- Helper: “2–3 líneas bastan.”
+
+3) Idioma (Select)
+- Default: “Español”
+
+4) Imagen (opcional)
+- Botón outline: “Subir imagen” (placeholder)
+- Si no, generar avatar de letras (automático)
+
+Microcopy cálido al final:
+“Un buen club empieza con un propósito sencillo.”
+
+Botones:
+- Siguiente (coral): “Elegir libro”
+
+Validación mínima:
+- Nombre requerido (error inline: “Ponle un nombre a tu club.”)
+
+========================
+D) PASO 2 — LIBRO
+========================
+Card featured:
+
+1) Buscar libro (SearchBar)
+- Placeholder: “Busca el libro que vais a leer…”
+- Resultados en lista (BookCard compacta):
+  - portada + título + autor + idioma/edición
+  - botón ghost: “Elegir”
+- Al elegir:
+  - Mostrar BookCard seleccionada fija arriba con botón “Cambiar”
+
+2) Edición (opcional)
+- Select: “Edición (opcional)”
+- Texto: “Cada lector puede usar su edición; esto solo ayuda con páginas.”
+
+3) Fecha de inicio (opcional pero recomendado)
+- Input date: “Empezamos el…”
+- Helper: “Si lo dejas vacío, empezáis cuando queráis.”
+
+4) IA (opcional, toggle suave)
+- Toggle: “Generar guía de club (sin spoilers)”
+- Microcopy: “Crea checkpoints y preguntas iniciales a partir del libro.”
+
+Botones:
+- Atrás: “Volver”
+- Siguiente (coral): “Definir ritmo”
+
+Estados:
+- Loading resultados: skeleton de BookCards
+- Empty búsqueda: “No encontramos ese libro. Prueba con el título o el autor.”
+
+========================
+E) PASO 3 — RITMO (CHECKPOINTS)
+========================
+Card featured:
+
+1) Ritmo (Chips seleccionables)
+- “Suave” (p. ej. 1 checkpoint/semana)
+- “Estándar” (2 checkpoints/semana)
+- “Intenso” (3 checkpoints/semana)
+- “Personalizado”
+Microcopy: “El mejor ritmo es el que se sostiene.”
+
+2) Medida del progreso (Select)
+- “Por páginas”
+- “Por capítulos”
+- “Por %”
+- (Si audio) “Por tiempo”
+
+3) Plan de checkpoints (preview editable)
+- Lista de checkpoints (4–8 sugeridos según ritmo)
+  - cada fila: “Checkpoint 1” + rango (p. ej. “p. 1–60”) + due date (opcional)
+  - acciones ghost: “Editar” “Eliminar”
+- Botón outline: “Añadir checkpoint”
+
+Edición de checkpoint (Modal o inline):
+- Título
+- Range type + start/end
+- Due date opcional
+- Spoiler level sugerido (por defecto none)
+
+Botones:
+- Atrás
+- Siguiente (coral): “Normas y privacidad”
+
+EMPTY (si no hay libro seleccionado):
+- Bloque de aviso: “Primero elige un libro para proponer un ritmo.”
+
+========================
+F) PASO 4 — NORMAS (SPOILERS + PRIVACIDAD)
+========================
+Card featured:
+
+1) Privacidad del club (Chips / Select)
+- “Público” (aparece en explorar)
+- “Privado” (visible, pero para unirse necesitas aprobación/código)
+- “Secreto” (solo por invitación; no aparece en explorar)
+Microcopy: “Puedes cambiarlo después.”
+
+2) Política de spoilers (Select)
+- “Por niveles (recomendado)”
+- “Sin spoilers (estricto)”
+- “Libre” (no recomendado; mostrar hint)
+
+3) Modo conversación (toggles)
+- Toggle: “Hilo general”
+- Toggle: “Hilos por checkpoint (recomendado)” (ON por defecto)
+- Toggle: “Anuncios del club (solo moderación)” (ON por defecto)
+
+4) Normas del club (lista editable, máx 5)
+- Campo tipo lista con 5 reglas sugeridas (editable):
+  1) “Debatimos ideas, no personas.”
+  2) “Spoilers siempre marcados.”
+  3) “Citas cortas (por respeto a autores/editoriales).”
+  4) “Ritmos distintos, misma conversación.”
+  5) “Si algo incomoda, repórtalo.”
+- Botón ghost: “Añadir regla” (hasta 5)
+
+Botones:
+- Atrás
+- Siguiente (coral): “Invitar gente”
+
+========================
+G) PASO 5 — INVITAR (LINK + CÓDIGO + LISTA)
+========================
+Card featured:
+
+1) Invitación por enlace/código
+- Bloque con:
+  - “Enlace de invitación” (campo readonly + botón “Copiar”)
+  - “Código” (6–8 caracteres) + botón “Regenerar”
+Microcopy: “Compartirlo es suficiente. Puedes revocarlo cuando quieras.”
+
+2) Invitar por email/usuario (opcional)
+- Input: “Añadir emails o nombres…” (chips)
+- Botón outline: “Enviar invitaciones” (placeholder)
+
+3) Vista previa del club (mini card)
+- Club name + libro + ritmo + privacidad + spoilers
+- Link: “Editar” (vuelve a pasos anteriores)
+
+ACCIONES FINALES
+- Botón coral grande: “Crear club”
+- Botón outline: “Crear y abrir ahora”
+- Microcopy: “Puedes ajustar todo después.”
+
+SUCCESS (feedback)
+- Pantalla/Modal de confirmación:
+  - “Club creado”
+  - Botones: “Ir al club” (-> /app/club/[clubId]) y “Compartir invitación”
+
+========================
+H) ESTADOS (OBLIGATORIOS)
+========================
+LOADING (crear club):
+- “Creando tu club…” + skeleton suave del preview.
+
+ERROR (crear club):
+- ErrorState:
+  “No pudimos crear el club”
+  Botón: “Reintentar”
+  Link: “Volver a Clubs”
+
+VALIDACIONES (mínimas)
+- Paso 1: nombre requerido
+- Paso 2: libro requerido
+- Paso 3: ranges coherentes (start <= end)
+- Paso 4: privacidad + spoiler policy seleccionadas
+
+========================
+I) DATOS (CAMPOS NECESARIOS)
+========================
+- draftClub:
+  - name, description, language
+  - work_id, edition_id?
+  - start_date?
+  - pace (preset/custom)
+  - progress_measure (pages/chapters/percent/minutes)
+  - checkpoints: [{ title, range_type, start, end, due_at? }]
+  - privacy, spoiler_policy
+  - rules: [text]
+  - invite_link, invite_code
+  - invited_contacts? []
+
+========================
+J) MICROCOPY (TEXTOS EXACTOS)
+========================
+- Subtítulo: “Un espacio pequeño puede dar conversaciones enormes.”
+- Ritmo helper: “El mejor ritmo es el que se sostiene.”
+- Spoilers helper: “Por niveles es lo más cómodo para cuidar a todo el mundo.”
+- Invitación helper: “Compartirlo es suficiente. Puedes revocarlo cuando quieras.”
+- CTA final: “Crear club”
+
+========================
+ENTREGA
+========================
+Renderiza /app/clubs/crear como wizard completo (desktop + mobile) con:
+- Stepper/Progress
+- Cards por paso
+- Preview de checkpoints
+- Políticas de spoilers y privacidad
+- Generación de código/enlace
+- Estados loading/error/success
+- Tono calmado y community.

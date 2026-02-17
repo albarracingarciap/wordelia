@@ -1,0 +1,82 @@
+@import "tailwindcss";
+
+:root {
+  /* Wordelia Color Palette */
+  --background: #FFFAEF;
+  /* Cream */
+  --foreground: #737373;
+  /* Warm Grey */
+
+  --color-wordelia-cream: #FFFAEF;
+  --color-wordelia-offwhite: #FBF7F1;
+  --color-wordelia-teal: #336871;
+  --color-wordelia-teal-dark: #234A4E;
+  --color-wordelia-coral: #D56962;
+  --color-wordelia-grey: #737373;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-cream: var(--color-wordelia-cream);
+  --color-offwhite: var(--color-wordelia-offwhite);
+  --color-teal: var(--color-wordelia-teal);
+  --color-teal-dark: var(--color-wordelia-teal-dark);
+  --color-coral: var(--color-wordelia-coral);
+  --color-grey: var(--color-wordelia-grey);
+
+  --font-serif: var(--font-playfair);
+  --font-sans: var(--font-outfit);
+  --font-pinyon: var(--font-pinyon), cursive;
+
+  --radius-xl: 1rem;
+  /* 16px */
+  --radius-2xl: 1.125rem;
+  /* 18px */
+}
+
+body {
+  background-color: var(--color-cream);
+  color: var(--color-grey);
+  font-family: var(--font-sans);
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  font-family: var(--font-serif);
+  color: var(--color-teal);
+}
+
+/* Animations for Explorar page */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes scale-in {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out;
+}
+
+.animate-scale-in {
+  animation: scale-in 0.3s ease-out;
+}

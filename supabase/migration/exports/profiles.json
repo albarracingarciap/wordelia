@@ -1,0 +1,55 @@
+[
+  {
+    "id": "e9637162-a220-4e85-8a35-5d7dd102ea98",
+    "email": "pedro.albarracin.garcia@gmail.com",
+    "username": "palbarracing",
+    "full_name": "Pedro Albarracin",
+    "avatar_url": "https://pqdxuzrrpnqtwqvckybu.supabase.co/storage/v1/object/public/avatars/oeae676ftg.jpg",
+    "website": null,
+    "onboarding_completed": true,
+    "updated_at": "2026-02-12T21:10:43.302+00:00",
+    "birth_date": "1965-05-10",
+    "reader_type": "avid",
+    "favorite_genres": [
+      "Ciencia ficción",
+      "Fantasía",
+      "Clásicos"
+    ],
+    "goals": {
+      "secondary": [
+        "Leer al menos 3 géneros diferentes",
+        "Leer 1 clásico universal"
+      ],
+      "yearly_target": 40
+    },
+    "bio": "Me encantan los clásicos",
+    "location": "Alcalá de Guadaíra, España",
+    "pronouns": "Él (He/Him)",
+    "reading_format_preference": "physical",
+    "story_complexity_preference": 5,
+    "engagement_elements": [
+      "Personajes profundos",
+      "Giros inesperados"
+    ],
+    "notification_settings": {
+      "push_social": true,
+      "email_social": true,
+      "push_achievements": true,
+      "email_achievements": true,
+      "push_recommendations": true,
+      "email_recommendations": true,
+      "push_reading_reminders": true,
+      "email_reading_reminders": true
+    },
+    "privacy_settings": {
+      "show_stats": true,
+      "show_location": false,
+      "show_name_photo": true,
+      "show_recent_reads": true,
+      "profile_visibility": "public"
+    },
+    "spoiler_preference": true,
+    "banner_color": "#14b8a6",
+    "created_at": "2026-02-12T19:42:49.620251+00:00"
+  }
+]

@@ -1,0 +1,196 @@
+P-103 — /app/mi-lectura/notas (DIARIO + NOTAS) — WORDELIA
+REQUISITOS: RESPETA prompt_landing_pge (TOKENS + COMPONENTES OFICIALES) Y EL LAYOUT BASE POST-LOGIN DE P-002 (TOPBAR + NAV + ÁREA CENTRAL CON CONTAINER). NO REDEFINIR ESTILO. IDIOMA: ESPAÑOL.
+
+TIPO: PÁGINA APP
+RUTA: /app/mi-lectura/notas
+POSICIÓN EN FLUJO: accesible desde P-100 (“Momentos guardados”), desde BookCard (“Notas”) y desde ficha de libro.
+
+OBJETIVO (1 frase):
+Ofrecer un “diario de lectura” cálido y potente: capturar citas/ideas/preguntas, organizarlas por libro y etiquetas, y encontrarlas rápido sin sentirse abrumado.
+
+USUARIO OBJETIVO:
+Lector que subraya, reflexiona y quiere volver a sus momentos; también moderadores que preparan clubs.
+
+========================
+A) COMPONENTES (OBLIGATORIOS)
+========================
+Componentes oficiales (P-001):
+- Container
+- SectionHeader
+- Tabs
+- SearchBar
+- Select
+- Chip
+- Card
+- Button (primary/secondary/ghost)
+- Badge
+- Modal (crear/editar nota)
+- Accordion (opcional para filtros avanzados)
+- SkeletonCard
+- EmptyState
+- ErrorState
+- Divider
+- (Opcional) BookCard compacta como “contexto” del libro
+
+No crear componentes nuevos.
+
+========================
+B) ESTRUCTURA / LAYOUT
+========================
+Dentro del layout post-login:
+- Container max 1200px.
+- Layout desktop: 8/4 (lista notas / panel lateral). Mobile: 1 columna.
+
+HEADER (SectionHeader)
+- Eyebrow: “MI LECTURA”
+- Título (teal): “Notas”
+- Subtítulo (gris cálido): “Guarda lo que te mueve. Vuelve cuando quieras.”
+- Acciones:
+  - Botón coral: “Nueva nota”
+  - Botón outline: “Importar” (opcional, placeholder)
+  - Link ghost: “Ayuda” (opcional)
+
+BARRA DE CONTROLES (debajo del header)
+- SearchBar placeholder: “Buscar en tus notas…”
+- A la derecha:
+  - Select “Ordenar”: “Más recientes”, “Libro”, “Tipo”
+  - Chip toggle: “Solo privadas” (si el usuario quiere)
+- En mobile: apilar con buen spacing.
+
+TABS PRINCIPALES (3)
+- “Todas”
+- “Por libro”
+- “Etiquetas”
+(Tab “Todas” activo por defecto)
+
+========================
+C) COLUMNA IZQUIERDA — LISTADO / FEED
+========================
+
+TAB 1: “Todas” (feed de notas)
+- Lista tipo “masonry suave” o columnas 2 en desktop (sin ruido), 1 en mobile.
+- Cada NotaCard (Card compacta) incluye:
+  1) Header pequeño:
+     - Badge del tipo: “Cita” / “Idea” / “Pregunta” / “Subrayado”
+     - Si es privada: badge sutil “Privada”
+  2) Contenido (texto):
+     - Mostrar 2–5 líneas; truncar con “Ver más”
+  3) Contexto del libro (mini):
+     - Título del libro (teal) + autor (gris)
+     - Location (si existe): “p. 120” / “cap. 7” / “45%”
+  4) Chips de tags (si existen): max 3 + “+2”
+  5) Footer acciones (ghost icons):
+     - “Copiar”
+     - “Editar”
+     - “Borrar”
+     - “Compartir” (si es pública; si privada, mostrar tooltip “Primero hazla pública”)
+- Interacción:
+  - Click en la card abre “Detalle” (modal o panel lateral) con nota completa.
+
+TAB 2: “Por libro”
+- Columna izquierda: lista de libros con contador de notas (Card list):
+  - cada fila: portada mini + título + “12 notas”
+- Al seleccionar un libro:
+  - la lista principal se filtra a ese libro
+  - mostrar “Crear nota en este libro” como botón ghost arriba.
+
+TAB 3: “Etiquetas”
+- Nube/lista de tags (chips) ordenados por frecuencia:
+  - chip: “personajes (8)”
+  - chip: “símbolos (5)”
+- Al seleccionar un tag:
+  - se filtra el feed.
+
+========================
+D) COLUMNA DERECHA — PANEL “RESUMEN / ACCIONES”
+========================
+Panel lateral (Card) llamado “Tu diario”
+- 3 métricas suaves:
+  - “Notas este mes: 14”
+  - “Libros con notas: 6”
+  - “Preguntas guardadas: 4”
+- Botón ghost: “Ver estadísticas” (lleva a P-104 más adelante)
+- Mini bloque “Sugerencia” (cálida):
+  “¿Te apetece una pregunta para el próximo club? Guarda 2–3 ideas y Wordelia te propone una guía (sin spoilers).”
+  Botón outline: “Probar guía” (placeholder a IA)
+- En mobile: este panel pasa debajo del listado.
+
+========================
+E) MODAL “NUEVA NOTA / EDITAR NOTA”
+========================
+Modal reutilizable (abre desde “Nueva nota” o “Editar”):
+- Título:
+  - Nueva: “Nueva nota”
+  - Editar: “Editar nota”
+- Campos:
+  1) Select libro (si no viene preseleccionado):
+     “¿Para qué libro es?”
+  2) Tipo de nota (Tabs o chips):
+     “Cita” “Idea” “Pregunta” “Subrayado”
+  3) Textarea grande:
+     Placeholder según tipo:
+     - Cita: “Pega aquí una cita corta…”
+     - Idea: “¿Qué te movió?”
+     - Pregunta: “¿Qué pregunta te queda?”
+  4) Ubicación (opcional, 2 inputs):
+     - Select: “Ubicación” (Página/Capítulo/%)
+     - Input: “Valor” (p. ej. “120” / “7” / “45”)
+  5) Etiquetas (chips input):
+     - Input: “Añadir etiqueta…” + chips resultantes
+  6) Toggle privacidad:
+     “Mantener en privado”
+- Acciones:
+  - Botón coral: “Guardar nota”
+  - Botón outline: “Guardar y añadir otra”
+  - Ghost: “Cancelar”
+
+Microcopy bajo el textarea (suave):
+“Si es una cita, mejor corta. Así cuidamos a autores y editoriales.”
+
+========================
+F) ESTADOS (OBLIGATORIOS)
+========================
+LOADING:
+- Skeleton del feed (6 cards) + skeleton panel lateral.
+
+EMPTY (sin notas):
+- EmptyState:
+  - Título: “Tu diario está en blanco (por ahora)”
+  - Texto: “Guarda una cita, una idea o una pregunta mientras lees. Luego vuelves con calma.”
+  - Botón coral: “Crear mi primera nota”
+  - Botón outline: “Explorar libros”
+
+EMPTY (filtro sin resultados):
+- Mini empty:
+  “No encontramos notas con ese filtro.”
+  Botón ghost: “Limpiar filtros”
+
+ERROR:
+- ErrorState:
+  “No pudimos cargar tus notas”
+  Botón: “Reintentar”
+  Link: “Centro de ayuda”
+
+========================
+G) DATOS (CAMPOS NECESARIOS)
+========================
+- notes: [{
+    note_id, user_book_id, work_id,
+    work_title, author, cover_url (opcional),
+    note_type, content, is_private,
+    location_type, location_value,
+    tags[], created_at
+  }]
+- books_with_note_counts: [{ user_book_id, work_title, author, cover_url, note_count }]
+- tags_with_counts: [{ tag, count }]
+- stats: { notes_this_month, books_with_notes, questions_count }
+
+========================
+H) ENTREGA
+========================
+Renderiza /app/mi-lectura/notas completa (desktop + mobile) con:
+- Header + Search/Sort + Tabs (Todas/Por libro/Etiquetas)
+- Feed de notas con cards accionables
+- Panel lateral “Tu diario”
+- Modal crear/editar nota
+- Estados loading/empty/error + microcopy cálido.

@@ -1,0 +1,17 @@
+{
+  "importedAt": "2026-02-15T21:57:10.979Z",
+  "targetInstance": "https://supabase.wordelia.es",
+  "tables": {
+    "profiles": 0,
+    "authors": 0,
+    "books": 0,
+    "user_books": 0,
+    "lists": 0,
+    "list_items": 0,
+    "reading_sessions": 0,
+    "book_notes": 0,
+    "badges": 0,
+    "user_badges": 0
+  },
+  "totalRecords": 0
+}

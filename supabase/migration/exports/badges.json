@@ -1,0 +1,119 @@
+[
+  {
+    "id": "9aa70a23-35d4-4024-a342-f9849ded7919",
+    "slug": "raton_biblioteca",
+    "name": "Ratón de Biblioteca",
+    "description": "Leer 10 libros",
+    "category": "volume",
+    "icon_name": "Mouse",
+    "criteria": {
+      "type": "books_read",
+      "threshold": 10
+    },
+    "created_at": "2026-02-12T11:10:39.633114+00:00"
+  },
+  {
+    "id": "5f427e08-50f2-4405-9f26-f7c346605910",
+    "slug": "devoralibros",
+    "name": "Devoralibros",
+    "description": "Leer 50 libros",
+    "category": "volume",
+    "icon_name": "Cookie",
+    "criteria": {
+      "type": "books_read",
+      "threshold": 50
+    },
+    "created_at": "2026-02-12T11:10:39.633114+00:00"
+  },
+  {
+    "id": "23615416-023e-4d57-9108-4c228cc200a6",
+    "slug": "bibliotecario_mayor",
+    "name": "Bibliotecario Mayor",
+    "description": "Leer 100 libros",
+    "category": "volume",
+    "icon_name": "Library",
+    "criteria": {
+      "type": "books_read",
+      "threshold": 100
+    },
+    "created_at": "2026-02-12T11:10:39.633114+00:00"
+  },
+  {
+    "id": "bf135181-4fa4-41f6-bbb6-20b7f1d27a98",
+    "slug": "lector_diario",
+    "name": "Lector Diario",
+    "description": "Leer 3 días seguidos",
+    "category": "streak",
+    "icon_name": "Sun",
+    "criteria": {
+      "type": "streak_days",
+      "threshold": 3
+    },
+    "created_at": "2026-02-12T11:10:39.633114+00:00"
+  },
+  {
+    "id": "e6b18b40-2cfa-4931-9497-ee1f76bb70cb",
+    "slug": "semana_literaria",
+    "name": "Semana Literaria",
+    "description": "Leer 7 días seguidos",
+    "category": "streak",
+    "icon_name": "CalendarCheck",
+    "criteria": {
+      "type": "streak_days",
+      "threshold": 7
+    },
+    "created_at": "2026-02-12T11:10:39.633114+00:00"
+  },
+  {
+    "id": "5a4fa9c8-e412-4136-8528-35be872261af",
+    "slug": "habito_acero",
+    "name": "Hábito de Acero",
+    "description": "Leer 30 días seguidos",
+    "category": "streak",
+    "icon_name": "Shield",
+    "criteria": {
+      "type": "streak_days",
+      "threshold": 30
+    },
+    "created_at": "2026-02-12T11:10:39.633114+00:00"
+  },
+  {
+    "id": "9f5b8ac0-c26c-4fcc-8eb5-254eec9ffd70",
+    "slug": "explorador_mundos",
+    "name": "Explorador de Mundos",
+    "description": "Leer libros de 3 géneros diferentes",
+    "category": "exploration",
+    "icon_name": "Compass",
+    "criteria": {
+      "type": "genres_count",
+      "threshold": 3
+    },
+    "created_at": "2026-02-12T11:10:39.633114+00:00"
+  },
+  {
+    "id": "14e35d30-271b-41f5-afbe-21e413bd27e8",
+    "slug": "critico_literario",
+    "name": "Crítico Literario",
+    "description": "Escribir tu primera reseña",
+    "category": "social",
+    "icon_name": "PenTool",
+    "criteria": {
+      "type": "reviews_count",
+      "threshold": 1
+    },
+    "created_at": "2026-02-12T11:10:39.633114+00:00"
+  },
+  {
+    "id": "cff4b3ba-0fbd-4405-b9a6-f3a5e71f2b88",
+    "slug": "influencer",
+    "name": "Influencer",
+    "description": "Escribir 10 reseñas",
+    "category": "social",
+    "icon_name": "Megaphone",
+    "criteria": {
+      "type": "reviews_count",
+      "threshold": 10
+    },
+    "created_at": "2026-02-12T11:10:39.633114+00:00"
+  }
+]

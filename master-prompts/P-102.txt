@@ -1,0 +1,191 @@
+P-102 — /app/mi-lectura/registrar (REGISTRAR LECTURA) — WORDELIA
+REQUISITOS: RESPETA prompt_landing_page (TOKENS + COMPONENTES OFICIALES) Y EL LAYOUT BASE POST-LOGIN DE P-002 (TOPBAR + NAV + ÁREA CENTRAL CON CONTAINER). NO REDEFINIR ESTILO. IDIOMA: ESPAÑOL.
+
+TIPO: PÁGINA APP (con versión modal reutilizable)
+RUTA: /app/mi-lectura/registrar
+POSICIÓN EN FLUJO: accesible desde P-100 (“Registrar lectura”), desde BookCard (“Registrar”) y desde P-101.
+
+OBJETIVO (1 frase):
+Permitir registrar una sesión de lectura en menos de 20 segundos: elegir libro, añadir progreso (páginas/%/capítulos/minutos), guardar una nota opcional y actualizar el estado (leyendo/terminado) con una experiencia calmada.
+
+USUARIO OBJETIVO:
+Lector que quiere registrar sin fricción (hábitos suaves, sin presión).
+
+========================
+A) COMPONENTES (OBLIGATORIOS)
+========================
+Componentes oficiales (P-001):
+- Container
+- SectionHeader
+- Card
+- Button (primary/secondary/ghost)
+- Select
+- Input
+- Chip
+- Badge
+- Tabs (para modo de progreso si aplica)
+- Modal (versión rápida “Registrar” invocable desde otras páginas)
+- SkeletonCard
+- EmptyState
+- ErrorState
+- Divider
+
+No crear componentes nuevos.
+
+========================
+B) ESTRUCTURA / LAYOUT
+========================
+Dentro del layout post-login, usar Container max 720–840px (más estrecho para foco).
+
+HEADER (SectionHeader)
+- Eyebrow: “MI LECTURA”
+- Título (teal): “Registrar lectura”
+- Subtítulo (gris cálido): “Un paso pequeño también cuenta.”
+- Acción secundaria (link/ghost):
+  “Volver” (navega atrás)
+
+FORMULARIO PRINCIPAL (Card featured)
+- Card con fondo blanco roto, borde sutil, radio 18px, padding 24–28px.
+
+Bloques del formulario (en este orden):
+
+1) SELECCIÓN DE LIBRO
+- Label: “¿Qué libro has leído?”
+- Select con búsqueda (si posible):
+  - Mostrar por defecto libros en estado “Leyendo” + “Pausado”
+  - Opción al final: “Buscar y añadir otro libro…” (lleva a /app/explorar o abre buscador)
+- Al seleccionar libro:
+  - Mostrar mini BookCard compacta dentro del card:
+    - portada, título, autor
+    - progreso actual (ej: “45% · pág 210/460”)
+    - badge “En club” si aplica
+
+2) PROGRESO (RESPETA progress_type DEL user_book)
+- Título: “Progreso”
+- Si el libro tiene progress_type fijo, mostrar el input correspondiente:
+  A) Percent:
+     - Input numérico: “Nuevo %” (0–100)
+     - Helper: “Actual: 45%”
+  B) Pages:
+     - Input numérico: “Páginas leídas hoy” (delta)
+     - Opción (chip toggle): “Introducir página actual”
+       - Input: “Página actual”
+     - Helper: “Actual: pág 210/460”
+  C) Chapters:
+     - Input: “Capítulos leídos hoy”
+     - Helper: “Actual: cap 8/20”
+  D) Minutes (audio):
+     - Input: “Minutos escuchados”
+     - Helper: “Esta semana: 40 min”
+- Mostrar siempre un texto suave:
+  “A tu ritmo. No pasa nada si hoy fue poco.”
+
+3) SESIÓN (OPCIONAL PERO RECOMENDADO)
+- Row de 2 inputs (stack en mobile):
+  - Input: “Tiempo (min)” (opcional si no es audio)
+  - Select/Chip: “Estado” (Leyendo / Pausado / Terminado)
+- Si elige “Terminado”:
+  - Mostrar bloque adicional (aparece con transición suave):
+    - Rating (1–5) con estrellas o selector:
+      Label: “¿Qué nota le pondrías?” (opcional)
+    - Textarea corta: “Una frase sobre lo que te dejó” (opcional)
+    - Chip: “Guardar también en ‘Leído’” (activo por defecto)
+
+4) NOTA RÁPIDA (DIARIO)
+- Label: “Nota (opcional)”
+- Textarea placeholder: “¿Qué te movió hoy? Una idea, una cita, una pregunta…”
+- Chips rápidos debajo (añaden prefijo o etiqueta):
+  - “💡 Idea”
+  - “❓ Pregunta”
+  - “✨ Cita”
+  - “🧩 Personaje”
+- Microcopy: “Puedes marcar privacidad desde tus notas.”
+
+5) PRIVACIDAD (SUAVE)
+- Toggle (opcional, si lo quieres ya):
+  “Mantener esta nota en privado”
+- Helper: “Tus progresos pueden ser privados si lo prefieres.”
+
+DIVIDER
+
+6) ACCIONES
+- Botón primario coral (full width en mobile):
+  “Guardar”
+- Botón secundario outline:
+  “Guardar y seguir”
+  (vuelve al libro / o cierra modal si venías desde otra página)
+- Botón ghost:
+  “Cancelar”
+
+Microcopy final (pequeño):
+“Sin rachas obligatorias. Solo tu lectura.”
+
+========================
+C) VERSION MODAL (REUTILIZABLE)
+========================
+Definir también una versión “Modal Registrar lectura” para lanzarla desde P-100/P-101:
+- Mismo contenido pero más compacto:
+  - Libro (select)
+  - Progreso (1 input)
+  - Nota breve (1 línea o textarea pequeña)
+  - Botón “Guardar”
+- El resto (rating/review) se omite o se reduce.
+
+========================
+D) VALIDACIONES / ERRORES EN UI
+========================
+- Progreso no puede bajar (salvo modo “corregir progreso” en ajustes; por defecto, avisar):
+  “Parece menor que tu último registro. ¿Quieres corregirlo?”
+  Botones: “Sí, corregir” (si habilitas) / “Cancelar”
+- Límites:
+  - Percent 0–100
+  - Pages/minutes >= 0
+- Si no se selecciona libro:
+  error inline: “Elige un libro para guardar tu sesión.”
+
+========================
+E) ESTADOS (OBLIGATORIOS)
+========================
+LOADING:
+- Skeleton para el Card principal + mini book preview.
+
+EMPTY (sin libros en “Leyendo”):
+- EmptyState:
+  - Título: “Aún no estás leyendo nada”
+  - Texto: “Añade un libro a ‘Leyendo’ y vuelve cuando quieras.”
+  - Botón coral: “Explorar libros”
+  - Botón outline: “Añadir manualmente” (si lo contemplas)
+
+ERROR:
+- ErrorState:
+  - “No pudimos guardar tu sesión”
+  - Botón: “Reintentar”
+  - Link: “Centro de ayuda”
+
+SUCCESS (feedback suave):
+- Toast discreto:
+  “Sesión guardada”
+- Si terminó libro:
+  “¡Libro terminado! 🎉 ¿Te apetece guardarlo en tu estantería de ‘Leído’?”
+
+========================
+F) DATOS (CAMPOS NECESARIOS)
+========================
+- reading_candidates: [{ user_book_id, work_id, title, author, cover_url, status, progress_type, progress_value, progress_total, in_active_club }]
+- payload on submit:
+  - user_book_id
+  - session_at (default now)
+  - minutes?
+  - pages_read? / progress_delta? / new_progress_value?
+  - note? + note_type? + is_private?
+  - new_status? (optional)
+  - rating? review_text? (optional)
+
+========================
+G) ENTREGA
+========================
+Renderiza /app/mi-lectura/registrar completa (desktop + mobile), con:
+- Formulario calmado + inputs por tipo de progreso
+- Bloque condicional de “Terminado” (rating/review opcional)
+- Versión modal compacta reutilizable
+- Validaciones y estados loading/empty/error + feedback de éxito.

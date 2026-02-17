@@ -1,0 +1,174 @@
+P-101 — /app/mi-lectura/estanterias (SHELVES) — WORDELIA
+REQUISITOS: RESPETA P-001 (TOKENS + COMPONENTES OFICIALES) Y EL LAYOUT BASE POST-LOGIN DEFINIDO EN P-002 (TOPBAR + NAV + ÁREA CENTRAL CON CONTAINER). NO REDEFINIR ESTILO. IDIOMA: ESPAÑOL.
+
+TIPO: PÁGINA APP
+RUTA: /app/mi-lectura/estanterias
+POSICIÓN EN FLUJO: desde /app/mi-lectura (P-100) por CTA “Estanterías” o “Guardados”.
+
+OBJETIVO (1 frase):
+Permitir al usuario organizar su biblioteca personal con calma: ver estanterías (sistema + personalizadas), filtrar/ordenar libros, mover libros entre estanterías y crear nuevas estanterías sin fricción.
+
+USUARIO OBJETIVO:
+Lector (con muchas lecturas), que quiere control sin ruido.
+
+========================
+A) COMPONENTES (OBLIGATORIOS)
+========================
+Componentes oficiales (P-001):
+- Container
+- SectionHeader
+- Tabs
+- Chip
+- Card (default + compact)
+- Button (primary/secondary/ghost)
+- Badge
+- SearchBar
+- Select (ordenar)
+- BookCard (compacta)
+- Accordion (opcional para “Estanterías personalizadas”)
+- Modal (crear/renombrar estantería; mover libro)
+- SkeletonCard
+- EmptyState
+- ErrorState
+- Divider
+
+No crear componentes nuevos.
+
+========================
+B) ESTRUCTURA / LAYOUT
+========================
+Dentro del layout post-login, renderizar en Container max 1200px.
+
+HEADER (SectionHeader)
+- Eyebrow: “MI LECTURA”
+- Título (teal): “Estanterías”
+- Subtítulo (gris cálido): “Tu biblioteca, a tu ritmo: organiza, guarda y vuelve cuando quieras.”
+- Acciones (derecha desktop / debajo mobile):
+  - Botón coral: “Crear estantería”
+  - Botón outline: “Añadir libro” (lleva a /app/explorar o abre modal “Añadir por búsqueda” si ya existe)
+
+BARRA DE CONTROLES (debajo del header)
+- SearchBar con placeholder: “Buscar en tus estanterías…”
+- A la derecha:
+  - Select “Ordenar por”: “Reciente”, “Título”, “Autor”, “Progreso”
+  - Chip toggle (opcional): “Solo en clubs” (filtra user_books con club activo)
+- En mobile: SearchBar arriba, luego Select + chips en fila con scroll.
+
+TABS PRINCIPALES (Tabs, 5 items)
+- “Por leer”
+- “Leyendo”
+- “Leído”
+- “Pausado”
+- “Abandonado”
+Cada tab corresponde a system shelves (system_type).
+
+Debajo de tabs: subfila de Chips (filtros suaves, opcional)
+- “Todos”
+- “Ficción”
+- “No ficción”
+- “Corto”
+- “Buen debate”
+(estos chips pueden mapear a tags de work o heurísticos; si no hay datos, son UI placeholders)
+
+========================
+C) CONTENIDO PRINCIPAL (LISTADO)
+========================
+GRID/LISTADO de libros de la estantería seleccionada:
+- Desktop: grid 3–4 columnas de BookCard compacta
+- Tablet: 2–3 columnas
+- Mobile: 1 columna (cards horizontales)
+
+Cada BookCard compacta incluye:
+- Portada
+- Título + autor
+- Badge de estado (según tab)
+- Progreso (si Leyendo/Pausado): “45%” / “pág 210/460”
+- Meta pequeña: “Última actualización: ayer”
+- Acciones rápidas (iconos/botones ghost):
+  1) “Mover” (abre modal mover a otra estantería)
+  2) “Registrar” (solo si estado Leyendo/Pausado, abre modal de registro rápido o navega P-102)
+  3) “Notas” (P-103)
+  4) “Quitar” (confirmación suave)
+
+INTERACCIÓN “Mover” (Modal)
+- Título: “Mover a…”
+- Lista de estanterías:
+  - Sistema (Por leer, Leyendo, etc.)
+  - Personalizadas (sección separada)
+- Checkbox “Añadir también” si permites múltiples estanterías (si vas a usar user_book_shelf):
+  - Opción A (simple): solo 1 estantería sistema + varias personalizadas
+  - Opción B (MVP): mover entre sistema y “Guardar” (personalizadas)
+- Botón coral: “Guardar cambios”
+- Ghost: “Cancelar”
+
+========================
+D) ESTANTERÍAS PERSONALIZADAS (SECCIÓN SECUNDARIA)
+========================
+Debajo del listado (o en un lateral en desktop), añade un bloque “Tus estanterías”:
+- Card con listado de estanterías personalizadas (max 6 visibles + “Ver todas”)
+- Cada estantería muestra:
+  - nombre
+  - contador de libros
+  - acciones (ghost): “Renombrar”, “Eliminar”
+- “Renombrar” abre modal:
+  - Input nombre
+  - Botón coral “Guardar”
+- “Eliminar”:
+  - Confirmación: “¿Eliminar estantería? Los libros no se borran, solo se desasocian.”
+  - Botón coral “Eliminar”
+  - Ghost “Cancelar”
+
+CREAR ESTANTERÍA (Modal)
+- Título: “Crear estantería”
+- Input: “Nombre de la estantería” (placeholder: “Mis clásicos”, “Para debatir”, “Relecturas…”)
+- Toggle opcional: “Privada” (si decides que estanterías personalizadas puedan ser privadas)
+- Botón coral: “Crear”
+- Microcopy: “Puedes mover libros aquí cuando quieras.”
+
+========================
+E) ESTADOS (OBLIGATORIOS)
+========================
+LOADING:
+- Skeleton para tabs + 6 BookCards + bloque “Tus estanterías”.
+
+EMPTY (estantería sin libros):
+- EmptyState con:
+  - Título: “Esta estantería está tranquila”
+  - Texto: “Añade un libro o explora algo nuevo para empezar con calma.”
+  - Botón coral: “Explorar libros”
+  - Botón outline: “Explorar clubs”
+- Si tab “Leyendo” está vacío:
+  - Texto alternativo: “Cuando empieces un libro, aparecerá aquí.”
+
+EMPTY (sin estanterías personalizadas):
+- Mini empty: “Crea una estantería para tus listas personales.”
+
+ERROR:
+- ErrorState:
+  - “No pudimos cargar tus estanterías”
+  - Botón: “Reintentar”
+  - Link: “Centro de ayuda”
+
+========================
+F) DATOS (CAMPOS NECESARIOS)
+========================
+- shelves_system: [{ system_type, name, count }]
+- shelves_custom: [{ shelf_id, name, count }]
+- books_in_shelf: array BookCard data:
+  - user_book_id, work_id, edition_id
+  - title, author, cover_url
+  - status, progress_type, progress_value, progress_total
+  - updated_at
+  - in_active_club?: boolean
+- filters:
+  - available_tags (optional) o chips estáticos
+
+========================
+G) ENTREGA
+========================
+Renderiza /app/mi-lectura/estanterias completa (desktop + mobile), con:
+- Header + controls + tabs
+- Grid de libros con acciones rápidas
+- Modales: Crear estantería, Renombrar, Eliminar, Mover libro
+- Estados loading/empty/error
+- Mantén el tono calmado y community (microcopy cálido, sin presión).

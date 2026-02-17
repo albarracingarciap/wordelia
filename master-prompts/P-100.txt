@@ -1,0 +1,199 @@
+P-100 — /app/mi-lectura (DASHBOARD) — WORDELIA
+REQUISITOS: RESPETA prompt_landing_page (TOKENS + COMPONENTES) Y P-002 (APP SHELL). NO REDEFINIR ESTILO. IDIOMA: ESPAÑOL.
+
+TIPO: PÁGINA APP
+RUTA: /app/mi-lectura
+POSICIÓN EN FLUJO: primera pantalla tras login (home principal del usuario).
+
+OBJETIVO (1 frase):
+Dar al usuario un “rincón” claro y calmado para continuar leyendo: ver lo que está leyendo, registrar progreso en 1 clic, revisar hitos de clubs/retos y acceder a notas/estanterías.
+
+USUARIO OBJETIVO:
+Lector (con o sin clubs), con foco en hábito suave y seguimiento.
+
+========================
+A) COMPONENTES (OBLIGATORIOS)
+========================
+Usar componentes oficiales P-001:
+- AppShell (ya provisto por P-002)
+- Container
+- SectionHeader
+- Card (default + featured)
+- Button (primary, secondary/outline, ghost)
+- Chip
+- Badge
+- BookCard (variante compacta)
+- AvatarStack (para clubs)
+- Tabs (opcional)
+- SkeletonCard
+- EmptyState
+- ErrorState
+- Divider
+- Input (solo si incluyes “Añadir libro rápido”)
+
+No crear componentes nuevos.
+
+========================
+B) ESTRUCTURA / LAYOUT
+========================
+Dentro del AppShell, en el área de contenido:
+- Container max 1200px
+- Página con 2 columnas en desktop (8/4), 1 columna en mobile.
+
+HEADER DE PÁGINA (SectionHeader)
+- Eyebrow: “MI LECTURA”
+- Título (teal): “Tu rincón de lectura”
+- Subtítulo (gris cálido): “Continúa donde lo dejaste, guarda tus momentos y avanza a tu ritmo.”
+- Acciones (a la derecha en desktop / debajo en mobile):
+  - Botón primario coral: “Registrar lectura”
+  - Botón secondary outline: “Añadir libro”
+
+CHIPS RESUMEN (debajo del header, con wrap)
+- Chip: “Racha: 3 días” (neutral)
+- Chip: “Esta semana: +120 páginas” (neutral)
+- Chip: “Clubs: 2 activos” (neutral)
+- Chip: “Modo sin spoilers” (selected si el usuario lo tiene activo; si no, chip normal)
+Microcopy pequeño (opcional): “Puedes cambiarlo en Ajustes.”
+
+========================
+C) COLUMNA IZQUIERDA (PRIORIDAD)
+========================
+
+SECCIÓN 1: “Ahora leyendo”
+- Título de sección (teal): “Ahora leyendo”
+- Grid de 1–3 BookCards (según datos), estilo “compact”:
+  Cada card incluye:
+  - Portada
+  - Título + autor
+  - Progreso (p. ej. “45% · pág 210/460” o “Cap. 8/20”)
+  - Mini texto: “Última sesión: ayer”
+  - Acciones inline (botones pequeños):
+    - Primary small: “Continuar”
+    - Ghost: “Registrar”
+    - Link: “Notas”
+  - Si el libro pertenece a un club activo, mostrar Badge pequeño:
+    “En club” + mini AvatarStack (3 avatares) y link “Ver club”
+
+Si hay 0 libros “Leyendo”, mostrar EmptyState (ver estados).
+
+SECCIÓN 2: “Próximos hitos”
+- Card tipo “featured” con fondo blanco roto y borde sutil:
+  - Lista de 3–5 items (cada uno como fila):
+    - Icono pequeño + texto
+    - Ejemplos:
+      1) “Club ‘Mundo Distópico’: Checkpoint 2 vence el jueves”
+      2) “Sesión del club: domingo 19:00”
+      3) “Reto ‘Leer con calma’: 1 libro para completar”
+  - Cada item tiene un link/CTA pequeño:
+    “Ir” / “Ver”
+  - Si no hay clubs ni retos: mostrar copy cálido:
+    “Cuando te unas a un club, aquí verás tus próximos encuentros y checkpoints.”
+
+SECCIÓN 3: “Momentos guardados” (notas rápidas)
+- Card con 3 entradas de notas recientes:
+  - Cada entrada: (título del libro) + snippet 1 línea + fecha
+  - Botón ghost: “Ver todas las notas”
+- Si no hay notas: mini EmptyState:
+  “Guarda citas e ideas mientras lees. Luego vuelves a ellas cuando quieras.”
+  Botón: “Añadir nota”
+
+========================
+D) COLUMNA DERECHA (ASISTENCIA / DISCOVERY)
+========================
+
+SECCIÓN 4: “A un clic”
+- Card con 4 acciones rápidas (botones ghost con iconos):
+  - “Registrar lectura”
+  - “Añadir a Por leer”
+  - “Crear un club”
+  - “Explorar clubs”
+(En mobile, esta card pasa debajo de “Ahora leyendo”.)
+
+SECCIÓN 5: “Recomendado para hoy” (suave, sin agresividad)
+- Card con 1 recomendación:
+  - Pequeño título: “Recomendado para hoy”
+  - Mini BookCard (muy compacto) con:
+    - Título + autor
+    - 2 chips: “Corto” “Buen debate”
+    - CTA outline: “Ver”
+    - Link: “Guardar”
+Microcopy: “Basado en tu ritmo y tus gustos.”
+
+SECCIÓN 6: “Tu semana en calma” (mini resumen)
+- Card con 3 métricas en layout vertical:
+  - “Sesiones: 3”
+  - “Tiempo: 1h 40m” (si hay audio)
+  - “Páginas: 120”
+- Nota pequeña: “Sin comparaciones. Solo tu progreso.”
+
+========================
+E) INTERACCIONES CLAVE
+========================
+- “Registrar lectura” abre un modal o navega a /app/mi-lectura/registrar (P-102). En este prompt, incluye versión modal ligera:
+  - Modal title: “Registrar lectura”
+  - Selector de libro (dropdown con libros en ‘Leyendo’)
+  - Input de progreso (páginas / % / capítulos / minutos) según formato
+  - Campo nota opcional (“¿Cómo te fue hoy?”)
+  - Botón coral: “Guardar”
+  - Botón ghost: “Cancelar”
+- “Continuar” abre ficha del libro o lector (placeholder) y ofrece registrar al salir.
+- “Notas” abre /app/mi-lectura/notas (P-103).
+
+Accesibilidad:
+- Focus visible en chips, botones, cards.
+- Targets 44px.
+
+Animaciones:
+- Fade-up suave en cards al cargar.
+- Hover elevación mínima.
+
+========================
+F) ESTADOS (OBLIGATORIOS)
+========================
+LOADING:
+- Skeleton para:
+  - Header actions
+  - 2–3 BookCards en “Ahora leyendo”
+  - 1 featured card en “Próximos hitos”
+  - 2 cards de la columna derecha
+
+EMPTY (USUARIO NUEVO):
+- Reemplazar “Ahora leyendo” por EmptyState grande:
+  - Título: “Tu rincón está listo”
+  - Texto: “Añade tu primer libro o explora clubs para empezar con calma.”
+  - Botón coral: “Explorar libros”
+  - Botón outline: “Explorar clubs”
+- El resto de secciones muestran versiones vacías suaves (sin ruido).
+
+EMPTY (SIN CLUBS):
+- “Próximos hitos”: mensaje cálido + CTA “Explorar clubs”.
+
+ERROR:
+- ErrorState en lugar del contenido principal:
+  - “No pudimos cargar tu lectura”
+  - Botón: “Reintentar”
+  - Link: “Centro de ayuda”
+
+========================
+G) DATOS (MOCK / CAMPOS NECESARIOS)
+========================
+Definir datos mínimos para render:
+- user:
+  - name, streakDays, spoilerModeEnabled
+- currentlyReading: array de UserBook (0–3)
+  - workId, title, author, coverUrl
+  - progressType: PAGES|PERCENT|CHAPTERS|MINUTES
+  - progressValue, progressTotal
+  - lastSessionDate
+  - clubContext?: { clubId, clubName, memberAvatars[] }
+- upcomingMilestones: array
+  - type: CLUB_CHECKPOINT|CLUB_SESSION|CHALLENGE
+  - label, dueDate, linkUrl
+- recentNotes: array
+  - workTitle, snippet, date, linkUrl
+- recommendedBook: { workId, title, author, coverUrl, tags[] }
+
+========================
+ENTREGA
+========================
+Renderiza /app/mi-lectura completo dentro del AppShell (desktop + mobile), con el modal de “Registrar lectura”, chips resumen, secciones descritas, interacciones, y los estados loading/empty/error.
