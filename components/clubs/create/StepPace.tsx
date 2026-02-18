@@ -97,7 +97,6 @@ export function StepPace({ data, onUpdate }: StepPaceProps) {
                             options={[
                                 { label: "Páginas", value: "pages" },
                                 { label: "Capítulos", value: "chapters" },
-                                { label: "Porcentaje %", value: "percent" },
                             ]}
                             value={data.progressMeasure || "pages"}
                             onChange={(e) => handleUnitChange(e.target.value)}

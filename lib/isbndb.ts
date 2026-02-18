@@ -42,7 +42,7 @@ interface ISBNdbBookResponse {
     book: ISBNdbBook;
 }
 
-export async function searchISBNdb(query: string, page: number = 1): Promise<BookSearchResult[]> {
+export async function searchISBNdb(query: string, page: number = 1, pageSize: number = 20): Promise<BookSearchResult[]> {
     if (!query) return [];
 
     const apiKey = process.env.ISBNDB_API_KEY;
@@ -53,7 +53,7 @@ export async function searchISBNdb(query: string, page: number = 1): Promise<Boo
 
     try {
         // Search by generic query (matches title, author, etc.)
-        const url = `${ISBNDB_API_URL}/books/${encodeURIComponent(query)}?page=${page}&pageSize=20`;
+        const url = `${ISBNDB_API_URL}/books/${encodeURIComponent(query)}?page=${page}&pageSize=${pageSize}`;
 
         const response = await fetch(url, {
             headers: {

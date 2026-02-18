@@ -55,17 +55,33 @@ export function StepIdentity({ data, onUpdate }: StepIdentityProps) {
                     <p className="text-xs text-grey/50 mt-1">2–3 líneas bastan.</p>
                 </div>
 
-                <div className="w-full md:w-1/2">
-                    <label className="block text-sm font-bold text-grey-dark mb-1.5">Idioma</label>
-                    <Select
-                        options={[
-                            { label: "Español", value: "es" },
-                            { label: "English", value: "en" },
-                            { label: "Català", value: "ca" },
-                        ]}
-                        value={data.language}
-                        onChange={(e) => onUpdate("language", e.target.value)}
-                    />
+                <div className="flex gap-4">
+                    <div className="w-full md:w-1/2">
+                        <label className="block text-sm font-bold text-grey-dark mb-1.5">Idioma</label>
+                        <Select
+                            options={[
+                                { label: "Español", value: "es" },
+                                { label: "English", value: "en" },
+                                { label: "Català", value: "ca" },
+                            ]}
+                            value={data.language}
+                            onChange={(e) => onUpdate("language", e.target.value)}
+                        />
+                    </div>
+                    <div className="w-full md:w-1/2">
+                        <label className="block text-sm font-bold text-grey-dark mb-1.5">Precio (Opcional)</label>
+                        <div className="relative">
+                            <Input
+                                type="number"
+                                placeholder="0.00"
+                                value={data.price || ''}
+                                onChange={(e) => onUpdate("price", e.target.value)}
+                                className="pl-12"
+                            />
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-grey/60">€</span>
+                        </div>
+                        <p className="text-[10px] text-grey/50 mt-1">Deja vacío para gratuito.</p>
+                    </div>
                 </div>
             </div>
 

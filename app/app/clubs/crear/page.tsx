@@ -13,6 +13,8 @@ import { StepPace } from "@/components/clubs/create/StepPace";
 import { StepRules } from "@/components/clubs/create/StepRules";
 import { StepInvite } from "@/components/clubs/create/StepInvite";
 
+import { createClub } from "./actions";
+
 const STEPS = ["Identidad", "Libro", "Ritmo", "Normas", "Invitar"];
 
 export default function CreateClubPage() {
@@ -30,24 +32,35 @@ export default function CreateClubPage() {
         privacy: "public",
         maxMembers: "", // empty = unlimited
         checkpoints: [], // Array of { id, title, start, end, date }
-        spoilerPolicy: "levels"
+        spoilerPolicy: "levels",
+        rules: [
+            "Debatimos ideas, no personas.",
+            "Spoilers siempre marcados.",
+            "Citas cortas por respeto a derechos.",
+            "Si algo incomoda, repórtalo."
+        ]
     });
 
     const updateField = (field: string, value: any) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleNext = () => {
+    const handleNext = async () => {
         if (step < STEPS.length) {
             setStep(step + 1);
             window.scrollTo({ top: 0, behavior: "smooth" });
         } else {
             // Submit
-            console.log("Creating club:", formData);
-            // Simulate API call
-            setTimeout(() => {
-                router.push(`/app/clubs/mock-id?new=true`);
-            }, 500);
+            try {
+                const result = await createClub(formData);
+                if (result?.error) {
+                    alert(`Error: ${result.error}`);
+                    console.error("Server action error:", result.error);
+                }
+            } catch (error) {
+                console.error("Failed to create club", error);
+                alert("Error creando el club. Inténtalo de nuevo.");
+            }
         }
     };
 

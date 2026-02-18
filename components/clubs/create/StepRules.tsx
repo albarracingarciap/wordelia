@@ -65,22 +65,47 @@ export function StepRules({ data, onUpdate }: StepRulesProps) {
                     <p className="text-xs text-grey/50 mt-1">"Por niveles es lo más cómodo para cuidar a todo el mundo."</p>
                 </div>
 
-                {/* Rules List (Mock) */}
+                {/* Custom Rules List */}
                 <div>
                     <label className="block text-sm font-bold text-grey-dark mb-3">Normas de convivencia</label>
-                    <ul className="space-y-2">
-                        {[
-                            "Debatimos ideas, no personas.",
-                            "Spoilers siempre marcados.",
-                            "Citas cortas por respeto a derechos.",
-                            "Si algo incomoda, repórtalo."
-                        ].map((rule, i) => (
-                            <li key={i} className="flex items-center gap-2 text-sm text-grey">
-                                <span className="text-teal">•</span>
-                                {rule}
-                            </li>
+
+                    <div className="space-y-3 mb-4">
+                        {(data.rules || []).map((rule: string, i: number) => (
+                            <div key={i} className="flex items-start gap-2 group">
+                                <span className="text-teal mt-1.5">•</span>
+                                <input
+                                    className="flex-1 bg-transparent border-b border-transparent hover:border-grey/20 focus:border-teal focus:outline-none py-1 text-sm text-grey-dark"
+                                    value={rule}
+                                    onChange={(e) => {
+                                        const newRules = [...(data.rules || [])];
+                                        newRules[i] = e.target.value;
+                                        onUpdate("rules", newRules);
+                                    }}
+                                />
+                                <button
+                                    onClick={() => {
+                                        const newRules = (data.rules || []).filter((_: any, idx: number) => idx !== i);
+                                        onUpdate("rules", newRules);
+                                    }}
+                                    className="text-grey/20 hover:text-coral opacity-0 group-hover:opacity-100 transition-opacity p-1"
+                                    aria-label="Borrar norma"
+                                >
+                                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                                </button>
+                            </div>
                         ))}
-                    </ul>
+                    </div>
+
+                    <button
+                        onClick={() => {
+                            const newRules = [...(data.rules || []), ""];
+                            onUpdate("rules", newRules);
+                        }}
+                        className="text-xs font-bold text-teal hover:underline flex items-center gap-1"
+                    >
+                        <span className="text-lg leading-none">+</span> Añadir norma
+                    </button>
+                    <p className="text-xs text-grey/40 mt-2 italic">Puedes editar o borrar las sugeridas.</p>
                 </div>
             </div>
         </Card>
