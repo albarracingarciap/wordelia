@@ -8,14 +8,12 @@ import { Container } from "@/components/ui/Container";
 
 import { WizardStepper } from "@/components/clubs/create/WizardStepper";
 import { StepIdentity } from "@/components/clubs/create/StepIdentity";
-import { StepBook } from "@/components/clubs/create/StepBook";
-import { StepPace } from "@/components/clubs/create/StepPace";
 import { StepRules } from "@/components/clubs/create/StepRules";
 import { StepInvite } from "@/components/clubs/create/StepInvite";
 
 import { createClub } from "./actions";
 
-const STEPS = ["Identidad", "Libro", "Ritmo", "Normas", "Invitar"];
+const STEPS = ["Identidad", "Normas", "Invitar"];
 
 export default function CreateClubPage() {
     const router = useRouter();
@@ -25,13 +23,8 @@ export default function CreateClubPage() {
         description: "",
         language: "es",
         readingType: "guided", // or "analysis"
-        book: null, // { title, author, ... }
-        startDate: "",
-        pace: "Estándar (2 check/sem)",
-        progressMeasure: "pages",
         privacy: "public",
         maxMembers: "", // empty = unlimited
-        checkpoints: [], // Array of { id, title, start, end, date }
         spoilerPolicy: "levels",
         rules: [
             "Debatimos ideas, no personas.",
@@ -76,7 +69,6 @@ export default function CreateClubPage() {
     // Validation
     const isNextDisabled = () => {
         if (step === 1) return !formData.name; // Name required
-        if (step === 2) return !formData.book; // Book required
         return false;
     };
 
@@ -95,10 +87,8 @@ export default function CreateClubPage() {
 
                 <div className="mt-8 min-h-[400px]">
                     {step === 1 && <StepIdentity data={formData} onUpdate={updateField} />}
-                    {step === 2 && <StepBook data={formData} onUpdate={updateField} />}
-                    {step === 3 && <StepPace data={formData} onUpdate={updateField} />}
-                    {step === 4 && <StepRules data={formData} onUpdate={updateField} />}
-                    {step === 5 && <StepInvite data={formData} onUpdate={updateField} />}
+                    {step === 2 && <StepRules data={formData} onUpdate={updateField} />}
+                    {step === 3 && <StepInvite data={formData} onUpdate={updateField} />}
                 </div>
             </Container>
 

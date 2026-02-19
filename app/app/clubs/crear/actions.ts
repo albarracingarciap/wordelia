@@ -137,6 +137,8 @@ export async function createClub(data: any) {
 
     } catch (err: any) {
         console.error("Unknown error in createClub:", err);
+        // Log the full error object for debugging
+        console.dir(err, { depth: null });
         return { error: err.message || "Unknown error occurred" };
     }
 
