@@ -26,6 +26,7 @@ export default function CreateClubPage() {
         privacy: "public",
         maxMembers: "", // empty = unlimited
         spoilerPolicy: "levels",
+        tags: [] as string[],
         rules: [
             "Debatimos ideas, no personas.",
             "Spoilers siempre marcados.",
@@ -49,6 +50,8 @@ export default function CreateClubPage() {
                 if (result?.error) {
                     alert(`Error: ${result.error}`);
                     console.error("Server action error:", result.error);
+                } else if (result?.success && result?.clubId) {
+                    router.push(`/app/clubs/${result.clubId}`);
                 }
             } catch (error) {
                 console.error("Failed to create club", error);

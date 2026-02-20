@@ -83,6 +83,36 @@ export function StepIdentity({ data, onUpdate }: StepIdentityProps) {
                         <p className="text-[10px] text-grey/50 mt-1">Deja vacío para gratuito.</p>
                     </div>
                 </div>
+
+                <div>
+                    <label className="block text-sm font-bold text-grey-dark mb-1.5">Etiquetas</label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                        {data.tags?.map((tag: string) => (
+                            <span key={tag} className="bg-teal/10 text-teal-dark text-xs px-2 py-1 rounded-full flex items-center gap-1">
+                                {tag}
+                                <button
+                                    onClick={() => onUpdate("tags", data.tags.filter((t: string) => t !== tag))}
+                                    className="hover:text-red-500 font-bold"
+                                >
+                                    ×
+                                </button>
+                            </span>
+                        ))}
+                    </div>
+                    <Input
+                        placeholder="Escribe una etiqueta y pulsa Enter (ej. scifi, feminismo, clásico...)"
+                        onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                                e.preventDefault();
+                                const val = e.currentTarget.value.trim();
+                                if (val && !data.tags?.includes(val)) {
+                                    onUpdate("tags", [...(data.tags || []), val]);
+                                    e.currentTarget.value = "";
+                                }
+                            }
+                        }}
+                    />
+                </div>
             </div>
 
             <div className="mt-8 pt-6 border-t border-black/5 text-center">

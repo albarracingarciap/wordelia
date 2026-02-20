@@ -6,17 +6,24 @@ import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/Tabs";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { Container } from "@/components/ui/Container";
 
 import { ClubSummary } from "@/components/club/ClubSummary";
 import { ClubFeed } from "@/components/club/ClubFeed";
 import { ClubSidebar } from "@/components/club/ClubSidebar";
 import { ClubManagement } from "@/components/club/management/ClubManagement";
+import { ClubCheckpoints } from "@/components/club/ClubCheckpoints";
+import { getClubDetails } from "@/app/app/clubs/[id]/actions";
 
 export default function ClientPage() {
     const params = useParams();
     const router = useRouter();
-    const clubId = params.id; // Could fetch data based on this
+    const clubId = params.id as string;
+
+    const [club, setClub] = React.useState<any>(null);
+
+    React.useEffect(() => {
+        getClubDetails(clubId).then(setClub);
+    }, [clubId]);
 
     return (
         <div className="pb-20">
@@ -24,14 +31,13 @@ export default function ClientPage() {
             <div className="mb-8">
                 <SectionHeader
                     eyebrow="CLUB"
-                    title="Lectura Calmada" // Mock Data
-                    subtitle="Leyendo: Seda — Alessandro Baricco"
+                    title={club?.name || "Cargando..."}
+                    subtitle={club?.currentBook ? `Leyendo: ${club.currentBook.book?.title || ""}` : "Sin libro activo"}
                 >
-
                     <div className="flex flex-wrap gap-2 mt-2">
-                        <Badge variant="neutral">Privado</Badge>
-                        <Badge variant="brand">Spoilers: Niveles</Badge>
-                        <Badge variant="outline">Ritmo: 2 cap/sem</Badge>
+                        {club?.visibility && <Badge variant="neutral">{club.visibility === 'public' ? 'Público' : 'Privado'}</Badge>}
+                        {club?.spoiler_policy && <Badge variant="brand">Spoilers: Niveles</Badge>}
+                        {club?.pace_unit && <Badge variant="outline">Ritmo: {club.pace_unit}</Badge>}
                     </div>
                 </SectionHeader>
             </div>
@@ -50,7 +56,7 @@ export default function ClientPage() {
                         </TabsList>
 
                         <TabsContent value="summary">
-                            <ClubSummary />
+                            <ClubSummary club={club} />
                         </TabsContent>
 
                         <TabsContent value="feed">
@@ -58,12 +64,7 @@ export default function ClientPage() {
                         </TabsContent>
 
                         <TabsContent value="checkpoints">
-                            <div className="p-8 text-center border-2 border-dashed border-grey/10 rounded-xl">
-                                <p className="text-grey/60 mb-4">Consulta el plan detallado y accede a las guías de discusión.</p>
-                                <Button onClick={() => router.push(`/app/clubs/${clubId}/checkpoints`)} variant="primary">
-                                    Ver plan de lectura
-                                </Button>
-                            </div>
+                            <ClubCheckpoints club={club} />
                         </TabsContent>
 
                         <TabsContent value="announcements">

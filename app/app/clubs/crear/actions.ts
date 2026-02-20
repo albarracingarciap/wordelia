@@ -3,7 +3,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { Club } from '@/types/clubs';
 import { revalidatePath } from 'next/cache';
-import { redirect } from 'next/navigation';
 import { searchISBNdb, BookSearchResult } from '@/lib/isbndb';
 
 export async function searchBooks(query: string): Promise<BookSearchResult[]> {
@@ -54,7 +53,7 @@ export async function createClub(data: any) {
                 owner_id: user.id,
                 price: price,
                 currency: 'EUR',
-                tags: [],
+                tags: data.tags || [],
                 is_official: false,
                 is_archived: false,
                 rules: data.rules || [],
@@ -142,10 +141,10 @@ export async function createClub(data: any) {
         return { error: err.message || "Unknown error occurred" };
     }
 
-    // Success - redirect outside try/catch to avoid catching the redirect error
+    // Success
     if (clubId) {
         revalidatePath('/app/clubs');
-        redirect(`/app/clubs/${clubId}`);
+        return { success: true, clubId };
     }
 }
 

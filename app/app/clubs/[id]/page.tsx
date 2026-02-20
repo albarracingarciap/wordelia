@@ -1,16 +1,15 @@
-import ClientPage from "./ClientPage";
+import { ClubDashboard } from "@/components/club/ClubDashboard";
+import { getClubDetails, getActivePoll } from "./actions";
+import { notFound } from "next/navigation";
 
-export async function generateStaticParams() {
-    return [
-        { id: 'mock-id' },
-        { id: 'c1' },
-        { id: 'c2' },
-        { id: 'c3' },
-        { id: 'c4' },
-        { id: 'c5' }
-    ];
-}
+export default async function Page({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+    const [club, activePoll] = await Promise.all([
+        getClubDetails(id),
+        getActivePoll(id)
+    ]);
 
-export default function Page() {
-    return <ClientPage />;
+    if (!club) return notFound();
+
+    return <ClubDashboard club={club} activePoll={activePoll} />;
 }

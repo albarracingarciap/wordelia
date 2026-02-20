@@ -6,7 +6,40 @@ import { Button } from "../ui/Button";
 import { CheckpointDetailModal } from "./CheckpointDetailModal";
 import { TabsContext } from "../ui/Tabs";
 
-export function ClubSummary() {
+interface Checkpoint {
+    id: string;
+    title: string;
+    start: string;
+    end: string;
+    date?: string; // deadline ISO string e.g. "2026-02-23"
+}
+
+function getActiveCheckpoint(checkpoints: Checkpoint[]): { checkpoint: Checkpoint; index: number } | null {
+    if (!checkpoints || checkpoints.length === 0) return null;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Find the first checkpoint whose deadline hasn't passed yet
+    for (let i = 0; i < checkpoints.length; i++) {
+        const chk = checkpoints[i];
+        if (!chk.date) return { checkpoint: chk, index: i }; // No deadline → treat as active
+        const deadline = new Date(chk.date);
+        deadline.setHours(23, 59, 59, 999);
+        if (deadline >= today) return { checkpoint: chk, index: i };
+    }
+
+    // All deadlines passed → show last one
+    return { checkpoint: checkpoints[checkpoints.length - 1], index: checkpoints.length - 1 };
+}
+
+function formatDeadline(dateStr?: string): string {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    return `Vence: ${date.toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'short' })}`;
+}
+
+export function ClubSummary({ club }: { club?: any }) {
     const params = useParams();
     const clubId = params.id;
     const [isCheckpointModalOpen, setIsCheckpointModalOpen] = React.useState(false);
@@ -18,6 +51,23 @@ export function ClubSummary() {
         }
     };
 
+    // Compute active checkpoint from real data
+    const checkpoints: Checkpoint[] = club?.currentBook?.checkpoints || [];
+    const unitLabel = club?.currentBook?.pace_unit || "p.";
+    const activeResult = getActiveCheckpoint(checkpoints);
+    const activeCheckpoint = activeResult?.checkpoint || null;
+    const activeIndex = activeResult?.index ?? 0;
+
+    // Progress: e.g. start=1, end=45, unit is pages. Show range.
+    const progressStart = activeCheckpoint?.start || "1";
+    const progressEnd = activeCheckpoint?.end || "?";
+    // We calculate progress as position in the checkpoint list (e.g. 1 of 5 = 20%)
+    const progressPercent = checkpoints.length > 1
+        ? Math.round(((activeIndex) / (checkpoints.length - 1)) * 100)
+        : 50;
+
+    const hasCheckpoints = checkpoints.length > 0;
+
     return (
         <div className="space-y-6">
             {/* Progress Card */}
@@ -25,42 +75,66 @@ export function ClubSummary() {
                 <div className="flex justify-between items-start mb-4">
                     <div>
                         <h3 className="font-serif text-lg text-teal-dark font-bold">Dónde estamos</h3>
-                        <p className="text-sm text-grey/60">Checkpoint 1: El Comienzo</p>
+                        {hasCheckpoints ? (
+                            <p className="text-sm text-grey/60">
+                                Checkpoint {activeIndex + 1}: {activeCheckpoint?.title}
+                            </p>
+                        ) : (
+                            <p className="text-sm text-grey/40 italic">Sin checkpoints definidos</p>
+                        )}
                     </div>
-                    <span className="text-[10px] uppercase font-bold text-coral bg-coral/5 px-2 py-1 rounded">Vence: Domingo</span>
+                    {activeCheckpoint?.date && (
+                        <span className="text-[10px] uppercase font-bold text-coral bg-coral/5 px-2 py-1 rounded">
+                            {formatDeadline(activeCheckpoint.date)}
+                        </span>
+                    )}
                 </div>
 
-                <div className="mb-4">
-                    <div className="flex justify-between text-xs text-grey mb-1">
-                        <span>p. 1</span>
-                        <span className="font-bold text-teal">p. 45</span>
+                {hasCheckpoints && (
+                    <div className="mb-4">
+                        <div className="flex justify-between text-xs text-grey mb-1">
+                            <span>{unitLabel} {progressStart}</span>
+                            <span className="font-bold text-teal">{unitLabel} {progressEnd}</span>
+                        </div>
+                        <div className="h-2 bg-grey/10 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-teal rounded-full transition-all duration-500"
+                                style={{ width: `${Math.max(5, progressPercent)}%` }}
+                            />
+                        </div>
+                        <p className="text-[10px] text-grey/40 mt-1 text-right">
+                            Checkpoint {activeIndex + 1} de {checkpoints.length}
+                        </p>
                     </div>
-                    <div className="h-2 bg-grey/10 rounded-full overflow-hidden">
-                        <div className="h-full bg-teal w-[35%] rounded-full"></div>
-                    </div>
-                </div>
+                )}
 
                 <div className="flex gap-3">
-                    <Button size="sm" variant="primary" className="text-xs" onClick={() => setIsCheckpointModalOpen(true)}>
-                        Ir al checkpoint
-                    </Button>
+                    {hasCheckpoints && (
+                        <Button size="sm" variant="primary" className="text-xs" onClick={() => setIsCheckpointModalOpen(true)}>
+                            Ir al checkpoint
+                        </Button>
+                    )}
                     <Button size="sm" variant="ghost" className="text-xs" onClick={handleViewFullPlan}>
                         Ver plan completo
                     </Button>
                 </div>
             </Card>
 
-            <CheckpointDetailModal
-                isOpen={isCheckpointModalOpen}
-                onClose={() => setIsCheckpointModalOpen(false)}
-                checkpoint={{
-                    title: "Checkpoint 1: El Comienzo",
-                    range: "p. 1 - 45",
-                    deadline: "Domingo"
-                }}
-            />
+            {activeCheckpoint && (
+                <CheckpointDetailModal
+                    isOpen={isCheckpointModalOpen}
+                    onClose={() => setIsCheckpointModalOpen(false)}
+                    checkpoint={{
+                        title: `Checkpoint ${activeIndex + 1}: ${activeCheckpoint.title}`,
+                        range: `${unitLabel} ${progressStart} - ${progressEnd}`,
+                        deadline: activeCheckpoint.date
+                            ? new Date(activeCheckpoint.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
+                            : undefined
+                    }}
+                />
+            )}
 
-            {/* Next Session */}
+            {/* Next Session — still placeholder until sessions table exists */}
             <Card>
                 <div className="flex items-center gap-4">
                     <div className="w-12 h-12 rounded-xl bg-orange-100/50 text-orange-800 flex flex-col items-center justify-center border border-orange-200">
@@ -84,7 +158,7 @@ export function ClubSummary() {
 
             {/* AI Tools */}
             <div className="space-y-3">
-                <h4 className="text-sm font-bold text-grey/40 uppercase tracking-widest pl-1">ADN Literario</h4>
+                <h4 className="text-sm font-bold text-grey/40 uppercase tracking-widest pl-1">Recursos</h4>
 
                 {[
                     { title: "ADN del libro", desc: "Temas, símbolos y voz narrativa.", color: "bg-purple-50 text-purple-700" },

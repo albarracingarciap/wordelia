@@ -3,7 +3,7 @@ import { GeneralSettings } from "./GeneralSettings";
 import { MembersList } from "./MembersList";
 import { PlanEditor } from "./PlanEditor";
 
-export function ClubManagement() {
+export function ClubManagement({ club }: { club?: any }) {
     const [activeTab, setActiveTab] = React.useState<"general" | "members" | "plan">("general");
 
     const tabs = [
@@ -22,8 +22,8 @@ export function ClubManagement() {
                             key={tab.id}
                             onClick={() => setActiveTab(tab.id)}
                             className={`w-full text-left px-4 py-2 rounded-lg text-sm font-bold transition-colors ${activeTab === tab.id
-                                    ? "bg-teal text-white shadow-sm"
-                                    : "text-grey/60 hover:bg-black/5 hover:text-black"
+                                ? "bg-teal text-white shadow-sm"
+                                : "text-grey/60 hover:bg-black/5 hover:text-black"
                                 }`}
                         >
                             {tab.label}
@@ -34,9 +34,9 @@ export function ClubManagement() {
 
             {/* Content Area */}
             <div className="md:col-span-9">
-                {activeTab === "general" && <GeneralSettings />}
+                {activeTab === "general" && <GeneralSettings club={club} />}
                 {activeTab === "members" && <MembersList />}
-                {activeTab === "plan" && <PlanEditor />}
+                {activeTab === "plan" && <PlanEditor club={club} />}
             </div>
         </div>
     );

@@ -31,7 +31,7 @@ export function SpoilerGuard({ children, level, userPreference = "hide_all", cla
     }
 
     return (
-        <div className={`relative rounded-lg overflow-hidden bg-grey/5 border border-grey/10 p-4 ${className}`}>
+        <div className={`relative rounded-lg overflow-hidden bg-grey/5 border border-grey/10 p-4 min-h-[120px] ${className}`}>
             <div className="absolute inset-0 backdrop-blur-sm bg-white/60 z-10 flex flex-col items-center justify-center text-center p-4">
                 <div className="mb-2">
                     <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded ${level === 'strict' ? 'bg-coral text-white' : 'bg-orange-100 text-orange-800'}`}>

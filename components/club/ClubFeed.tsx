@@ -1,70 +1,215 @@
+"use client";
+
 import * as React from "react";
 import { Button } from "../ui/Button";
 import { PostCard } from "./PostCard";
 import { Chip } from "../ui/Chip";
+import { Switch } from "@/components/ui/Switch";
+import { getClubPosts, createPost, toggleLike, deletePost, getClubCheckpoints } from "@/app/app/clubs/[id]/actions";
+import { useParams, useRouter } from "next/navigation";
+import { Avatar } from "@/components/ui/Avatar";
 
-const MOCK_POSTS = [
-    {
-        id: "p1",
-        author: { name: "Sofía M.", avatar: "/assets/images/user_avatar.png" }, // Mock avatar
-        date: "Hace 2h",
-        content: "Me está encantando la atmósfera del capítulo 3, es envolvente. ¿Alguien más notó la referencia a la naturaleza como personaje?",
-        likesCount: 5,
-        repliesCount: 2,
-        spoilerLevel: "none" as const
-    },
-    {
-        id: "p2",
-        author: { name: "Carlos R." },
-        date: "Hace 5h",
-        content: "OMG el final del capítulo 5... no me esperaba ese giro con el personaje de Hervé. Me dejó helado.",
-        likesCount: 12,
-        repliesCount: 8,
-        spoilerLevel: "strict" as const
-    },
-    {
-        id: "p3",
-        author: { name: "Ana (Mod)" },
-        date: "Ayer",
-        content: "Recordatorio: El domingo tenemos sesión para comentar hasta el Checkpoint 1. Traed vuestras teorías.",
-        likesCount: 20,
-        isAnnouncement: true,
-        spoilerLevel: "none" as const
-    }
-];
+type Checkpoint = { id: string; title: string; start: string; end: string; date?: string };
 
 export function ClubFeed() {
+    const params = useParams();
+    const router = useRouter();
+    const clubId = params.id as string;
+
+    const [posts, setPosts] = React.useState<any[]>([]);
+    const [isLoading, setIsLoading] = React.useState(true);
+    const [showSpoilers, setShowSpoilers] = React.useState(false);
+    const [newPostContent, setNewPostContent] = React.useState("");
+    const [isPosting, setIsPosting] = React.useState(false);
+    const [isSpoilerPost, setIsSpoilerPost] = React.useState(false);
+    const [isAnnouncementPost, setIsAnnouncementPost] = React.useState(false);
+    const [filter, setFilter] = React.useState<'all' | 'checkpoints' | 'announcements'>('all');
+
+    // Checkpoints
+    const [checkpoints, setCheckpoints] = React.useState<Checkpoint[]>([]);
+    const [selectedCheckpointId, setSelectedCheckpointId] = React.useState<string>("");
+
+    // Fetch posts
+    const loadPosts = React.useCallback(async () => {
+        setIsLoading(true);
+        const data = await getClubPosts(clubId);
+        setPosts(data);
+        setIsLoading(false);
+    }, [clubId]);
+
+    React.useEffect(() => {
+        loadPosts();
+        getClubCheckpoints(clubId).then(setCheckpoints);
+    }, [loadPosts, clubId]);
+
+    const handleCreatePost = async () => {
+        if (!newPostContent.trim()) return;
+        setIsPosting(true);
+
+        // Find checkpoint index (1-based position in array) by matching id
+        let checkpointIndex: number | undefined = undefined;
+        if (selectedCheckpointId) {
+            const idx = checkpoints.findIndex(c => c.id === selectedCheckpointId);
+            if (idx !== -1) checkpointIndex = idx + 1;
+        }
+
+        const result = await createPost(clubId, newPostContent, isSpoilerPost, checkpointIndex, isAnnouncementPost);
+
+        if (result?.error) {
+            alert("Error: " + result.error);
+        } else {
+            setNewPostContent("");
+            setIsSpoilerPost(false);
+            setIsAnnouncementPost(false);
+            setSelectedCheckpointId("");
+            loadPosts();
+            router.refresh();
+        }
+        setIsPosting(false);
+    };
+
+    const handleLike = async (postId: string) => {
+        setPosts(current => current.map(p => {
+            if (p.id === postId) {
+                return {
+                    ...p,
+                    isLiked: !p.isLiked,
+                    likesCount: p.isLiked ? p.likesCount - 1 : p.likesCount + 1
+                };
+            }
+            return p;
+        }));
+        await toggleLike(postId);
+        router.refresh();
+    };
+
+    const handleDelete = async (postId: string) => {
+        if (!confirm("¿Eliminar este comentario?")) return;
+        const result = await deletePost(postId);
+        if (result?.success) {
+            setPosts(current => current.filter(p => p.id !== postId));
+            router.refresh();
+        } else {
+            alert("No se pudo eliminar.");
+        }
+    };
+
+    const filteredPosts = posts.filter(post => {
+        if (filter === 'announcements') return post.isAnnouncement;
+        if (filter === 'checkpoints') return post.checkpointIndex != null;
+        return true;
+    });
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <div className="flex gap-2">
-                    <Chip label="Todo" active />
-                    <Chip label="Checkpoints" />
-                    <Chip label="Anuncios" />
+                    <Chip label="Todo" active={filter === 'all'} onClick={() => setFilter('all')} />
+                    <Chip label="Checkpoints" active={filter === 'checkpoints'} onClick={() => setFilter('checkpoints')} />
+                    <Chip label="Anuncios" active={filter === 'announcements'} onClick={() => setFilter('announcements')} />
                 </div>
                 <div className="flex items-center gap-2">
-                    <span className="text-xs text-grey/60">Ocultar spoilers</span>
-                    {/* Toggle Mock */}
-                    <div className="w-8 h-4 bg-teal rounded-full relative cursor-pointer">
-                        <div className="w-3 h-3 bg-white rounded-full absolute top-0.5 right-0.5 shadow-sm"></div>
-                    </div>
+                    <span className="text-xs text-grey/60">Mostrar spoilers</span>
+                    <Switch checked={showSpoilers} onCheckedChange={setShowSpoilers} />
                 </div>
             </div>
 
-            <div className="bg-white p-4 rounded-xl border border-black/5 shadow-sm flex gap-4 items-center cursor-pointer hover:bg-grey/5 transition-colors">
-                <div className="w-8 h-8 rounded-full bg-teal/10 flex items-center justify-center text-teal font-bold text-xs">A</div>
-                <div className="flex-1 text-grey/50 text-sm">Comparte una idea, una pregunta o una sensación...</div>
-                <Button size="sm" variant="ghost">Publicar</Button>
+            {/* Create Post Input */}
+            <div className="bg-white p-4 rounded-xl border border-black/5 shadow-sm space-y-3">
+                <div className="flex gap-4">
+                    <Avatar fallback="YO" className="w-8 h-8 text-xs bg-teal/10 text-teal" />
+                    <textarea
+                        className="flex-1 bg-transparent border-none resize-none focus:ring-0 text-sm placeholder:text-grey/40 min-h-[60px]"
+                        placeholder="Comparte una idea, una pregunta o una sensación..."
+                        value={newPostContent}
+                        onChange={(e) => setNewPostContent(e.target.value)}
+                    />
+                </div>
+
+                {/* Checkpoint selector */}
+                <div className="border-t border-grey/5 pt-2">
+                    {checkpoints.length === 0 ? (
+                        <p className="text-xs text-grey/40 italic">No se han definido checkpoints para este libro.</p>
+                    ) : (
+                        <div className="flex items-center gap-2">
+                            <span className="text-xs text-grey/60 shrink-0">Checkpoint:</span>
+                            <select
+                                value={selectedCheckpointId}
+                                onChange={(e) => setSelectedCheckpointId(e.target.value)}
+                                className="text-xs text-grey/80 bg-transparent border border-grey/20 rounded-lg px-2 py-1 focus:outline-none focus:ring-1 focus:ring-teal/30 cursor-pointer"
+                            >
+                                <option value="">Sin checkpoint</option>
+                                {checkpoints.map((chk, idx) => (
+                                    <option key={chk.id} value={chk.id}>
+                                        #{idx + 1} – {chk.title}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    )}
+                </div>
+
+                <div className="flex justify-between items-center pt-1 border-t border-grey/5">
+                    <div className="flex items-center gap-4">
+                        <label className="flex items-center gap-2 cursor-pointer text-xs text-grey/60 hover:text-grey-dark">
+                            <input
+                                type="checkbox"
+                                checked={isSpoilerPost}
+                                onChange={(e) => setIsSpoilerPost(e.target.checked)}
+                                className="rounded text-teal focus:ring-teal/20"
+                            />
+                            Contiene spoilers
+                        </label>
+
+                        <label className="flex items-center gap-2 cursor-pointer text-xs text-grey/60 hover:text-grey-dark">
+                            <input
+                                type="checkbox"
+                                checked={isAnnouncementPost}
+                                onChange={(e) => setIsAnnouncementPost(e.target.checked)}
+                                className="rounded text-teal focus:ring-teal/20"
+                            />
+                            Es Anuncio
+                        </label>
+                    </div>
+                    <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleCreatePost}
+                        disabled={!newPostContent.trim() || isPosting}
+                    >
+                        {isPosting ? "Publicando..." : "Publicar"}
+                    </Button>
+                </div>
             </div>
 
             <div className="space-y-4">
-                {MOCK_POSTS.map(post => (
-                    <PostCard key={post.id} {...post} />
-                ))}
-            </div>
-
-            <div className="text-center pt-4">
-                <Button variant="ghost" className="text-grey/50">Cargar más</Button>
+                {isLoading ? (
+                    <div className="text-center py-8 text-grey/40 text-sm">Cargando conversación...</div>
+                ) : filteredPosts.length > 0 ? (
+                    filteredPosts.map(post => {
+                        const checkpointLabel = post.checkpointIndex != null
+                            ? checkpoints[post.checkpointIndex - 1]?.title
+                                ? `#${post.checkpointIndex} – ${checkpoints[post.checkpointIndex - 1].title}`
+                                : `Checkpoint ${post.checkpointIndex}`
+                            : undefined;
+                        return (
+                            <PostCard
+                                key={post.id}
+                                {...post}
+                                checkpointLabel={checkpointLabel}
+                                globalShowSpoilers={showSpoilers}
+                                onLike={() => handleLike(post.id)}
+                                onDelete={post.isAuthor || post.isAnnouncement ? () => handleDelete(post.id) : undefined}
+                            />
+                        );
+                    })
+                ) : (
+                    <div className="text-center py-8 text-grey/40 text-sm">
+                        {filter === 'checkpoints' ? 'No hay posts vinculados a checkpoints.' :
+                            filter === 'announcements' ? 'No hay anuncios.' :
+                                'Sé el primero en comentar.'}
+                    </div>
+                )}
             </div>
         </div>
     );
