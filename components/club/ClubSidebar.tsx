@@ -55,7 +55,7 @@ export function ClubSidebar({ club, activePoll, onOpenCreatePoll }: ClubSidebarP
             </div>
             <div className="p-4 text-center">
                 <h3 className="font-serif font-bold text-lg text-grey-dark">{currentBook?.title || "Libro Desconocido"}</h3>
-                <p className="text-sm text-grey/60 mb-4">{currentBook?.authors?.name || "Autor Desconocido"}</p>
+                <p className="text-sm text-grey/60 mb-4">{currentBook?.author?.name || "Autor desconocido"}</p>
                 <div className="flex justify-center gap-2">
                     <Button variant="outline" size="sm" className="w-full" onClick={() => setIsBookModalOpen(true)}>Ver ficha</Button>
                 </div>

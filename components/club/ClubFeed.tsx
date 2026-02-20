@@ -11,7 +11,7 @@ import { Avatar } from "@/components/ui/Avatar";
 
 type Checkpoint = { id: string; title: string; start: string; end: string; date?: string };
 
-export function ClubFeed() {
+export function ClubFeed({ isAdminOrMod = false }: { isAdminOrMod?: boolean }) {
     const params = useParams();
     const router = useRouter();
     const clubId = params.id as string;
@@ -161,15 +161,17 @@ export function ClubFeed() {
                             Contiene spoilers
                         </label>
 
-                        <label className="flex items-center gap-2 cursor-pointer text-xs text-grey/60 hover:text-grey-dark">
-                            <input
-                                type="checkbox"
-                                checked={isAnnouncementPost}
-                                onChange={(e) => setIsAnnouncementPost(e.target.checked)}
-                                className="rounded text-teal focus:ring-teal/20"
-                            />
-                            Es Anuncio
-                        </label>
+                        {isAdminOrMod && (
+                            <label className="flex items-center gap-2 cursor-pointer text-xs text-grey/60 hover:text-grey-dark">
+                                <input
+                                    type="checkbox"
+                                    checked={isAnnouncementPost}
+                                    onChange={(e) => setIsAnnouncementPost(e.target.checked)}
+                                    className="rounded text-teal focus:ring-teal/20"
+                                />
+                                Es Anuncio
+                            </label>
+                        )}
                     </div>
                     <Button
                         size="sm"
@@ -199,7 +201,7 @@ export function ClubFeed() {
                                 checkpointLabel={checkpointLabel}
                                 globalShowSpoilers={showSpoilers}
                                 onLike={() => handleLike(post.id)}
-                                onDelete={post.isAuthor || post.isAnnouncement ? () => handleDelete(post.id) : undefined}
+                                onDelete={post.isAuthor || isAdminOrMod ? () => handleDelete(post.id) : undefined}
                             />
                         );
                     })

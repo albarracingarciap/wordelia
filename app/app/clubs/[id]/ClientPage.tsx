@@ -35,7 +35,7 @@ export default function ClientPage() {
                     subtitle={club?.currentBook ? `Leyendo: ${club.currentBook.book?.title || ""}` : "Sin libro activo"}
                 >
                     <div className="flex flex-wrap gap-2 mt-2">
-                        {club?.visibility && <Badge variant="neutral">{club.visibility === 'public' ? 'Público' : 'Privado'}</Badge>}
+                        {club?.visibility && <Badge variant="neutral">{club.visibility === 'public' ? 'Público' : club.visibility === 'secret' ? 'Secreto' : 'Privado'}</Badge>}
                         {club?.spoiler_policy && <Badge variant="brand">Spoilers: Niveles</Badge>}
                         {club?.pace_unit && <Badge variant="outline">Ritmo: {club.pace_unit}</Badge>}
                     </div>

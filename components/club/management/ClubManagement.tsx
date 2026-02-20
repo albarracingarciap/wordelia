@@ -35,7 +35,7 @@ export function ClubManagement({ club }: { club?: any }) {
             {/* Content Area */}
             <div className="md:col-span-9">
                 {activeTab === "general" && <GeneralSettings club={club} />}
-                {activeTab === "members" && <MembersList />}
+                {activeTab === "members" && <MembersList club={club} />}
                 {activeTab === "plan" && <PlanEditor club={club} />}
             </div>
         </div>

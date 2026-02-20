@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/Card";
 import { ClubCard } from "@/components/clubs/ClubCard";
 import { JoinClubModal } from "@/components/clubs/JoinClubModal";
 import { ClubFilters } from "@/components/clubs/ClubFilters";
+import { unarchiveClub } from "@/app/app/clubs/[id]/actions";
 
 interface ClubsPageClientProps {
     activeClubs: any[];
@@ -22,6 +23,18 @@ export default function ClubsPageClient({ activeClubs, archivedClubs, exploreClu
     const [isJoinModalOpen, setIsJoinModalOpen] = React.useState(false);
     const router = useRouter();
     const [showArchived, setShowArchived] = React.useState(false);
+    const [localArchived, setLocalArchived] = React.useState(archivedClubs);
+    const [unarchiving, setUnarchiving] = React.useState<string | null>(null);
+
+    const handleUnarchive = async (clubId: string) => {
+        setUnarchiving(clubId);
+        const result = await unarchiveClub(clubId);
+        setUnarchiving(null);
+        if (!result?.error) {
+            setLocalArchived(prev => prev.filter(c => c.id !== clubId));
+            router.refresh();
+        }
+    };
 
     return (
         <div className="pb-20">
@@ -91,11 +104,25 @@ export default function ClubsPageClient({ activeClubs, archivedClubs, exploreClu
                             </h3>
                             {showArchived && (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 opacity-75">
-                                    {archivedClubs.map(club => (
-                                        <ClubCard key={club.id} {...club}
-                                            badges={club.tags ? club.tags.map((t: string) => ({ label: t })) : []}
-                                            preview
-                                        />
+                                    {localArchived.map(club => (
+                                        <div key={club.id} className="relative">
+                                            <ClubCard {...club}
+                                                badges={club.tags ? club.tags.map((t: string) => ({ label: t })) : []}
+                                                preview
+                                            />
+                                            {/* Reactivar overlay button */}
+                                            {club.isAdmin && (
+                                                <div className="absolute bottom-4 right-4 z-10">
+                                                    <button
+                                                        onClick={() => handleUnarchive(club.id)}
+                                                        disabled={unarchiving === club.id}
+                                                        className="text-xs font-bold text-teal bg-white border border-teal/30 hover:bg-teal hover:text-white px-3 py-1.5 rounded-full shadow-sm transition-all disabled:opacity-50"
+                                                    >
+                                                        {unarchiving === club.id ? 'Reactivando...' : '↑ Reactivar'}
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </div>
                                     ))}
                                 </div>
                             )}

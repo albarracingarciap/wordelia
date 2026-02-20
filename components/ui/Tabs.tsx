@@ -3,7 +3,9 @@
 import * as React from "react";
 
 interface TabsProps {
-    defaultValue: string;
+    defaultValue?: string;
+    value?: string;
+    onValueChange?: (value: string) => void;
     children: React.ReactNode;
     className?: string;
 }
@@ -32,11 +34,22 @@ export const TabsContext = React.createContext<{
     onChange: (value: string) => void;
 } | null>(null);
 
-export function Tabs({ defaultValue, children, className = "" }: TabsProps) {
-    const [value, setValue] = React.useState(defaultValue);
+export function Tabs({ defaultValue = "", value: controlledValue, onValueChange, children, className = "" }: TabsProps) {
+    const [internalValue, setInternalValue] = React.useState(controlledValue ?? defaultValue);
+
+    // Sync when controlled value changes (e.g. on initial render after useSearchParams resolves)
+    React.useEffect(() => {
+        if (controlledValue !== undefined) setInternalValue(controlledValue);
+    }, [controlledValue]);
+
+    const value = controlledValue !== undefined ? controlledValue : internalValue;
+    const onChange = (v: string) => {
+        if (onValueChange) onValueChange(v);
+        else setInternalValue(v);
+    };
 
     return (
-        <TabsContext.Provider value={{ value, onChange: setValue }}>
+        <TabsContext.Provider value={{ value, onChange }}>
             <div className={`w-full ${className}`}>
                 {children}
             </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useSearchParams } from "next/navigation";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -12,6 +13,7 @@ import { ClubFeed } from "@/components/club/ClubFeed";
 import { ClubSidebar } from "@/components/club/ClubSidebar";
 import { ClubManagement } from "@/components/club/management/ClubManagement";
 import { ClubCheckpoints } from "@/components/club/ClubCheckpoints";
+import { ClubAnnouncements } from "@/components/club/ClubAnnouncements";
 import { startReading, createPoll } from "@/app/app/clubs/[id]/actions";
 
 import { SearchBookModal } from "@/components/club/management/SearchBookModal";
@@ -25,11 +27,24 @@ interface ClubDashboardProps {
 }
 
 export function ClubDashboard({ club, activePoll }: ClubDashboardProps) {
+    // No data = club is private/secret and user is not a member
+    if (!club) {
+        return (
+            <div className="min-h-[50vh] flex flex-col items-center justify-center text-center space-y-4 py-20">
+                <div className="w-16 h-16 rounded-full bg-grey/10 flex items-center justify-center text-3xl">🔒</div>
+                <h2 className="font-serif text-2xl text-grey-dark font-bold">Club privado</h2>
+                <p className="text-sm text-grey/60 max-w-xs">Este club es privado o secreto. Necesitas una invitación para acceder a su contenido.</p>
+            </div>
+        );
+    }
+
     const isAdmin = club.userRole === 'admin' || club.userRole === 'moderator';
     const hasActiveBook = !!club.currentBook;
 
     // View State Handlers
-    const [activeTab, setActiveTab] = React.useState("summary");
+    const searchParams = useSearchParams();
+    const initialTab = searchParams.get('tab') === 'manage' ? 'manage' : 'summary';
+    const [activeTab, setActiveTab] = React.useState(initialTab);
     const [isSearchModalOpen, setIsSearchModalOpen] = React.useState(false);
     const [isCreatePollModalOpen, setIsCreatePollModalOpen] = React.useState(false);
     const [selectedBook, setSelectedBook] = React.useState<BookSearchResult | null>(null);
@@ -75,7 +90,7 @@ export function ClubDashboard({ club, activePoll }: ClubDashboardProps) {
             >
                 <div className="flex flex-wrap gap-2 mt-2">
                     <Badge variant={club.visibility === 'private' ? 'neutral' : 'brand'}>
-                        {club.visibility === 'private' ? 'Privado' : 'Público'}
+                        {club.visibility === 'private' ? 'Privado' : club.visibility === 'secret' ? 'Secreto' : 'Público'}
                     </Badge>
                     {club.tags?.map((tag: string) => (
                         <Badge key={tag} variant="outline">{tag}</Badge>
@@ -179,7 +194,7 @@ export function ClubDashboard({ club, activePoll }: ClubDashboardProps) {
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
                 {/* Main Content */}
                 <div className="lg:col-span-8">
-                    <Tabs defaultValue="summary">
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
                         <TabsList className="mb-6 sticky top-[64px] z-20 bg-cream/95 backdrop-blur shadow-sm -mx-4 px-4 md:mx-0 md:px-0 md:shadow-none md:bg-transparent md:static">
                             <TabsTrigger value="summary">Resumen</TabsTrigger>
                             <TabsTrigger value="feed">Conversación</TabsTrigger>
@@ -195,7 +210,7 @@ export function ClubDashboard({ club, activePoll }: ClubDashboardProps) {
                         </TabsContent>
 
                         <TabsContent value="feed">
-                            <ClubFeed />
+                            <ClubFeed isAdminOrMod={isAdmin} />
                         </TabsContent>
 
                         <TabsContent value="checkpoints">
@@ -203,7 +218,7 @@ export function ClubDashboard({ club, activePoll }: ClubDashboardProps) {
                         </TabsContent>
 
                         <TabsContent value="announcements">
-                            <EmptyState title="No hay anuncios" description="El tablón está vacío por ahora." />
+                            <ClubAnnouncements club={club} />
                         </TabsContent>
 
                         {isAdmin && (

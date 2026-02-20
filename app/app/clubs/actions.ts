@@ -19,9 +19,13 @@ export async function getUserClubs() {
             role,
             clubs (
                 *,
+                owner:profiles!owner_id(full_name, avatar_url),
                 current_book: club_books(
                     *,
-                    book: books(*)
+                    book: books(
+                        *,
+                        author:authors(name)
+                    )
                 )
             )
         `)
@@ -50,16 +54,19 @@ export async function getUserClubs() {
 
         return {
             ...club,
-            members: Array(count || 0).fill({}), // Just for count visuals in mock UI if needed, or just send count
+            members: Array(count || 0).fill({}),
             memberCount: count || 0,
+            ownerAvatar: club.owner?.avatar_url || null,
+            ownerName: club.owner?.full_name || null,
             currentBook: currentBook ? {
                 title: currentBook.book?.title,
-                author: currentBook.book?.author_id, // TODO: Fetch author name if relation exists or fetch from authors table
+                author: currentBook.book?.author?.name || null,
                 coverUrl: currentBook.book?.cover_url
             } : null,
             role: m.role,
-            isMember: true,
-            isAdmin: m.role === 'admin' || m.role === 'moderator' // Simplified for UI
+            membershipRole: m.role, // includes 'pending'
+            isMember: m.role !== 'pending',
+            isAdmin: m.role === 'admin' || m.role === 'moderator'
         };
     }));
 
@@ -77,9 +84,13 @@ export async function getExploreClubs(search?: string, tags?: string[]) {
         .from('clubs')
         .select(`
             *,
+            owner:profiles!owner_id(full_name, avatar_url),
             current_book: club_books(
                 *,
-                book: books(*)
+                book: books(
+                    *,
+                    author:authors(name)
+                )
             )
         `)
         .eq('visibility', 'public')
@@ -115,9 +126,11 @@ export async function getExploreClubs(search?: string, tags?: string[]) {
         return {
             ...club,
             memberCount: count,
+            ownerAvatar: club.owner?.avatar_url || null,
+            ownerName: club.owner?.full_name || null,
             currentBook: currentBook ? {
                 title: currentBook.book?.title,
-                author: currentBook.book?.author_id,
+                author: currentBook.book?.author?.name || null,
                 coverUrl: currentBook.book?.cover_url
             } : null,
         };

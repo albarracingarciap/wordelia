@@ -18,7 +18,10 @@ export async function getClubDetails(clubId: string) {
             members:club_members(count),
             current_book:club_books(
                 *,
-                book:books(*)
+                book:books(
+                    *,
+                    author:authors(name)
+                )
             )
         `)
         .eq('id', clubId)
@@ -37,7 +40,12 @@ export async function getClubDetails(clubId: string) {
         .eq('user_id', user.id)
         .single();
 
-    // 3. Transform Data for UI
+    // 3. Access control: private/secret clubs require membership
+    if (club.visibility !== 'public' && (!membership || membership.role === 'pending')) {
+        return null;
+    }
+
+    // 4. Transform Data for UI
     const currentBook = Array.isArray(club.current_book)
         ? club.current_book.find((b: any) => b.status === 'current')
         : null;
@@ -52,6 +60,127 @@ export async function getClubDetails(clubId: string) {
         userRole: membership?.role || null, // 'admin', 'moderator', 'member' or null
         isMember: !!membership,
     };
+}
+
+export async function archiveClub(clubId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autenticado' };
+
+    const { data: membership } = await supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (membership?.role !== 'admin') return { error: 'Solo el administrador puede archivar el club' };
+
+    const { error } = await supabase
+        .from('clubs')
+        .update({ is_archived: true })
+        .eq('id', clubId);
+
+    if (error) {
+        console.error('[archiveClub] error:', error);
+        return { error: error.message };
+    }
+
+    revalidatePath('/app/clubs');
+    revalidatePath(`/app/clubs/${clubId}`);
+    return { success: true };
+}
+
+export async function unarchiveClub(clubId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autenticado' };
+
+    const { data: membership } = await supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (membership?.role !== 'admin') return { error: 'Solo el administrador puede reactivar el club' };
+
+    const { error } = await supabase
+        .from('clubs')
+        .update({ is_archived: false })
+        .eq('id', clubId);
+
+    if (error) return { error: error.message };
+
+    revalidatePath('/app/clubs');
+    return { success: true };
+}
+
+export async function deleteClub(clubId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autenticado' };
+
+    const { data: membership } = await supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (membership?.role !== 'admin') return { error: 'Solo el administrador puede eliminar el club' };
+
+    // Get all post IDs for this club so we can delete their likes first
+    const { data: postRows } = await supabase
+        .from('club_posts')
+        .select('id')
+        .eq('club_id', clubId);
+
+    const postIds = (postRows || []).map((p: any) => p.id);
+
+    // 1. Delete post likes
+    if (postIds.length > 0) {
+        const { error: likesErr } = await supabase
+            .from('post_likes')
+            .delete()
+            .in('post_id', postIds);
+        if (likesErr) console.error('[deleteClub] post_likes:', likesErr);
+    }
+
+    // 2. Delete posts (includes replies via parent_id FK if no cascade, so delete replies first)
+    await supabase.from('club_posts').delete().eq('club_id', clubId).not('parent_id', 'is', null);
+    const { error: postsErr } = await supabase.from('club_posts').delete().eq('club_id', clubId);
+    if (postsErr) { console.error('[deleteClub] club_posts:', postsErr); return { error: postsErr.message }; }
+
+    // 3. Delete poll votes, options, polls
+    const { data: pollRows } = await supabase.from('club_polls').select('id').eq('club_id', clubId);
+    const pollIds = (pollRows || []).map((p: any) => p.id);
+    if (pollIds.length > 0) {
+        await supabase.from('poll_votes').delete().in('poll_id', pollIds);
+        const { data: optionRows } = await supabase.from('poll_options').select('id').in('poll_id', pollIds);
+        const optionIds = (optionRows || []).map((o: any) => o.id);
+        if (optionIds.length > 0) await supabase.from('poll_votes').delete().in('option_id', optionIds);
+        await supabase.from('poll_options').delete().in('poll_id', pollIds);
+        await supabase.from('club_polls').delete().eq('club_id', clubId);
+    }
+
+    // 4. Delete club books
+    const { error: booksErr } = await supabase.from('club_books').delete().eq('club_id', clubId);
+    if (booksErr) console.error('[deleteClub] club_books:', booksErr);
+
+    // 5. Delete members
+    const { error: membersErr } = await supabase.from('club_members').delete().eq('club_id', clubId);
+    if (membersErr) console.error('[deleteClub] club_members:', membersErr);
+
+    // 6. Finally delete the club itself
+    const { error: clubErr } = await supabase.from('clubs').delete().eq('id', clubId);
+    if (clubErr) {
+        console.error('[deleteClub] clubs:', clubErr);
+        return { error: clubErr.message };
+    }
+
+    revalidatePath('/app/clubs');
+    return { success: true };
 }
 
 export async function joinClub(clubId: string) {
@@ -680,4 +809,411 @@ export async function updateClubSettings(
 
     revalidatePath(`/app/clubs/${clubId}`);
     return { success: true };
+}
+
+// ─── Member Management ───────────────────────────────────────────────────────
+
+export async function getClubMembers(clubId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { members: [], pending: [] };
+
+    const { data, error } = await supabase
+        .from('club_members')
+        .select(`
+            user_id,
+            role,
+            joined_at,
+            profile:profiles!user_id(full_name, avatar_url, username)
+        `)
+        .eq('club_id', clubId)
+        .order('joined_at', { ascending: true });
+
+    if (error || !data) return { members: [], pending: [] };
+
+    const members = data.filter((m: any) => m.role !== 'pending');
+    const pending = data.filter((m: any) => m.role === 'pending');
+
+    return { members, pending };
+}
+
+async function assertAdminOrMod(supabase: any, clubId: string, userId: string) {
+    const { data } = await supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('user_id', userId)
+        .single();
+    if (!data || (data.role !== 'admin' && data.role !== 'moderator')) {
+        throw new Error('Sin permisos');
+    }
+    return data.role;
+}
+
+export async function approveMember(clubId: string, targetUserId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autenticado' };
+    try {
+        await assertAdminOrMod(supabase, clubId, user.id);
+        const { error } = await supabase
+            .from('club_members')
+            .update({ role: 'member', joined_at: new Date().toISOString() })
+            .eq('club_id', clubId)
+            .eq('user_id', targetUserId)
+            .eq('role', 'pending');
+        if (error) return { error: error.message };
+        revalidatePath(`/app/clubs/${clubId}`);
+        return { success: true };
+    } catch (e: any) { return { error: e.message }; }
+}
+
+export async function rejectMember(clubId: string, targetUserId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autenticado' };
+    try {
+        await assertAdminOrMod(supabase, clubId, user.id);
+        const { error } = await supabase
+            .from('club_members')
+            .delete()
+            .eq('club_id', clubId)
+            .eq('user_id', targetUserId)
+            .eq('role', 'pending');
+        if (error) return { error: error.message };
+        revalidatePath(`/app/clubs/${clubId}`);
+        return { success: true };
+    } catch (e: any) { return { error: e.message }; }
+}
+
+export async function removeMember(clubId: string, targetUserId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autenticado' };
+    try {
+        const callerRole = await assertAdminOrMod(supabase, clubId, user.id);
+        // Moderators can't remove admins
+        const { data: target } = await supabase
+            .from('club_members')
+            .select('role')
+            .eq('club_id', clubId)
+            .eq('user_id', targetUserId)
+            .single();
+        if (target?.role === 'admin' && callerRole !== 'admin') {
+            return { error: 'No puedes expulsar a un administrador' };
+        }
+        const { error } = await supabase
+            .from('club_members')
+            .delete()
+            .eq('club_id', clubId)
+            .eq('user_id', targetUserId);
+        if (error) return { error: error.message };
+        revalidatePath(`/app/clubs/${clubId}`);
+        return { success: true };
+    } catch (e: any) { return { error: e.message }; }
+}
+
+export async function updateMemberRole(clubId: string, targetUserId: string, role: 'member' | 'moderator') {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autenticado' };
+    try {
+        const callerRole = await assertAdminOrMod(supabase, clubId, user.id);
+        if (callerRole !== 'admin') return { error: 'Solo el admin puede cambiar roles' };
+        const { error } = await supabase
+            .from('club_members')
+            .update({ role })
+            .eq('club_id', clubId)
+            .eq('user_id', targetUserId);
+        if (error) return { error: error.message };
+        revalidatePath(`/app/clubs/${clubId}`);
+        return { success: true };
+    } catch (e: any) { return { error: e.message }; }
+}
+
+export async function inviteMemberByUsername(clubId: string, usernameOrEmail: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autenticado' };
+    try {
+        await assertAdminOrMod(supabase, clubId, user.id);
+
+        // Search by username or full_name
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('id, full_name, username, avatar_url')
+            .or(`username.ilike.${usernameOrEmail},full_name.ilike.${usernameOrEmail}`)
+            .single();
+
+        if (!profile) return { error: 'Usuario no encontrado' };
+
+        // Check if already a member
+        const { data: existing } = await supabase
+            .from('club_members')
+            .select('role')
+            .eq('club_id', clubId)
+            .eq('user_id', profile.id)
+            .single();
+
+        if (existing) return { error: 'Este usuario ya es miembro del club' };
+
+        const { error } = await supabase
+            .from('club_members')
+            .insert({ club_id: clubId, user_id: profile.id, role: 'member', joined_at: new Date().toISOString() });
+
+        if (error) return { error: error.message };
+        revalidatePath(`/app/clubs/${clubId}`);
+        return { success: true, profile };
+    } catch (e: any) { return { error: e.message }; }
+}
+
+export async function regenerateJoinCode(clubId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autenticado' };
+    try {
+        await assertAdminOrMod(supabase, clubId, user.id);
+        // Generate new code
+        const newCode = Math.random().toString(36).substring(2, 8).toUpperCase() +
+            Math.random().toString(36).substring(2, 6).toUpperCase();
+        const { error } = await supabase
+            .from('clubs')
+            .update({ join_code: newCode })
+            .eq('id', clubId);
+        if (error) return { error: error.message };
+        revalidatePath(`/app/clubs/${clubId}`);
+        return { success: true, code: newCode };
+    } catch (e: any) { return { error: e.message }; }
+}
+
+// ─── Club Stats ───────────────────────────────────────────────────────────────
+
+export async function getClubStats(clubId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const weekAgo = new Date();
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const weekAgoIso = weekAgo.toISOString();
+
+    const [
+        { count: memberCount },
+        { count: postsThisWeek },
+        { data: activeUsersData },
+        { count: pendingCount },
+        { count: myPostsThisWeek },
+    ] = await Promise.all([
+        supabase.from('club_members').select('*', { count: 'exact', head: true })
+            .eq('club_id', clubId).neq('role', 'pending'),
+        supabase.from('club_posts').select('*', { count: 'exact', head: true })
+            .eq('club_id', clubId).gte('created_at', weekAgoIso).is('parent_id', null),
+        supabase.from('club_posts').select('user_id')
+            .eq('club_id', clubId).gte('created_at', weekAgoIso).is('parent_id', null),
+        supabase.from('club_members').select('*', { count: 'exact', head: true })
+            .eq('club_id', clubId).eq('role', 'pending'),
+        supabase.from('club_posts').select('*', { count: 'exact', head: true })
+            .eq('club_id', clubId).eq('user_id', user.id).gte('created_at', weekAgoIso),
+    ]);
+
+    const activeThisWeek = new Set((activeUsersData || []).map((r: any) => r.user_id)).size;
+
+    return {
+        memberCount: memberCount || 0,
+        postsThisWeek: postsThisWeek || 0,
+        activeThisWeek,
+        pendingCount: pendingCount || 0,
+        myPostsThisWeek: myPostsThisWeek || 0,
+    };
+}
+
+// ─── Announcements ───────────────────────────────────────────────────────────
+
+export async function getClubAnnouncements(clubId: string) {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from('club_posts')
+        .select(`
+            id,
+            content,
+            is_spoiler,
+            event_date,
+            event_duration_minutes,
+            event_format,
+            event_location,
+            created_at,
+            updated_at,
+            author:profiles!user_id(full_name, avatar_url, username)
+        `)
+        .eq('club_id', clubId)
+        .eq('is_announcement', true)
+        .is('parent_id', null)
+        .order('created_at', { ascending: false });
+
+    if (error) return [];
+    return data || [];
+}
+
+export async function createAnnouncement(
+    clubId: string,
+    content: string,
+    eventDate?: string,
+    eventDurationMinutes?: number,
+    eventFormat?: 'online' | 'presencial',
+    eventLocation?: string
+) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autenticado' };
+
+    const { data: membership } = await supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (!membership || (membership.role !== 'admin' && membership.role !== 'moderator')) {
+        return { error: 'Sin permisos para publicar anuncios' };
+    }
+
+    const { error } = await supabase
+        .from('club_posts')
+        .insert({
+            club_id: clubId,
+            user_id: user.id,
+            content,
+            is_announcement: true,
+            is_spoiler: false,
+            event_date: eventDate || null,
+            event_duration_minutes: eventDurationMinutes || null,
+            event_format: eventFormat || null,
+            event_location: eventLocation || null,
+        });
+
+    if (error) return { error: error.message };
+    revalidatePath(`/app/clubs/${clubId}`);
+    return { success: true };
+}
+
+export async function updateAnnouncement(
+    postId: string,
+    clubId: string,
+    content: string,
+    eventDate?: string,
+    eventDurationMinutes?: number,
+    eventFormat?: 'online' | 'presencial',
+    eventLocation?: string
+) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autenticado' };
+
+    const { data: membership } = await supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (!membership || (membership.role !== 'admin' && membership.role !== 'moderator')) {
+        return { error: 'Sin permisos' };
+    }
+
+    const { error } = await supabase
+        .from('club_posts')
+        .update({
+            content,
+            event_date: eventDate || null,
+            event_duration_minutes: eventDurationMinutes || null,
+            event_format: eventFormat || null,
+            event_location: eventLocation || null,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', postId)
+        .eq('club_id', clubId);
+
+    if (error) return { error: error.message };
+    revalidatePath(`/app/clubs/${clubId}`);
+    return { success: true };
+}
+
+export async function deleteClubPost(postId: string, clubId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autenticado' };
+
+    // Must be post author OR admin/mod
+    const { data: post } = await supabase
+        .from('club_posts')
+        .select('user_id')
+        .eq('id', postId)
+        .single();
+
+    const { data: membership } = await supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('user_id', user.id)
+        .single();
+
+    const isAuthor = post?.user_id === user.id;
+    const isAdminOrMod = membership?.role === 'admin' || membership?.role === 'moderator';
+
+    if (!isAuthor && !isAdminOrMod) return { error: 'Sin permisos' };
+
+    const { error } = await supabase
+        .from('club_posts')
+        .delete()
+        .eq('id', postId);
+
+    if (error) return { error: error.message };
+    revalidatePath(`/app/clubs/${clubId}`);
+    return { success: true };
+}
+
+// ─── Upcoming Milestones (for mi-lectura) ────────────────────────────────────
+
+export async function getUpcomingMilestones() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    // Get clubs the user belongs to
+    const { data: memberships } = await supabase
+        .from('club_members')
+        .select('club_id, clubs(name)')
+        .eq('user_id', user.id)
+        .neq('role', 'pending');
+
+    if (!memberships || memberships.length === 0) return [];
+
+    const clubIds = memberships.map((m: any) => m.club_id);
+    const clubNames: Record<string, string> = {};
+    memberships.forEach((m: any) => { clubNames[m.club_id] = m.clubs?.name || ''; });
+
+    // Get upcoming announcements with event_date
+    const { data: posts } = await supabase
+        .from('club_posts')
+        .select('id, club_id, content, event_date, event_duration_minutes, event_format, event_location, created_at')
+        .in('club_id', clubIds)
+        .eq('is_announcement', true)
+        .not('event_date', 'is', null)
+        .gte('event_date', new Date().toISOString())
+        .order('event_date', { ascending: true })
+        .limit(10);
+
+    if (!posts) return [];
+
+    return posts.map((p: any) => ({
+        id: p.id,
+        clubId: p.club_id,
+        clubName: clubNames[p.club_id] || 'Club',
+        content: p.content,
+        eventDate: p.event_date,
+        durationMinutes: p.event_duration_minutes,
+        format: p.event_format,
+        location: p.event_location,
+    }));
 }

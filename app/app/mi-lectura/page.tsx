@@ -15,7 +15,8 @@ import { CreateNoteModal } from "@/components/notes/CreateNoteModal";
 import { ReviewModal } from "@/components/reviews/ReviewModal";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { getCurrentBooks, getReadingStats, getRecentNotes, CurrentBook, ReadingStats, Note, deleteBook, getRecommendedBook, RecommendedBook, startReadingBook } from "@/app/app/mi-lectura/actions";
-import { Search, BookOpen } from "lucide-react";
+import { getUpcomingMilestones } from "@/app/app/clubs/[id]/actions";
+import { Search, BookOpen, CalendarDays } from "lucide-react";
 
 export default function MiLecturaPage() {
     const router = useRouter();
@@ -30,6 +31,7 @@ export default function MiLecturaPage() {
     const [stats, setStats] = React.useState<ReadingStats | null>(null);
     const [notes, setNotes] = React.useState<Note[]>([]);
     const [recommendedBook, setRecommendedBook] = React.useState<RecommendedBook | null>(null);
+    const [milestones, setMilestones] = React.useState<any[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [launcherQuery, setLauncherQuery] = React.useState("");
     const [registerBookId, setRegisterBookId] = React.useState<string | undefined>(undefined);
@@ -52,16 +54,18 @@ export default function MiLecturaPage() {
     React.useEffect(() => {
         async function loadData() {
             try {
-                const [fetchedBooks, fetchedStats, fetchedNotes, fetchedRecommendation] = await Promise.all([
+                const [fetchedBooks, fetchedStats, fetchedNotes, fetchedRecommendation, fetchedMilestones] = await Promise.all([
                     getCurrentBooks(),
                     getReadingStats(),
                     getRecentNotes(),
-                    getRecommendedBook()
+                    getRecommendedBook(),
+                    getUpcomingMilestones()
                 ]);
                 setBooks(fetchedBooks);
                 setStats(fetchedStats);
                 setNotes(fetchedNotes);
                 setRecommendedBook(fetchedRecommendation);
+                setMilestones(fetchedMilestones);
             } catch (error) {
                 console.error("Failed to load dashboard data:", error);
             } finally {
@@ -211,17 +215,71 @@ export default function MiLecturaPage() {
                         )}
                     </section>
 
-                    {/* Section 2: Próximos Hitos (Placeholder for now) */}
+                    {/* Section 2: Próximos Hitos */}
                     <section>
                         <h2 className="text-xl font-serif text-teal mb-4">Próximos hitos</h2>
-                        <Card className="bg-cream/20 border-teal/5">
-                            <div className="py-6 text-center space-y-2">
-                                <p className="text-sm text-grey/60 font-medium">No hay hitos pendientes</p>
-                                <p className="text-xs text-grey/40 max-w-[200px] mx-auto">
-                                    Uniéndote a un club o reto comenzarás a ver aquí tus próximas metas.
-                                </p>
+                        {milestones.length > 0 ? (
+                            <div className="space-y-3">
+                                {milestones.map((m) => {
+                                    const d = new Date(m.eventDate);
+                                    const day = d.getDate();
+                                    const month = d.toLocaleDateString('es-ES', { month: 'short' }).toUpperCase();
+                                    const hh = String(d.getHours()).padStart(2, '0');
+                                    const mm2 = String(d.getMinutes()).padStart(2, '0');
+                                    const time = `${hh}:${mm2}`;
+                                    const hasTime = time !== '00:00';
+                                    const loc = m.location ? `&location=${encodeURIComponent(m.location)}` : '';
+                                    const iso = m.eventDate.replace(/[-:]/g, '').split('.')[0] + 'Z';
+                                    const calUrl = `https://calendar.google.com/calendar/r/eventedit?text=${encodeURIComponent(m.content.slice(0, 60))}&dates=${iso}/${iso}${loc}`;
+                                    return (
+                                        <Card key={m.id} className="border-teal/10 hover:border-teal/25 transition-colors">
+                                            <div className="flex gap-4 items-start">
+                                                <div className="shrink-0 flex flex-col items-center justify-center w-12 h-12 rounded-xl bg-teal/10 text-teal-dark">
+                                                    <span className="text-[9px] font-bold">{month}</span>
+                                                    <span className="text-lg font-bold leading-none">{day}</span>
+                                                </div>
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-[10px] font-bold text-teal/60 uppercase tracking-wide mb-0.5">{m.clubName}</p>
+                                                    <p className="text-sm text-grey-dark line-clamp-2">{m.content}</p>
+                                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-grey/50 mt-1">
+                                                        {hasTime && <span>{time}h</span>}
+                                                        {m.durationMinutes && (
+                                                            <><span className="text-grey/30">·</span><span>{m.durationMinutes} min</span></>
+                                                        )}
+                                                        {m.format && (
+                                                            <><span className="text-grey/30">·</span><span>{m.format === 'online' ? '💻 Online' : '📍 Presencial'}</span></>
+                                                        )}
+                                                        {m.location && (
+                                                            <><span className="text-grey/30">·</span>
+                                                                {m.format === 'online'
+                                                                    ? <a href={m.location} target="_blank" rel="noopener" className="underline hover:text-teal truncate max-w-[150px]">{m.location}</a>
+                                                                    : <span className="truncate max-w-[150px]">{m.location}</span>
+                                                                }</>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <button
+                                                    onClick={() => window.open(calUrl, '_blank')}
+                                                    className="shrink-0 p-1.5 text-grey/30 hover:text-teal transition-colors"
+                                                    title="Añadir al calendario"
+                                                >
+                                                    <CalendarDays size={16} />
+                                                </button>
+                                            </div>
+                                        </Card>
+                                    );
+                                })}
                             </div>
-                        </Card>
+                        ) : (
+                            <Card className="bg-cream/20 border-teal/5">
+                                <div className="py-6 text-center space-y-2">
+                                    <p className="text-sm text-grey/60 font-medium">No hay hitos pendientes</p>
+                                    <p className="text-xs text-grey/40 max-w-[200px] mx-auto">
+                                        Uniéndote a un club o reto comenzarás a ver aquí tus próximas metas.
+                                    </p>
+                                </div>
+                            </Card>
+                        )}
                     </section>
 
                     {/* Section 3: Momentos Guardados */}

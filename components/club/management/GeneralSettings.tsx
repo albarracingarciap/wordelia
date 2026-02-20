@@ -5,9 +5,9 @@ import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
-import { useParams } from "next/navigation";
-import { updateClubSettings } from "@/app/app/clubs/[id]/actions";
-import { Check } from "lucide-react";
+import { useParams, useRouter } from "next/navigation";
+import { updateClubSettings, archiveClub, deleteClub } from "@/app/app/clubs/[id]/actions";
+import { Check, Archive, Trash2 } from "lucide-react";
 
 const PRIVACY_OPTIONS = [
     { label: "Público — cualquiera puede ver y unirse", value: "public" },
@@ -23,6 +23,7 @@ const PRIVACY_HINT: Record<string, string> = {
 
 export function GeneralSettings({ club }: { club?: any }) {
     const params = useParams();
+    const router = useRouter();
     const clubId = params.id as string;
 
     const [name, setName] = React.useState(club?.name || "");
@@ -32,7 +33,13 @@ export function GeneralSettings({ club }: { club?: any }) {
     const [savedOk, setSavedOk] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
 
-    // Sync when club data arrives
+    // Danger zone state
+    const [isArchiving, setIsArchiving] = React.useState(false);
+    const [isDeleting, setIsDeleting] = React.useState(false);
+    const [deleteConfirmText, setDeleteConfirmText] = React.useState("");
+    const [showDeleteModal, setShowDeleteModal] = React.useState(false);
+    const [dangerError, setDangerError] = React.useState<string | null>(null);
+
     React.useEffect(() => {
         if (club) {
             setName(club.name || "");
@@ -52,6 +59,33 @@ export function GeneralSettings({ club }: { club?: any }) {
         } else {
             setSavedOk(true);
             setTimeout(() => setSavedOk(false), 2500);
+        }
+    };
+
+    const handleArchive = async () => {
+        if (!confirm("¿Archivar este club? El club quedará inactivo y dejará de aparecer en Explorar, pero podrás restaurarlo más adelante.")) return;
+        setIsArchiving(true);
+        setDangerError(null);
+        const result = await archiveClub(clubId);
+        setIsArchiving(false);
+        if (result?.error) {
+            setDangerError(result.error);
+        } else {
+            router.push("/app/clubs");
+        }
+    };
+
+    const handleDelete = async () => {
+        if (deleteConfirmText !== club?.name) return;
+        setIsDeleting(true);
+        setDangerError(null);
+        const result = await deleteClub(clubId);
+        setIsDeleting(false);
+        if (result?.error) {
+            setDangerError(result.error);
+            setShowDeleteModal(false);
+        } else {
+            router.push("/app/clubs");
         }
     };
 
@@ -108,30 +142,99 @@ export function GeneralSettings({ club }: { club?: any }) {
             </Card>
 
             {/* Danger zone */}
-            <Card className="border-red-100 bg-red-50/10">
-                <h4 className="text-sm font-bold text-red-600 mb-2">Zona de peligro</h4>
-                <p className="text-sm text-grey/60 mb-4">Estas acciones no se pueden deshacer.</p>
-                <div className="flex gap-4">
-                    <Button
-                        variant="outline"
-                        className="text-red-600 border-red-200 hover:bg-red-50"
-                        onClick={() => alert("Próximamente: archivar club")}
-                    >
-                        Archivar club
-                    </Button>
-                    <Button
-                        variant="ghost"
-                        className="text-red-600 hover:bg-red-50"
-                        onClick={() => {
-                            if (confirm("¿Estás seguro de que quieres eliminar este club? Esta acción no se puede deshacer.")) {
-                                alert("Próximamente: eliminar club");
-                            }
-                        }}
-                    >
-                        Eliminar club
-                    </Button>
+            <Card className="border-red-200 bg-red-50/20">
+                <h4 className="text-sm font-bold text-red-600 mb-1">Zona de peligro</h4>
+                <p className="text-xs text-grey/50 mb-5">Estas acciones son irreversibles o difíciles de deshacer. Procede con cuidado.</p>
+
+                <div className="space-y-3">
+                    {/* Archive */}
+                    <div className="flex items-center justify-between py-3 border-b border-red-100">
+                        <div>
+                            <p className="text-sm font-bold text-grey-dark">Archivar club</p>
+                            <p className="text-xs text-grey/50">El club quedará inactivo. Los datos se conservan.</p>
+                        </div>
+                        <Button
+                            variant="outline"
+                            className="text-red-600 border-red-200 hover:bg-red-50 shrink-0"
+                            onClick={handleArchive}
+                            disabled={isArchiving}
+                        >
+                            <Archive size={14} className="mr-1.5" />
+                            {isArchiving ? "Archivando..." : "Archivar club"}
+                        </Button>
+                    </div>
+
+                    {/* Delete */}
+                    <div className="flex items-center justify-between py-3">
+                        <div>
+                            <p className="text-sm font-bold text-red-600">Eliminar club</p>
+                            <p className="text-xs text-grey/50">Borra el club y todos sus datos permanentemente.</p>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            className="text-red-600 hover:bg-red-50 shrink-0"
+                            onClick={() => { setShowDeleteModal(true); setDangerError(null); }}
+                        >
+                            <Trash2 size={14} className="mr-1.5" />
+                            Eliminar club
+                        </Button>
+                    </div>
                 </div>
+
+                {dangerError && (
+                    <p className="text-sm text-red-600 mt-3">{dangerError}</p>
+                )}
             </Card>
+
+            {/* Delete confirmation modal */}
+            {showDeleteModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                    <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
+                                <Trash2 size={18} className="text-red-600" />
+                            </div>
+                            <div>
+                                <h3 className="font-serif text-lg text-grey-dark font-bold">Eliminar club</h3>
+                                <p className="text-xs text-grey/50">Esta acción no se puede deshacer</p>
+                            </div>
+                        </div>
+
+                        <p className="text-sm text-grey/70">
+                            Se eliminarán permanentemente todos los datos: miembros, posts, checkpoints y anuncios.
+                        </p>
+
+                        <div>
+                            <label className="block text-xs font-bold text-grey-dark mb-1.5">
+                                Escribe <span className="font-mono text-red-600">"{club?.name}"</span> para confirmar
+                            </label>
+                            <Input
+                                value={deleteConfirmText}
+                                onChange={e => setDeleteConfirmText(e.target.value)}
+                                placeholder={club?.name}
+                                autoFocus
+                            />
+                        </div>
+
+                        <div className="flex gap-2 pt-1">
+                            <Button
+                                variant="ghost"
+                                onClick={() => { setShowDeleteModal(false); setDeleteConfirmText(""); }}
+                                className="flex-1"
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                className="flex-1 bg-red-600 hover:bg-red-700 text-white"
+                                onClick={handleDelete}
+                                disabled={deleteConfirmText !== club?.name || isDeleting}
+                            >
+                                {isDeleting ? "Eliminando..." : "Sí, eliminar definitivamente"}
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }

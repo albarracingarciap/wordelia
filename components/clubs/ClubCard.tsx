@@ -1,10 +1,11 @@
+"use client";
+
 import * as React from "react";
-import { Card } from "../ui/Card";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
-import { AvatarStack } from "../ui/AvatarStack";
 import Image from "next/image";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { Users } from "lucide-react";
 
 export interface ClubCardProps {
     id: string;
@@ -17,7 +18,7 @@ export interface ClubCardProps {
     } | null;
     members?: { src?: string; fallback?: string }[];
     memberCount?: number;
-    badges?: { label: string; variant?: "neutral" | "brand" | "outline" }[]; // Make optional or ensure transformation
+    badges?: { label: string; variant?: "neutral" | "brand" | "outline" }[];
     pace?: string;
     nextMilestone?: string;
     isMember?: boolean;
@@ -26,6 +27,9 @@ export interface ClubCardProps {
     price?: number;
     currency?: string;
     preview?: boolean;
+    ownerAvatar?: string | null;
+    ownerName?: string | null;
+    membershipRole?: string | null;
 }
 
 export function ClubCard({
@@ -33,125 +37,168 @@ export function ClubCard({
     name,
     description,
     currentBook,
-    members = [],
     memberCount = 0,
     badges = [],
     pace,
-    nextMilestone,
     isMember = false,
     featured = false,
     preview = false,
     isAdmin = false,
     price = 0,
-    currency = 'EUR'
+    currency = 'EUR',
+    ownerAvatar,
+    ownerName,
+    membershipRole,
 }: ClubCardProps) {
+    const router = useRouter();
     const formattedPrice = price > 0
-        ? new Intl.NumberFormat('es-ES', { style: 'currency', currency: currency }).format(price)
-        : 'Gratis';
+        ? new Intl.NumberFormat('es-ES', { style: 'currency', currency }).format(price)
+        : null;
+
+    const coverUrl = currentBook?.coverUrl;
+
+    const navigate = () => {
+        if (!preview) router.push(`/app/clubs/${id}`);
+    };
 
     return (
-        <Card className={`flex flex-col h-full ${featured ? 'border-teal/20 bg-teal/5' : ''} ${preview ? 'pointer-events-none' : ''}`}>
-            <div className="flex justify-between items-start mb-4">
-                <div className="flex-1 min-w-0 pr-2">
-                    <div className="flex items-center justify-between mb-1">
-                        <h3 className="font-serif text-lg text-teal-dark font-bold leading-tight line-clamp-2 hover:text-teal transition-colors">
-                            {preview ? name : <Link href={`/app/clubs/${id}`}>{name}</Link>}
-                        </h3>
-                        {price > 0 && (
-                            <Badge variant="neutral" size="sm" className="ml-2 shrink-0 bg-coral/10 text-coral border-coral/20">
-                                {formattedPrice}
-                            </Badge>
+        <div
+            onClick={navigate}
+            className={`flex flex-col h-full rounded-2xl overflow-hidden border transition-all duration-200 group
+                ${featured ? 'border-teal/30 shadow-md' : 'border-black/8 hover:border-teal/20 hover:shadow-md'}
+                ${preview ? '' : 'cursor-pointer'}
+                bg-white`}
+        >
+            {/* ── Visual Header ── */}
+            <div className="relative h-36 overflow-hidden bg-grey/10 shrink-0">
+                {/* Blurred book cover background */}
+                {coverUrl ? (
+                    <Image
+                        src={coverUrl}
+                        alt=""
+                        fill
+                        className="object-cover scale-110 blur-sm opacity-60 group-hover:opacity-75 transition-opacity"
+                    />
+                ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-teal/20 via-teal/5 to-cream" />
+                )}
+
+                {/* Bottom gradient */}
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
+
+                {/* Book thumbnail — bottom right */}
+                {coverUrl && (
+                    <div className="absolute bottom-3 right-3 w-12 h-[72px] rounded-md shadow-lg overflow-hidden border-2 border-white/80">
+                        <Image src={coverUrl} alt={currentBook!.title} fill className="object-cover" />
+                    </div>
+                )}
+
+                {/* Moderator avatar — bottom left */}
+                <div className="absolute bottom-3 left-3 flex items-center gap-2">
+                    <div className="relative w-14 h-14 rounded-full border-2 border-white shadow-md overflow-hidden bg-teal/20 shrink-0">
+                        {ownerAvatar ? (
+                            <Image src={ownerAvatar} alt={ownerName || "Moderador"} fill className="object-cover" />
+                        ) : (
+                            <div className="absolute inset-0 flex items-center justify-center text-[10px] font-bold text-teal">
+                                {(ownerName || "M")[0].toUpperCase()}
+                            </div>
                         )}
                     </div>
-
-                    {description && <p className="text-xs text-grey/60 mt-1 line-clamp-2">{description}</p>}
+                    {ownerName && (
+                        <span className="text-[10px] font-semibold text-white drop-shadow-sm">
+                            {ownerName.split(' ')[0]} modera
+                        </span>
+                    )}
                 </div>
-                {nextMilestone && (
-                    <Badge variant="coral" size="sm" className="shrink-0 ml-2">
-                        {nextMilestone}
-                    </Badge>
+
+                {/* Featured badge — top left */}
+                {featured && (
+                    <div className="absolute top-2 left-2">
+                        <span className="text-[10px] font-bold bg-teal text-white px-2 py-0.5 rounded-full shadow">
+                            Destacado
+                        </span>
+                    </div>
                 )}
             </div>
 
-            {/* Current Book Section */}
-            {currentBook ? (
-                <div className="flex gap-3 mb-4 bg-white/50 p-2 rounded-lg border border-black/5">
-                    <div className="relative w-10 h-14 shrink-0 rounded shadow-sm overflow-hidden bg-grey/10">
-                        {currentBook.coverUrl ? (
-                            <Image src={currentBook.coverUrl} alt={currentBook.title} fill className="object-cover" />
-                        ) : (
-                            <div className="w-full h-full flex items-center justify-center text-[8px] text-grey/40">No Cover</div>
-                        )}
-                    </div>
-                    <div className="flex flex-col justify-center min-w-0">
-                        <span className="text-[10px] uppercase text-grey/50 font-bold tracking-wider">Leyendo</span>
-                        <p className="text-xs font-bold text-grey-dark truncate">{currentBook.title}</p>
-                        <p className="text-[10px] text-grey/70 truncate">{currentBook.author}</p>
-                    </div>
-                </div>
-            ) : (
-                <div className="flex-1 flex items-center justify-center p-4 mb-4 border border-dashed border-grey/20 rounded-lg">
-                    <p className="text-xs text-grey/40 italic">Decidiendo próxima lectura...</p>
-                </div>
-            )}
-
-            <div className="mt-auto space-y-4">
-                {/* Meta: Pace & Tags */}
-                <div className="flex flex-wrap gap-1.5 min-h-[24px]">
-                    {pace && (
-                        <span className="text-[10px] font-bold text-teal bg-teal/5 px-2 py-0.5 rounded-full border border-teal/10">
-                            {pace}
+            {/* ── Card Body ── */}
+            <div className="flex flex-col flex-1 p-4">
+                {/* Title row with optional price */}
+                <div className="flex items-start justify-between gap-2 mb-1">
+                    <h3 className="font-serif text-base text-teal-dark font-bold leading-tight line-clamp-2 group-hover:text-teal transition-colors">
+                        {name}
+                    </h3>
+                    {formattedPrice && (
+                        <span className="shrink-0 text-[10px] font-bold bg-coral/10 text-coral border border-coral/20 px-2 py-0.5 rounded-full">
+                            {formattedPrice}
                         </span>
                     )}
-                    {badges.map((b, i) => (
-                        <span key={i} className="text-[10px] text-grey/60 bg-grey/5 px-2 py-0.5 rounded-full border border-black/5">
-                            {b.label}
-                        </span>
-                    ))}
                 </div>
 
-                {/* Footer: Members & Action */}
-                {!preview && (
-                    <div className="flex items-center justify-between pt-3 border-t border-black/5">
-                        <div className="flex items-center gap-2">
-                            <AvatarStack avatars={members} max={3} size="sm" />
-                            <span className="text-[10px] text-grey/50">
-                                {memberCount > 0 ? `${memberCount} lectores` : ""}
-                            </span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            {isAdmin && (
-                                <div className="flex items-center gap-2">
-                                    <button
-                                        className="text-[10px] font-bold text-coral hover:underline"
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            if (confirm("¿Seguro que quieres eliminar este club?")) {
-                                                console.log("Delete club", id);
-                                                // TODO: Call server action for delete
-                                            }
-                                        }}
-                                    >
-                                        Eliminar
-                                    </button>
-                                    <span className="text-grey/20">|</span>
-                                    <Link
-                                        href={`/app/clubs/${id}/editar`}
-                                        className="text-[10px] font-bold text-grey-dark hover:text-teal hover:underline"
-                                    >
-                                        Editar
-                                    </Link>
-                                </div>
-                            )}
+                {/* Currently reading */}
+                {currentBook ? (
+                    <p className="text-[11px] text-grey/60 mb-2 truncate">
+                        <span className="font-bold text-grey/40 uppercase tracking-wide text-[9px]">Leyendo </span>
+                        {currentBook.title}
+                        {currentBook.author && <span className="text-grey/40"> · {currentBook.author}</span>}
+                    </p>
+                ) : (
+                    <p className="text-[11px] text-grey/40 italic mb-2">Decidiendo próxima lectura…</p>
+                )}
 
-                            {/* Logic for Member vs Non-Member */}
-                            {!isAdmin && (
+                {/* Description */}
+                {description && (
+                    <p className="text-xs text-grey/60 line-clamp-2 mb-3">{description}</p>
+                )}
+
+                {/* Tags */}
+                {(pace || badges.length > 0) && (
+                    <div className="flex flex-wrap gap-1 mb-3">
+                        {pace && (
+                            <span className="text-[10px] font-bold text-teal bg-teal/5 px-2 py-0.5 rounded-full border border-teal/10">
+                                {pace}
+                            </span>
+                        )}
+                        {badges.map((b, i) => (
+                            <span key={i} className="text-[10px] text-grey/60 bg-grey/5 px-2 py-0.5 rounded-full border border-black/5">
+                                {b.label}
+                            </span>
+                        ))}
+                    </div>
+                )}
+
+                {/* Footer */}
+                {!preview && (
+                    <div className="mt-auto flex items-center justify-between pt-3 border-t border-black/5">
+                        <div className="flex items-center gap-1.5 text-[11px] text-grey/50">
+                            <Users size={12} />
+                            <span>{memberCount > 0 ? `${memberCount} lectores` : "Nuevo"}</span>
+                        </div>
+
+                        <div className="flex items-center gap-2" onClick={e => e.stopPropagation()}>
+                            {isAdmin ? (
+                                <button
+                                    className="text-xs font-bold text-teal hover:underline"
+                                    onClick={() => router.push(`/app/clubs/${id}?tab=manage`)}
+                                >
+                                    Gestionar →
+                                </button>
+                            ) : membershipRole === 'pending' ? (
+                                <span className="text-[10px] font-bold text-amber-600 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-full">
+                                    Pendiente de aprobación
+                                </span>
+                            ) : (
                                 isMember ? (
-                                    <Link href={`/app/clubs/${id}`} className="text-xs font-medium text-teal hover:underline">
-                                        Ir al club
-                                    </Link>
+                                    <span className="text-xs font-bold text-teal">
+                                        Ir al club →
+                                    </span>
                                 ) : (
-                                    <Button variant={featured ? "primary" : "outline"} size="sm" className="text-xs h-7 px-3">
+                                    <Button
+                                        variant={featured ? "primary" : "outline"}
+                                        size="sm"
+                                        className="text-xs h-7 px-3"
+                                        onClick={() => router.push(`/app/clubs/${id}`)}
+                                    >
                                         {price > 0 ? 'Suscribirse' : 'Unirme'}
                                     </Button>
                                 )
@@ -160,6 +207,6 @@ export function ClubCard({
                     </div>
                 )}
             </div>
-        </Card>
+        </div>
     );
 }
