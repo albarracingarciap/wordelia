@@ -13,6 +13,7 @@ export interface BookSearchResult {
     average_rating: number | null;
     ratings_count: number | null;
     language: string | null;
+    price: number | null;
     source: 'isbndb' | 'google' | 'db';
 }
 
@@ -30,6 +31,7 @@ interface ISBNdbBook {
     synopsis?: string;
     subjects?: string[];
     language?: string;
+    msrp?: number | string;
     // ... other fields
 }
 
@@ -108,12 +110,22 @@ export async function getBookByISBN(isbn: string): Promise<BookSearchResult | nu
 }
 
 function mapISBNdbBook(item: ISBNdbBook): BookSearchResult {
+    let rawSynopsis = item.synopsis;
+    if (rawSynopsis) {
+        if (rawSynopsis.toLowerCase().trim() === 'nan') {
+            rawSynopsis = undefined;
+        } else {
+            // Strip HTML tags and replace multiple spaces
+            rawSynopsis = rawSynopsis.replace(/<[^>]*>?/gm, ' ').replace(/\s+/g, ' ').trim();
+        }
+    }
+
     return {
         id: item.isbn13 || item.isbn10 || "", // ISBNdb doesn't have a separate ID, use ISBN as ID
         title: item.title,
         authors: item.authors || [],
         cover_url: item.image || null,
-        description: item.synopsis || null,
+        description: rawSynopsis || null,
         isbn: item.isbn13 || item.isbn10 || null,
         page_count: item.pages || null,
         published_date: item.date_published ? new Date(item.date_published).toISOString() : null,
@@ -122,6 +134,7 @@ function mapISBNdbBook(item: ISBNdbBook): BookSearchResult {
         average_rating: null, // ISBNdb doesn't standardize ratings like Google
         ratings_count: null,
         language: item.language || "en", // Default assumption or null
+        price: item.msrp ? (typeof item.msrp === 'string' ? parseFloat(item.msrp) : item.msrp) : null,
         source: 'isbndb'
     };
 }

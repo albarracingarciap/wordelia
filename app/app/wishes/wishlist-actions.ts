@@ -11,6 +11,7 @@ export interface WishlistData {
     emoji: string;
     description: string | null;
     privacy: "public" | "private" | "shared";
+    targetDate: string | null;
     bookCount: number;
     coverImages: string[];
     lastUpdated: string;
@@ -26,7 +27,7 @@ export async function getMyWishlists(): Promise<WishlistData[]> {
     const { data: wishlists, error } = await supabase
         .from("wishlists")
         .select(`
-            id, name, emoji, description, privacy, updated_at,
+            id, name, emoji, description, privacy, target_date, updated_at,
             items:wishlist_items(id, cover_url)
         `)
         .eq("user_id", user.id)
@@ -59,6 +60,7 @@ export async function getMyWishlists(): Promise<WishlistData[]> {
             emoji: w.emoji || "📚",
             description: w.description,
             privacy: w.privacy as "public" | "private" | "shared",
+            targetDate: w.target_date,
             bookCount: items.length,
             coverImages,
             lastUpdated,
@@ -71,6 +73,7 @@ export async function createWishlist(data: {
     emoji: string;
     description?: string;
     privacy: "public" | "private" | "shared";
+    targetDate?: string;
 }) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -86,6 +89,7 @@ export async function createWishlist(data: {
             emoji: data.emoji,
             description: data.description?.trim() || null,
             privacy: data.privacy,
+            target_date: data.targetDate || null,
         });
 
     if (error) {
@@ -118,6 +122,7 @@ export async function updateWishlist(id: string, data: Partial<{
     emoji: string;
     description: string;
     privacy: "public" | "private" | "shared";
+    targetDate: string | null;
 }>) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -125,7 +130,14 @@ export async function updateWishlist(id: string, data: Partial<{
 
     const { error } = await supabase
         .from("wishlists")
-        .update({ ...data, updated_at: new Date().toISOString() })
+        .update({
+            name: data.name,
+            emoji: data.emoji,
+            description: data.description,
+            privacy: data.privacy,
+            target_date: data.targetDate,
+            updated_at: new Date().toISOString()
+        })
         .eq("id", id)
         .eq("user_id", user.id);
 

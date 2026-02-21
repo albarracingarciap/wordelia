@@ -112,6 +112,7 @@ function AddBookContent() {
             average_rating: null,
             ratings_count: null,
             language: "es",
+            price: null,
             source: 'db' // Treated as a DB book
         };
 

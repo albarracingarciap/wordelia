@@ -2,12 +2,20 @@
 
 import { useState, useTransition } from "react";
 import { X, Loader2 } from "lucide-react";
-import { createWishlist } from "@/app/app/wishes/wishlist-actions";
+import { createWishlist, updateWishlist } from "@/app/app/wishes/wishlist-actions";
 
 interface CreateWishlistModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
+    initialData?: {
+        id: string;
+        name: string;
+        emoji: string;
+        description: string | null;
+        privacy: "public" | "private" | "shared";
+        targetDate: string | null;
+    };
 }
 
 const EMOJIS = ["📚", "🎂", "🎁", "☀️", "❄️", "🌸", "💭", "✨", "🎶", "🏖️", "🍂", "💖"];
@@ -17,21 +25,26 @@ const PRIVACY_OPTIONS = [
     { value: "private", label: "Privada", icon: "🔒", desc: "Solo tú puedes verla" },
 ] as const;
 
-export function CreateWishlistModal({ isOpen, onClose, onSuccess }: CreateWishlistModalProps) {
-    const [name, setName] = useState("");
-    const [emoji, setEmoji] = useState("📚");
-    const [description, setDescription] = useState("");
-    const [privacy, setPrivacy] = useState<"public" | "private" | "shared">("public");
+export function CreateWishlistModal({ isOpen, onClose, onSuccess, initialData }: CreateWishlistModalProps) {
+    const isEdit = !!initialData;
+    const [name, setName] = useState(initialData?.name || "");
+    const [emoji, setEmoji] = useState(initialData?.emoji || "📚");
+    const [description, setDescription] = useState(initialData?.description || "");
+    const [privacy, setPrivacy] = useState<"public" | "private" | "shared">(initialData?.privacy || "public");
+    const [targetDate, setTargetDate] = useState(initialData?.targetDate || "");
     const [error, setError] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
 
     if (!isOpen) return null;
 
     function reset() {
-        setName("");
-        setEmoji("📚");
-        setDescription("");
-        setPrivacy("public");
+        if (!isEdit) {
+            setName("");
+            setEmoji("📚");
+            setDescription("");
+            setPrivacy("public");
+            setTargetDate("");
+        }
         setError(null);
     }
 
@@ -47,7 +60,19 @@ export function CreateWishlistModal({ isOpen, onClose, onSuccess }: CreateWishli
         setError(null);
 
         startTransition(async () => {
-            const result = await createWishlist({ name, emoji, description, privacy });
+            let result;
+            if (isEdit && initialData) {
+                result = await updateWishlist(initialData.id, {
+                    name,
+                    emoji,
+                    description,
+                    privacy,
+                    targetDate: targetDate || null,
+                });
+            } else {
+                result = await createWishlist({ name, emoji, description, privacy, targetDate: targetDate || undefined });
+            }
+
             if (result.error) {
                 setError(result.error);
             } else {
@@ -70,8 +95,12 @@ export function CreateWishlistModal({ isOpen, onClose, onSuccess }: CreateWishli
                 {/* Header */}
                 <div className="flex items-center justify-between p-6 border-b border-grey/10">
                     <div>
-                        <h2 className="font-serif text-xl text-teal">Nueva lista de deseos</h2>
-                        <p className="text-xs text-grey/50 mt-0.5">Organiza tus sueños lectores</p>
+                        <h2 className="font-serif text-xl text-teal">
+                            {isEdit ? "Editar lista de deseos" : "Nueva lista de deseos"}
+                        </h2>
+                        <p className="text-xs text-grey/50 mt-0.5">
+                            {isEdit ? "Modifica los detalles de tu lista" : "Organiza tus sueños lectores"}
+                        </p>
                     </div>
                     <button
                         onClick={handleClose}
@@ -150,6 +179,23 @@ export function CreateWishlistModal({ isOpen, onClose, onSuccess }: CreateWishli
                         />
                     </div>
 
+                    {/* Target Date */}
+                    <div>
+                        <label className="text-xs font-semibold text-grey/70 uppercase tracking-wider mb-2 block">
+                            Fecha del evento <span className="font-normal text-grey/40">(opcional)</span>
+                        </label>
+                        <input
+                            type="date"
+                            value={targetDate}
+                            onChange={(e) => setTargetDate(e.target.value)}
+                            min={new Date().toISOString().split("T")[0]}
+                            className="w-full px-4 py-3 rounded-xl border-2 border-grey/10 focus:border-teal/40 focus:outline-none text-sm bg-cream/20 transition-colors"
+                        />
+                        <p className="text-[10px] text-grey/40 mt-1">
+                            Añade la fecha si es para tu cumpleaños, Navidad, boda...
+                        </p>
+                    </div>
+
                     {/* Privacy */}
                     <div>
                         <label className="text-xs font-semibold text-grey/70 uppercase tracking-wider mb-2 block">
@@ -162,8 +208,8 @@ export function CreateWishlistModal({ isOpen, onClose, onSuccess }: CreateWishli
                                     type="button"
                                     onClick={() => setPrivacy(opt.value)}
                                     className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all flex items-start gap-3 ${privacy === opt.value
-                                            ? "border-teal/40 bg-teal/5"
-                                            : "border-grey/10 hover:border-grey/20 bg-transparent"
+                                        ? "border-teal/40 bg-teal/5"
+                                        : "border-grey/10 hover:border-grey/20 bg-transparent"
                                         }`}
                                 >
                                     <span className="text-xl leading-none mt-0.5">{opt.icon}</span>
@@ -197,10 +243,10 @@ export function CreateWishlistModal({ isOpen, onClose, onSuccess }: CreateWishli
                         {isPending ? (
                             <>
                                 <Loader2 className="w-4 h-4 animate-spin" />
-                                Creando...
+                                Guardando...
                             </>
                         ) : (
-                            "Crear lista"
+                            isEdit ? "Guardar cambios" : "Crear lista"
                         )}
                     </button>
                 </form>

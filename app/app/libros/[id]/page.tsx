@@ -69,6 +69,7 @@ function BookHelper() {
                             average_rating: null,
                             ratings_count: null,
                             language: dbBook.language,
+                            price: null,
                             source: 'db'
                         });
                         setDbBookId(dbBook.id);

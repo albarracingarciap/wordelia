@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookSearchModal } from "@/components/gifts/BookSearchModal";
+import { BookSearchModal, WishlistBook } from "@/components/gifts/BookSearchModal";
 import { GiftRecipientDetailData, GiftIdeaData, addGiftIdea, markGiftIdeaAsPurchased, deleteGiftIdea } from "@/app/app/wishes/gift-idea-actions";
 import { Gift, Trash2, Plus } from "lucide-react";
 
@@ -18,14 +18,14 @@ export function GiftRecipientView({ recipient, ideas: initialIdeas }: GiftRecipi
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
 
-    function handleAddBook(book: any) {
+    function handleAddBook(book: WishlistBook) {
         startTransition(async () => {
             await addGiftIdea(recipient.id, {
                 title: book.title,
                 author: book.author,
-                coverUrl: book.coverUrl,
-                price: book.price,
-                bookId: book.id,
+                coverUrl: book.coverUrl ?? undefined,
+                price: book.price ?? undefined,
+                bookId: book.isbn ?? book.id,
             });
             setIsSearchOpen(false);
             router.refresh();

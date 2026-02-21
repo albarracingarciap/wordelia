@@ -8,15 +8,17 @@ import { EmptyWishlists } from "@/components/wishes/EmptyWishlists";
 import { EmptyGiftRecipients } from "@/components/gifts/EmptyGiftRecipients";
 import { CreateWishlistModal } from "@/components/wishes/CreateWishlistModal";
 import { AddGiftRecipientModal } from "@/components/gifts/AddGiftRecipientModal";
+import { ReservedItemCard } from "@/components/gifts/ReservedItemCard";
 import { WishlistData } from "@/app/app/wishes/wishlist-actions";
-import { GiftRecipientData } from "@/app/app/wishes/gift-actions";
+import { GiftRecipientData, ReservedItemData } from "@/app/app/wishes/gift-actions";
 
 interface WishesDashboardClientProps {
     initialWishlists: WishlistData[];
     initialRecipients: GiftRecipientData[];
+    initialReservations: ReservedItemData[];
 }
 
-export function WishesDashboardClient({ initialWishlists, initialRecipients }: WishesDashboardClientProps) {
+export function WishesDashboardClient({ initialWishlists, initialRecipients, initialReservations }: WishesDashboardClientProps) {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState<"wishes" | "gifts">("wishes");
     const [showCreateModal, setShowCreateModal] = useState(false);
@@ -141,22 +143,38 @@ export function WishesDashboardClient({ initialWishlists, initialRecipients }: W
                                     </div>
                                 )}
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                                    {initialRecipients.map((person) => (
-                                        <PersonCard key={person.id} recipient={person} />
-                                    ))}
+                                {/* Personas Section */}
+                                <div className="space-y-4">
+                                    <h3 className="font-serif text-xl text-teal">Personas a las que regalo</h3>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                        {initialRecipients.map((person) => (
+                                            <PersonCard key={person.id} recipient={person} />
+                                        ))}
 
-                                    {/* Add Friend Card */}
-                                    <button
-                                        onClick={() => setShowAddRecipientModal(true)}
-                                        className="group border-2 border-dashed border-teal/20 rounded-xl p-6 flex items-center justify-center gap-4 hover:border-teal/50 hover:bg-teal/5 transition-all text-grey/60 hover:text-teal h-[120px]"
-                                    >
-                                        <div className="w-10 h-10 rounded-full bg-teal/10 flex items-center justify-center text-xl group-hover:scale-110 transition-transform duration-300">
-                                            ＋
-                                        </div>
-                                        <span className="font-medium">Añadir nuevo perfil</span>
-                                    </button>
+                                        {/* Add Friend Card */}
+                                        <button
+                                            onClick={() => setShowAddRecipientModal(true)}
+                                            className="group border-2 border-dashed border-teal/20 rounded-xl p-6 flex items-center justify-center gap-4 hover:border-teal/50 hover:bg-teal/5 transition-all text-grey/60 hover:text-teal h-[120px]"
+                                        >
+                                            <div className="w-10 h-10 rounded-full bg-teal/10 flex items-center justify-center text-xl group-hover:scale-110 transition-transform duration-300">
+                                                ＋
+                                            </div>
+                                            <span className="font-medium">Añadir nuevo perfil</span>
+                                        </button>
+                                    </div>
                                 </div>
+
+                                {/* Reservas Section */}
+                                {initialReservations.length > 0 && (
+                                    <div className="space-y-4 pt-8 border-t border-grey/10">
+                                        <h3 className="font-serif text-xl text-teal">Mis Reservas y Compras</h3>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                            {initialReservations.map((item) => (
+                                                <ReservedItemCard key={item.id} item={item} />
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         )}
                     </div>

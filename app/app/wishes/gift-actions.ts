@@ -23,6 +23,18 @@ export interface GiftRecipientData {
     giftIdeasCount: number;
 }
 
+export interface ReservedItemData {
+    id: string;
+    wishlistId: string;
+    wishlistName: string;
+    title: string;
+    author: string | null;
+    coverUrl: string | null;
+    price: number | null;
+    status: "RESERVED" | "PURCHASED";
+    reservedAt: string;
+}
+
 // --- HELPERS ---
 
 function getDaysLeft(dateStr: string): number {
@@ -145,4 +157,36 @@ export async function deleteGiftRecipient(id: string) {
     if (error) return { error: error.message };
     revalidatePath("/app/wishes");
     return { success: true };
+}
+
+export async function getMyReservations(): Promise<ReservedItemData[]> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+        .from("wishlist_items")
+        .select(`
+            id, wishlist_id, title, author, cover_url, price, status, updated_at,
+            wishlists ( name )
+        `)
+        .eq("reserved_by_user_id", user.id)
+        .order("updated_at", { ascending: false });
+
+    if (error) {
+        console.error("Error fetching reservations:", error);
+        return [];
+    }
+
+    return (data || []).map((item: any) => ({
+        id: item.id,
+        wishlistId: item.wishlist_id,
+        wishlistName: item.wishlists?.name || "Lista",
+        title: item.title,
+        author: item.author,
+        coverUrl: item.cover_url,
+        price: item.price,
+        status: item.status as "RESERVED" | "PURCHASED",
+        reservedAt: item.updated_at,
+    }));
 }
