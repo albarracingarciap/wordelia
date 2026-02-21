@@ -1,18 +1,12 @@
-import { MOCK_WISHLISTS, MOCK_ITEMS } from "@/lib/mock-data";
+import { notFound } from "next/navigation";
+import { getWishlistDetail } from "@/app/app/wishes/item-actions";
 import { WishlistDetailView } from "@/components/wishes/WishlistDetailView";
-
-export async function generateStaticParams() {
-    return MOCK_WISHLISTS.map((wishlist) => ({
-        id: wishlist.id,
-    }));
-}
 
 export default async function WishlistDetailPage({ params }: { params: Promise<{ id: string }> }) {
     const { id } = await params;
+    const { wishlist, items, isOwner } = await getWishlistDetail(id);
 
-    // Find list details
-    const wishlist = MOCK_WISHLISTS.find(l => l.id === id) || MOCK_WISHLISTS[0];
-    const items = MOCK_ITEMS.filter(i => i.wishlistId === id);
+    if (!wishlist) notFound();
 
-    return <WishlistDetailView initialWishlist={wishlist} initialItems={items} id={id} />;
+    return <WishlistDetailView wishlist={wishlist} items={items} isOwner={isOwner} />;
 }

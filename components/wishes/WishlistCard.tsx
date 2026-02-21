@@ -1,9 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
-import { Wishlist } from "@/lib/mock-data";
+import { WishlistData } from "@/app/app/wishes/wishlist-actions";
 
 interface WishlistCardProps {
-    wishlist: Wishlist;
+    wishlist: WishlistData;
 }
 
 export function WishlistCard({ wishlist }: WishlistCardProps) {
@@ -33,7 +33,7 @@ export function WishlistCard({ wishlist }: WishlistCardProps) {
                             </div>
                         </div>
                         <h3 className="font-serif text-lg font-bold text-teal group-hover:text-coral transition-colors line-clamp-2 leading-tight mb-1">
-                            {wishlist.name}
+                            {wishlist.emoji} {wishlist.name}
                         </h3>
                         <p className="text-xs text-grey/60">Act: {wishlist.lastUpdated}</p>
                     </div>
@@ -47,9 +47,9 @@ export function WishlistCard({ wishlist }: WishlistCardProps) {
                                         key={i}
                                         className="absolute shadow-sm rounded-sm overflow-hidden border border-white"
                                         style={{
-                                            width: '45px',
-                                            height: '65px',
-                                            left: `${i * 10}px`, // Slight offset to right
+                                            width: "45px",
+                                            height: "65px",
+                                            left: `${i * 10}px`,
                                             top: `${i * 2}px`,
                                             zIndex: i,
                                             transform: `rotate(${(i - 1) * 6}deg)`,
@@ -60,8 +60,8 @@ export function WishlistCard({ wishlist }: WishlistCardProps) {
                                 ))}
                             </div>
                         ) : (
-                            <div className="w-full h-full bg-grey/5 rounded flex items-center justify-center text-xs text-grey/30 italic">
-                                Vacía
+                            <div className="w-full h-full bg-grey/5 rounded flex items-center justify-center text-2xl">
+                                {wishlist.emoji}
                             </div>
                         )}
                     </div>
@@ -70,7 +70,7 @@ export function WishlistCard({ wishlist }: WishlistCardProps) {
                 {/* Footer */}
                 <div className="mt-auto border-t border-black/5 pt-3 flex justify-between items-center">
                     <span className="text-sm font-medium text-grey">
-                        {wishlist.bookCount} {wishlist.bookCount === 1 ? 'libro' : 'libros'}
+                        {wishlist.bookCount} {wishlist.bookCount === 1 ? "libro" : "libros"}
                     </span>
                     <span className="text-xs text-coral font-semibold opacity-0 group-hover:opacity-100 transition-opacity transform translate-x-2 group-hover:translate-x-0">
                         Ver lista →
