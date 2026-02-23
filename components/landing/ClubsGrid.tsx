@@ -21,7 +21,11 @@ interface Club {
     hookQuestion: string; // New field
 }
 
-export function ClubsGrid() {
+interface ClubsGridProps {
+    initialClubs?: any[];
+}
+
+export function ClubsGrid({ initialClubs }: ClubsGridProps) {
     const router = useRouter();
     const { isLoggedIn } = useAuth();
 
@@ -67,7 +71,7 @@ export function ClubsGrid() {
             pace: "100 pág/semana",
             status: "Empieza lunes",
             badges: ["Mapa emocional", "Sin spoilers"],
-            description: "La obra definitiva sobre totalistarismo y vigilancia que ha definido nuestros miedos colectivos",
+            description: "La obra definitiva sobre totalitarismo y vigilancia que ha definido nuestros miedos colectivos",
             hookQuestion: "¿El 'doblepensar' de Winston es una estrategia de supervivencia consciente o la prueba de que ya ha perdido la cordura?",
         },
         {
@@ -78,7 +82,7 @@ export function ClubsGrid() {
             pace: "60 pág/semana",
             status: "Grupo pequeño",
             badges: ["Debate", "Contexto histórico"],
-            description: "Una conmovedora exploración de la justicia, la empatía y el coraje moral frante a la intolerancia",
+            description: "Una conmovedora exploración de la justicia, la empatía y el coraje moral frente a la intolerancia",
             hookQuestion: "¿Crees que la verdadera valentía es la de Atticus enfrentando al pueblo o la de la Sra. Dubose luchando contra su adicción?",
         },
         {
@@ -94,6 +98,20 @@ export function ClubsGrid() {
         },
     ];
 
+    // Use DB data if provided, otherwise fallback to mock data
+    const displayClubs = initialClubs && initialClubs.length > 0 ? initialClubs.map(dbClub => ({
+        id: dbClub.id,
+        title: dbClub.name,
+        book: dbClub.book?.title || 'Libro desconocido',
+        author: dbClub.book?.author || 'Autor desconocido',
+        cover: dbClub.book?.cover_url || '/assets/images/default_cover.jpg',
+        pace: 'Lectura Guiada',
+        status: dbClub.start_date ? new Date(dbClub.start_date).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : 'Próximamente',
+        badges: dbClub.tags ? dbClub.tags.slice(0, 4) : [],
+        description: dbClub.description || '',
+        hookQuestion: dbClub.hook_question || dbClub.description || "¿Qué opinas de este libro?",
+    })) : clubs;
+
     return (
         <Section id="clubs" className="bg-[#D8E2DC]">
             <div className="text-center max-w-2xl mx-auto mb-16">
@@ -107,7 +125,7 @@ export function ClubsGrid() {
 
             {/* Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-                {clubs.map((club, idx) => (
+                {displayClubs.map((club, idx) => (
                     <div
                         key={idx}
                         className="flex flex-col bg-offwhite hover:bg-white rounded-2xl p-4 border border-teal/5 shadow-sm hover:shadow-md hover:-translate-y-1 transition-all duration-300"
@@ -136,7 +154,7 @@ export function ClubsGrid() {
 
                         {/* Badges */}
                         <div className="flex flex-wrap gap-2 mb-4">
-                            {club.badges.map((badge) => (
+                            {club.badges?.map((badge: string) => (
                                 <span
                                     key={badge}
                                     className="px-2 py-1 rounded-md bg-cream text-[10px] font-semibold text-teal border border-teal/10 uppercase tracking-wide"
@@ -159,7 +177,7 @@ export function ClubsGrid() {
                                 <Button
                                     fullWidth
                                     className="text-sm"
-                                    onClick={() => handleClubClick(club)}
+                                    onClick={() => handleClubClick(club as any)}
                                 >
                                     Ver detalles
                                 </Button>

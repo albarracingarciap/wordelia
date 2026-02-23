@@ -43,7 +43,7 @@ export function ADNPromoModal() {
                         Descubre el verdadero ADN de tus libros favoritos
                     </h2>
                     <p className="text-grey/80 text-lg max-w-lg mx-auto leading-relaxed">
-                        Esta página es una demo de lo que Wordelia te ofrece. Con la funcionalidad ADN Literario tendrás un análsis exhaustivo de cada obra basado en 8 "cromosomas" que definen su identidad.
+                        Esta página es una demo de lo que Wordelia te ofrece. Con la funcionalidad ADN Literario tendrás un análisis exhaustivo de cada obra basado en 8 "cromosomas" que definen su identidad.
                     </p>
                 </div>
 

@@ -1,9 +1,23 @@
+"use client";
+
+import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "../ui/Button";
-import { Instagram, Linkedin, Twitter, Facebook, Send } from "lucide-react";
+import { Instagram, Twitter, Facebook, Send, Youtube } from "lucide-react";
 
 export function Footer() {
+    const [email, setEmail] = useState("");
+    const [subscribed, setSubscribed] = useState(false);
+
+    const handleSubscribe = (e: React.FormEvent) => {
+        e.preventDefault();
+        if (email) {
+            setSubscribed(true);
+            setEmail("");
+            // Here you would normally call your backend to save the email
+        }
+    };
     return (
         <footer id="footer" className="relative mt-0 bg-[#FFFAEF] text-grey pt-8 pb-8">
             <div className="max-w-[1200px] mx-auto px-6 md:px-8">
@@ -24,21 +38,21 @@ export function Footer() {
                         <p className="text-sm text-grey/80 leading-relaxed text-balance">
                             Wordelia es el hogar de quienes buscan profundidad en cada página. Nuestra misión es potenciar la conexión humana a través de la literatura con herramientas inteligentes que transforman la lectura en una experiencia compartida inolvidable.
                         </p>
-                        <div className="flex items-center gap-4 text-teal">
-                            <a href="#" className="hover:text-coral transition-colors" aria-label="Instagram">
+                        <div className="flex items-center gap-4 text-teal mt-6">
+                            <a href="https://instagram.com" target="_blank" rel="noreferrer" className="hover:text-coral transition-colors" aria-label="Instagram">
                                 <Instagram className="w-5 h-5" />
                             </a>
-                            <a href="#" className="hover:text-coral transition-colors" aria-label="LinkedIn">
-                                <Linkedin className="w-5 h-5" />
-                            </a>
-                            <a href="#" className="hover:text-coral transition-colors" aria-label="Twitter">
+                            <a href="https://twitter.com" target="_blank" rel="noreferrer" className="hover:text-coral transition-colors" aria-label="X">
                                 <Twitter className="w-5 h-5" />
                             </a>
-                            <a href="#" className="hover:text-coral transition-colors" aria-label="Facebook">
+                            <a href="https://facebook.com" target="_blank" rel="noreferrer" className="hover:text-coral transition-colors" aria-label="Facebook">
                                 <Facebook className="w-5 h-5" />
                             </a>
-                            <a href="#" className="hover:text-coral transition-colors" aria-label="Telegram">
+                            <a href="https://telegram.org" target="_blank" rel="noreferrer" className="hover:text-coral transition-colors" aria-label="Telegram">
                                 <Send className="w-5 h-5" />
+                            </a>
+                            <a href="https://youtube.com" target="_blank" rel="noreferrer" className="hover:text-coral transition-colors" aria-label="Youtube">
+                                <Youtube className="w-5 h-5" />
                             </a>
                         </div>
                     </div>
@@ -47,9 +61,10 @@ export function Footer() {
                     <div>
                         <h4 className="font-bold text-teal text-xs uppercase tracking-wider mb-6">EXPLORAR</h4>
                         <ul className="space-y-4 text-sm text-grey">
-                            {['Clubes de lectura', 'Libros', 'Autores', 'Educación', 'Premium'].map(item => (
-                                <li key={item}><Link href="#" className="hover:text-coral transition-colors">{item}</Link></li>
-                            ))}
+                            <li><Link href="/clubes" className="hover:text-coral transition-colors">Clubs</Link></li>
+                            <li><Link href="/explorar" className="hover:text-coral transition-colors">Libros</Link></li>
+                            <li><Link href="/deseos" className="hover:text-coral transition-colors">Deseos</Link></li>
+                            <li><Link href="/app/adn" className="hover:text-coral transition-colors">ADN</Link></li>
                         </ul>
                     </div>
 
@@ -57,9 +72,12 @@ export function Footer() {
                     <div>
                         <h4 className="font-bold text-teal text-xs uppercase tracking-wider mb-6">EMPRESA</h4>
                         <ul className="space-y-4 text-sm text-grey">
-                            {['Business', 'Librerías', 'Guías de uso', 'Planes', 'Sobre nosotros', 'Contacto'].map(item => (
-                                <li key={item}><Link href="#" className="hover:text-coral transition-colors">{item}</Link></li>
-                            ))}
+                            <li><Link href="/librerias" className="hover:text-coral transition-colors">Librerías</Link></li>
+                            <li><Link href="/educacion" className="hover:text-coral transition-colors">Educación</Link></li>
+                            <li><Link href="/planes" className="hover:text-coral transition-colors">Planes</Link></li>
+                            <li><Link href="/nosotros" className="hover:text-coral transition-colors">Sobre nosotros</Link></li>
+                            <li><Link href="/contacto" className="hover:text-coral transition-colors">Contacto</Link></li>
+                            <li><Link href="/ayuda" className="hover:text-coral transition-colors">Ayuda</Link></li>
                         </ul>
                     </div>
 
@@ -67,9 +85,9 @@ export function Footer() {
                     <div>
                         <h4 className="font-bold text-teal text-xs uppercase tracking-wider mb-6">LEGAL</h4>
                         <ul className="space-y-4 text-sm text-grey">
-                            {['Privacidad', 'Términos y Condiciones', 'Cookies'].map(item => (
-                                <li key={item}><Link href="#" className="hover:text-coral transition-colors">{item}</Link></li>
-                            ))}
+                            <li><Link href="/privacidad" className="hover:text-coral transition-colors">Privacidad</Link></li>
+                            <li><Link href="/terminos" className="hover:text-coral transition-colors">Términos y condiciones</Link></li>
+                            <li><Link href="/cockies" className="hover:text-coral transition-colors">Cockies</Link></li>
                         </ul>
                     </div>
 
@@ -79,16 +97,25 @@ export function Footer() {
                         <p className="text-sm text-grey mb-4">
                             Recibe inspiración literaria cada semana.
                         </p>
-                        <form className="space-y-3">
-                            <input
-                                type="email"
-                                placeholder="Email"
-                                className="w-full px-4 py-2.5 rounded-lg border border-teal/10 bg-white text-sm focus:outline-none focus:border-teal/30 focus:ring-1 focus:ring-teal/30 transition-all placeholder:text-grey/40"
-                            />
-                            <Button className="w-full justify-center bg-[#D56962] hover:bg-[#C25852] text-white shadow-none font-medium">
-                                Suscribirme
-                            </Button>
-                        </form>
+                        {subscribed ? (
+                            <div className="bg-teal/10 text-teal-dark px-4 py-3 rounded-lg text-sm font-medium border border-teal/20 text-center">
+                                ¡Gracias por suscribirte!
+                            </div>
+                        ) : (
+                            <form onSubmit={handleSubscribe} className="space-y-3">
+                                <input
+                                    type="email"
+                                    required
+                                    value={email}
+                                    onChange={(e) => setEmail(e.target.value)}
+                                    placeholder="Email"
+                                    className="w-full px-4 py-2.5 rounded-lg border border-teal/10 bg-white text-sm focus:outline-none focus:border-teal/30 focus:ring-1 focus:ring-teal/30 transition-all placeholder:text-grey/40"
+                                />
+                                <Button type="submit" className="w-full justify-center bg-[#D56962] hover:bg-[#C25852] text-white shadow-none font-medium">
+                                    Suscribirme
+                                </Button>
+                            </form>
+                        )}
                     </div>
                 </div>
 

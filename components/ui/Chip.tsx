@@ -3,7 +3,8 @@
 import * as React from "react";
 
 interface ChipProps {
-    label: string;
+    label?: string;
+    children?: React.ReactNode;
     active?: boolean;
     onClick?: () => void;
     href?: string;
@@ -12,7 +13,7 @@ interface ChipProps {
     className?: string; // Add className support
 }
 
-export function Chip({ label, active = false, onClick, href, variant = "default", size = "default", className = "" }: ChipProps) {
+export function Chip({ label, children, active = false, onClick, href, variant = "default", size = "default", className = "" }: ChipProps) {
     let baseStyles =
         "inline-flex items-center justify-center rounded-2xl font-medium transition-all duration-200 border cursor-pointer select-none";
 
@@ -45,7 +46,7 @@ export function Chip({ label, active = false, onClick, href, variant = "default"
     if (href) {
         return (
             <a href={href} className={`${baseStyles} ${activeStyles} ${className}`}>
-                {label}
+                {children || label}
             </a>
         );
     }
@@ -55,7 +56,7 @@ export function Chip({ label, active = false, onClick, href, variant = "default"
             onClick={onClick}
             className={`${baseStyles} ${activeStyles} ${className}`}
         >
-            {label}
+            {children || label}
         </button>
     );
 }
