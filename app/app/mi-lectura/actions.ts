@@ -521,6 +521,28 @@ export async function startReadingBook(bookId: string) {
             .eq("book_id", bookId);
 
         if (error) throw error;
+
+        // --- ACTIVITY FEED INSERTION ---
+        try {
+            const { data: bookData } = await supabase
+                .from('books')
+                .select('title')
+                .eq('id', bookId)
+                .single();
+
+            const bookTitle = bookData?.title || 'un libro';
+
+            await supabase.from('activity_feed').insert({
+                user_id: user.id,
+                activity_type: 'start_reading',
+                content: `Ha empezado a leer '${bookTitle}'`,
+                metadata: { book_id: bookId }
+            });
+        } catch (activityError) {
+            console.error("Error inserting activity:", activityError);
+        }
+        // ---------------------------------
+
         revalidatePath("/app/mi-lectura");
         return { success: true };
     } catch (e: any) {
@@ -641,7 +663,10 @@ export async function saveNote(
         // Schema: user_id, book_id, content, page_number, chapter
         const finalContent = type ? `[${type}] ${content}` : content;
 
-        const { error } = await supabase
+        // by default let's make quotes public so they appear in feed, other types private
+        const isPrivate = !(type === "Cita" || type === "Subrayado");
+
+        const { error, data: noteData } = await supabase
             .from("book_notes")
             .insert({
                 user_id: user.id,
@@ -649,10 +674,41 @@ export async function saveNote(
                 content: finalContent,
                 page_number: finalPageNum,
                 chapter: chapter,
-                is_private: true
-            });
+                is_private: isPrivate
+            })
+            .select('id')
+            .single();
 
         if (error) throw error;
+
+        // --- ACTIVITY FEED INSERTION ---
+        if (!isPrivate) {
+            try {
+                const { data: bookData } = await supabase
+                    .from('books')
+                    .select('title')
+                    .eq('id', bookId)
+                    .single();
+
+                const bookTitle = bookData?.title || 'un libro';
+
+                const activityTypeLabel = type === 'Cita' ? 'una cita' : 'un subrayado';
+
+                // Clean the content for the feed (remove the [Type] prefix)
+                const cleanContent = type ? finalContent.replace(/^\[.*?\]\s/, "") : finalContent;
+
+                await supabase.from('activity_feed').insert({
+                    user_id: user.id,
+                    activity_type: 'note',
+                    content: `Ha guardado ${activityTypeLabel} de '${bookTitle}'`,
+                    subtext: `"${cleanContent}"`,
+                    metadata: { book_id: bookId, note_id: noteData?.id, note_type: type }
+                });
+            } catch (activityError) {
+                console.error("Error inserting activity:", activityError);
+            }
+        }
+        // ---------------------------------
 
         revalidatePath("/app/mi-lectura");
         return { success: true };
@@ -732,6 +788,34 @@ export async function saveReview(
         }, { onConflict: 'user_id, book_id' });
 
     if (error) return { error: error.message };
+
+    // --- ACTIVITY FEED INSERTION ---
+    try {
+        const { data: bookData } = await supabase
+            .from('books')
+            .select('title')
+            .eq('id', bookId)
+            .single();
+
+        const bookTitle = bookData?.title || 'un libro';
+
+        const activityContent = type === 'FIRST_IMPRESSIONS'
+            ? `Ha compartido sus primeras impresiones sobre '${bookTitle}'`
+            : `Ha dejado ${rating} estrellas a '${bookTitle}'`;
+
+        await supabase.from('activity_feed').insert({
+            user_id: user.id,
+            activity_type: 'review',
+            content: activityContent,
+            subtext: content.length > 150 ? content.substring(0, 150) + '...' : content,
+            metadata: { book_id: bookId, rating, type }
+        });
+    } catch (activityError) {
+        console.error("Error inserting activity:", activityError);
+        // We don't fail the review creation if the feed insertion fails
+    }
+    // ---------------------------------
+
     // Replaces 'revalidatePath' with potentially more specific revalidation if needed
     // Assuming book detail page is /app/libros/[id]
     revalidatePath(`/app/libros/${bookId}`);

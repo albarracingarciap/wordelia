@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/Badge";
 import { CreateNoteModal } from "@/components/notes/CreateNoteModal";
 import { ReviewModal } from "@/components/reviews/ReviewModal";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
+import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { getCurrentBooks, getReadingStats, getRecentNotes, CurrentBook, ReadingStats, Note, deleteBook, getRecommendedBook, RecommendedBook, startReadingBook } from "@/app/app/mi-lectura/actions";
 import { getUpcomingMilestones } from "@/app/app/clubs/[id]/actions";
 import { Search, BookOpen, CalendarDays } from "lucide-react";
@@ -349,14 +350,19 @@ export default function MiLecturaPage() {
                                 </Link>
                             </div>
                             <div className="grid grid-cols-2 gap-3 pt-2">
-                                <Link href="#" className="p-3 bg-white border border-teal/5 rounded-lg text-xs font-medium text-grey hover:border-teal/20 hover:text-teal transition-all text-center shadow-sm flex items-center justify-center h-full">
+                                <Link href="/app/clubs/crear" className="p-3 bg-white border border-teal/5 rounded-lg text-xs font-medium text-grey hover:border-teal/20 hover:text-teal transition-all text-center shadow-sm flex items-center justify-center h-full">
                                     Crear un club
                                 </Link>
-                                <Link href="#" className="p-3 bg-white border border-teal/5 rounded-lg text-xs font-medium text-grey hover:border-teal/20 hover:text-teal transition-all text-center shadow-sm flex items-center justify-center h-full">
+                                <Link href="/app/clubs" className="p-3 bg-white border border-teal/5 rounded-lg text-xs font-medium text-grey hover:border-teal/20 hover:text-teal transition-all text-center shadow-sm flex items-center justify-center h-full">
                                     Explorar clubs
                                 </Link>
                             </div>
                         </div>
+                    </section>
+
+                    {/* Section: Activity Feed */}
+                    <section>
+                        <ActivityFeed />
                     </section>
 
                     {/* Section 5: Recommended */}

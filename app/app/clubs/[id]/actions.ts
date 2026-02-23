@@ -654,6 +654,28 @@ export async function createPost(clubId: string, content: string, isSpoiler: boo
 
         if (error) throw error;
 
+        // --- ACTIVITY FEED INSERTION ---
+        try {
+            const { data: clubData } = await supabase
+                .from('clubs')
+                .select('name')
+                .eq('id', clubId)
+                .single();
+
+            const clubName = clubData?.name || 'un club';
+
+            await supabase.from('activity_feed').insert({
+                user_id: user.id,
+                activity_type: 'club_post',
+                content: `Ha iniciado un debate en el club '${clubName}'`,
+                subtext: isSpoiler ? "El contenido contiene spoilers." : (content.length > 150 ? content.substring(0, 150) + '...' : content),
+                metadata: { club_id: clubId, is_spoiler: isSpoiler }
+            });
+        } catch (activityError) {
+            console.error("Error inserting activity:", activityError);
+        }
+        // ---------------------------------
+
         revalidatePath(`/app/clubs/${clubId}`);
         return { success: true };
     } catch (error: any) {
