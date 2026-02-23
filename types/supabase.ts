@@ -23,6 +23,7 @@ export interface Database {
                     reader_type: string | null
                     favorite_genres: Json | null
                     goals: Json | null
+                    role: 'user' | 'admin' | 'editor' | 'moderator' | null
                 }
                 Insert: {
                     id: string
@@ -37,6 +38,7 @@ export interface Database {
                     reader_type?: string | null
                     favorite_genres?: Json | null
                     goals?: Json | null
+                    role?: 'user' | 'admin' | 'editor' | 'moderator' | null
                 }
                 Update: {
                     id?: string
@@ -51,6 +53,7 @@ export interface Database {
                     reader_type?: string | null
                     favorite_genres?: Json | null
                     goals?: Json | null
+                    role?: 'user' | 'admin' | 'editor' | 'moderator' | null
                 }
             }
             authors: {
@@ -193,6 +196,44 @@ export interface Database {
                     list_id?: string
                     book_id?: string
                     added_at?: string
+                }
+            }
+            challenges: {
+                Row: {
+                    id: string
+                    title: string
+                    description: string | null
+                    start_date: string | null
+                    end_date: string | null
+                    rules: string | null
+                    reward_badge_name: string | null
+                    reward_badge_image_url: string | null
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    title: string
+                    description?: string | null
+                    start_date?: string | null
+                    end_date?: string | null
+                    rules?: string | null
+                    reward_badge_name?: string | null
+                    reward_badge_image_url?: string | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    id?: string
+                    title?: string
+                    description?: string | null
+                    start_date?: string | null
+                    end_date?: string | null
+                    rules?: string | null
+                    reward_badge_name?: string | null
+                    reward_badge_image_url?: string | null
+                    created_at?: string
+                    updated_at?: string
                 }
             }
         }
