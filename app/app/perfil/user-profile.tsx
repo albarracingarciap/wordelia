@@ -88,14 +88,14 @@ function ProgressBar({ current, target }: { current: number; target: number }) {
 
 function StatCard({ label, value, subtext, icon }: { label: string; value: string | number; subtext: string; icon: React.ReactNode }) {
     return (
-        <div className="bg-white p-4 rounded-2xl border border-grey/10 shadow-sm flex items-start gap-4 hover:shadow-md transition-shadow">
-            <div className="p-3 bg-teal/5 text-teal rounded-xl">
+        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-grey/10 shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-2 sm:gap-4 hover:shadow-md transition-shadow text-center sm:text-left">
+            <div className="p-2 sm:p-3 bg-teal/5 text-teal rounded-xl">
                 {icon}
             </div>
             <div>
-                <div className="text-2xl font-bold text-teal-dark leading-tight">{value}</div>
-                <div className="text-sm font-medium text-grey-dark">{label}</div>
-                <div className="text-xs text-grey/50 mt-1">{subtext}</div>
+                <div className="text-xl sm:text-2xl font-bold text-teal-dark leading-tight">{value}</div>
+                <div className="text-xs sm:text-sm font-medium text-grey-dark">{label}</div>
+                <div className="hidden sm:block text-xs text-grey/50 mt-1">{subtext}</div>
             </div>
         </div>
     );
@@ -111,6 +111,18 @@ type LibraryBook = {
     id: string;
     title: string;
     cover: string | null;
+};
+
+type LibraryBookRow = {
+    book: {
+        id: string;
+        title: string;
+        cover_url: string | null;
+    } | {
+        id: string;
+        title: string;
+        cover_url: string | null;
+    }[];
 };
 
 export default function UserProfile({
@@ -245,11 +257,14 @@ export default function UserProfile({
                 .limit(10);
 
             if (data) {
-                setLibraryBooks(data.map((b: any) => ({
-                    id: b.book.id,
-                    title: b.book.title,
-                    cover: b.book.cover_url
-                })));
+                setLibraryBooks((data as LibraryBookRow[]).map((b) => {
+                    const book = Array.isArray(b.book) ? b.book[0] : b.book;
+                    return {
+                        id: book.id,
+                        title: book.title,
+                        cover: book.cover_url
+                    };
+                }));
             }
             setLibraryLoading(false);
         };
@@ -294,16 +309,16 @@ export default function UserProfile({
     return (
         <div className="min-h-screen bg-cream/20 pb-20">
             {/* --- Header Section --- */}
-            <header className="bg-white border-b border-grey/10 pb-8 pt-24 px-6 md:px-12 relative group/header">
+            <header className="bg-white border-b border-grey/10 pb-6 sm:pb-8 pt-16 sm:pt-24 px-4 sm:px-6 md:px-12 relative group/header overflow-hidden rounded-2xl lg:rounded-none">
                 {/* Cover/Banner Customizable */}
                 <div
-                    className="absolute top-0 left-0 w-full h-32 opacity-90 transition-colors duration-500"
+                    className="absolute top-0 left-0 w-full h-28 sm:h-32 opacity-90 transition-colors duration-500"
                     style={{ backgroundColor: bannerColor }}
                 />
-                <div className="absolute top-0 left-0 w-full h-32 opacity-10 pattern-grid-lg pointer-events-none" />
+                <div className="absolute top-0 left-0 w-full h-28 sm:h-32 opacity-10 pattern-grid-lg pointer-events-none" />
 
                 {/* Banner Edit Trigger - Always visible for now to debug, with high z-index */}
-                <div className="absolute top-4 right-6 z-50">
+                <div className="absolute top-3 right-3 sm:top-4 sm:right-6 z-50">
                     <div className="relative">
                         <button
                             onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
@@ -330,10 +345,10 @@ export default function UserProfile({
                     </div>
                 </div>
 
-                <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-start md:items-end gap-6 relative z-10">
+                <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center md:items-end gap-4 sm:gap-6 relative z-10 text-center md:text-left">
                     {/* Avatar */}
                     <div className="relative group">
-                        <div className="w-32 h-32 rounded-full border-4 border-white shadow-lg overflow-hidden bg-grey/20">
+                        <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white shadow-lg overflow-hidden bg-grey/20">
                             {profile.avatar_url ? (
                                 <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full object-cover" />
                             ) : (
@@ -348,11 +363,11 @@ export default function UserProfile({
                     </div>
 
                     {/* User Info */}
-                    <div className="flex-1 space-y-2 mb-2 md:mb-0">
-                        <h1 className="text-3xl font-bold text-teal-dark">{profile.full_name || "Lector Sin Nombre"}</h1>
+                    <div className="flex-1 space-y-2 mb-2 md:mb-0 min-w-0">
+                        <h1 className="text-2xl sm:text-3xl font-bold text-teal-dark break-words">{profile.full_name || "Lector Sin Nombre"}</h1>
                         <p className="text-grey/60 text-sm font-medium">{profile.username ? `@${profile.username}` : ""}</p>
 
-                        <div className="flex flex-wrap items-center gap-4 text-xs text-grey/60 mt-1">
+                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 sm:gap-4 text-xs text-grey/60 mt-1">
                             {profile.location && (
                                 <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {profile.location}</span>
                             )}
@@ -360,7 +375,7 @@ export default function UserProfile({
                         </div>
 
                         {/* Editable Bio */}
-                        <div className="mt-4 max-w-xl">
+                        <div className="mt-4 max-w-xl mx-auto md:mx-0">
                             <p className="text-grey-dark text-sm leading-relaxed">
                                 {bio}
                             </p>
@@ -368,11 +383,11 @@ export default function UserProfile({
                     </div>
 
                     {/* Action Button */}
-                    <div className="flex gap-3">
+                    <div className="flex w-full md:w-auto gap-3">
                         {/* Removed unused menu button */}
                         <Link
                             href="/app/perfil/editar"
-                            className="inline-flex items-center justify-center rounded-2xl font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer bg-transparent border border-coral text-coral hover:bg-coral/10 hover:shadow-sm focus:ring-coral h-9 px-4 text-sm"
+                            className="inline-flex w-full md:w-auto items-center justify-center rounded-2xl font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer bg-transparent border border-coral text-coral hover:bg-coral/10 hover:shadow-sm focus:ring-coral h-10 px-4 text-sm"
                         >
                             Editar Perfil
                         </Link>
@@ -380,12 +395,12 @@ export default function UserProfile({
                 </div>
             </header>
 
-            <main className="max-w-6xl mx-auto px-6 md:px-12 py-8 grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <main className="max-w-6xl mx-auto px-0 sm:px-6 md:px-12 py-5 sm:py-8 grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-8">
 
                 {/* --- Left Column (Stats & Charts) --- */}
                 <div className="space-y-8 lg:col-span-2">
                     {/* Stats Grid */}
-                    <section className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <section className="grid grid-cols-3 gap-2 sm:gap-4">
                         <StatCard
                             icon={<BookOpen className="w-5 h-5" />}
                             value={stats.booksRead}
@@ -407,14 +422,14 @@ export default function UserProfile({
                     </section>
 
                     {/* Goal Progress */}
-                    <section className="bg-white p-6 rounded-3xl border border-grey/10 shadow-sm">
+                    <section className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-grey/10 shadow-sm">
                         <ProgressBar current={stats.booksRead} target={goalTarget} />
                     </section>
 
                     {/* Recent Content Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-8">
                         {/* Activity */}
-                        <section className="bg-white p-6 rounded-3xl border border-grey/10 shadow-sm space-y-6">
+                        <section className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-grey/10 shadow-sm space-y-6">
                             <h3 className="font-bold text-teal-dark flex items-center gap-2">
                                 Actividad Reciente
                             </h3>
@@ -465,7 +480,7 @@ export default function UserProfile({
 
                         {/* Genres Chart */}
                         {/* Genres Chart */}
-                        <section className="bg-white p-6 rounded-3xl border border-grey/10 shadow-sm space-y-4">
+                        <section className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-grey/10 shadow-sm space-y-4">
                             <h3 className="font-bold text-teal-dark">Géneros Favoritos</h3>
                             <div className="flex items-center gap-4">
                                 {/* Simple CSS Donut Chart */}
@@ -517,8 +532,8 @@ export default function UserProfile({
 
                     {/* Quick Library */}
                     <section className="space-y-4 pt-4">
-                        <div className="flex items-center justify-between border-b border-grey/10">
-                            <div className="flex gap-6">
+                        <div className="flex items-center justify-between border-b border-grey/10 overflow-x-auto">
+                            <div className="flex min-w-max gap-5 sm:gap-6">
                                 {LIBRARY_TABS.map(tab => (
                                     <button
                                         key={tab}
@@ -547,7 +562,7 @@ export default function UserProfile({
                             </Link>
                         </div>
 
-                        <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 gap-4 py-4">
+                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 sm:gap-4 py-4">
                             {libraryLoading ? (
                                 <div className="col-span-full py-8 text-center text-xs text-grey/40">Cargando...</div>
                             ) : (
@@ -582,7 +597,7 @@ export default function UserProfile({
                 {/* --- Right Column (Badges & Extras) --- */}
                 <div className="space-y-8">
                     {/* Badges */}
-                    <section className="bg-white p-6 rounded-3xl border border-grey/10 shadow-sm space-y-4">
+                    <section className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-grey/10 shadow-sm space-y-4">
                         <div className="flex items-center justify-between">
                             <h3 className="font-bold text-teal-dark flex items-center gap-2">
                                 <Award className="w-4 h-4 text-coral" /> Insignias
@@ -617,7 +632,7 @@ export default function UserProfile({
                     </section>
 
                     {/* Reading Challenge Promo (Optional/Extra) */}
-                    <section className="bg-gradient-to-br from-[#FFF9C4] to-[#FFE0B2] p-6 rounded-3xl border border-orange-100 shadow-sm relative overflow-hidden group cursor-pointer hover:shadow-md transition-shadow">
+                    <section className="bg-gradient-to-br from-[#FFF9C4] to-[#FFE0B2] p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-orange-100 shadow-sm relative overflow-hidden group cursor-pointer hover:shadow-md transition-shadow">
                         <div className="absolute top-0 right-0 w-32 h-32 bg-white/40 rounded-full -mr-10 -mt-10 blur-xl group-hover:bg-white/60 transition-colors" />
 
                         <div className="relative z-10">

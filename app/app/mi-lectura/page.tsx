@@ -10,18 +10,78 @@ import { RegisterReadingModal } from "@/components/dashboard/RegisterReadingModa
 import { ReadingTimerModal } from "@/components/dashboard/ReadingTimerModal";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Badge } from "@/components/ui/Badge";
 import { CreateNoteModal } from "@/components/notes/CreateNoteModal";
 import { ReviewModal } from "@/components/reviews/ReviewModal";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { getCurrentBooks, getReadingStats, getRecentNotes, CurrentBook, ReadingStats, Note, deleteBook, getRecommendedBook, RecommendedBook, startReadingBook } from "@/app/app/mi-lectura/actions";
 import { getUpcomingMilestones } from "@/app/app/clubs/[id]/actions";
-import { Search, BookOpen, CalendarDays } from "lucide-react";
+import { Search, BookOpen, CalendarDays, AlertCircle, Plus, Timer, Library, Users, StickyNote } from "lucide-react";
+
+type Milestone = {
+    id: string;
+    eventDate: string;
+    clubName: string;
+    content: string;
+    durationMinutes?: number | null;
+    format?: "online" | "in_person" | string | null;
+    location?: string | null;
+};
+
+const sectionTitleClass = "text-xs font-bold uppercase tracking-widest text-grey/40 lg:text-sm";
+
+function InlineError({ message }: { message: string }) {
+    return (
+        <div className="flex items-start gap-3 rounded-xl border border-coral/25 bg-coral/10 px-4 py-3 text-sm text-coral">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>{message}</p>
+        </div>
+    );
+}
+
+function QuickActions({
+    hasBooks,
+    onRegister,
+    onNote,
+}: {
+    hasBooks: boolean;
+    onRegister: () => void;
+    onNote: () => void;
+}) {
+    const actionClass = "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-teal/10 bg-white px-3 py-3 text-center text-xs font-semibold text-grey shadow-sm transition-all hover:border-teal/25 hover:text-teal";
+
+    return (
+        <section>
+            <h2 className={`${sectionTitleClass} mb-3`}>A un clic</h2>
+            <div className="grid grid-cols-2 gap-3">
+                <Link href="/app/mi-lectura/nuevo?from=/app/mi-lectura" className={`${actionClass} col-span-2 sm:col-span-1 lg:col-span-2`}>
+                    <Plus className="h-4 w-4" /> Añadir libro
+                </Link>
+                <button type="button" onClick={onRegister} className={actionClass}>
+                    <Timer className="h-4 w-4" /> Registrar lectura
+                </button>
+                <Link href="/app/mi-lectura/estanterias" className={actionClass}>
+                    <Library className="h-4 w-4" /> Mis estanterías
+                </Link>
+                {hasBooks ? (
+                    <button type="button" onClick={onNote} className={actionClass}>
+                        <StickyNote className="h-4 w-4" /> Crear nota
+                    </button>
+                ) : (
+                    <Link href="/app/clubs/crear" className={actionClass}>
+                        <Users className="h-4 w-4" /> Crear club
+                    </Link>
+                )}
+                <Link href="/app/clubs" className={actionClass}>
+                    <Users className="h-4 w-4" /> Explorar clubs
+                </Link>
+            </div>
+        </section>
+    );
+}
 
 export default function MiLecturaPage() {
     const router = useRouter();
-    const [recommendationFilter, setRecommendationFilter] = React.useState("ritmo"); // rhythm, popular, new
     const [isRegisterModalOpen, setIsRegisterModalOpen] = React.useState(false);
     const [isTimerOpen, setIsTimerOpen] = React.useState(false);
     const [sessionDuration, setSessionDuration] = React.useState<number | undefined>(undefined);
@@ -32,8 +92,12 @@ export default function MiLecturaPage() {
     const [stats, setStats] = React.useState<ReadingStats | null>(null);
     const [notes, setNotes] = React.useState<Note[]>([]);
     const [recommendedBook, setRecommendedBook] = React.useState<RecommendedBook | null>(null);
-    const [milestones, setMilestones] = React.useState<any[]>([]);
+    const [milestones, setMilestones] = React.useState<Milestone[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
+    const [loadError, setLoadError] = React.useState("");
+    const [actionError, setActionError] = React.useState("");
+    const [pendingDeleteBookId, setPendingDeleteBookId] = React.useState<string | null>(null);
+    const [pendingAction, setPendingAction] = React.useState<string | null>(null);
     const [launcherQuery, setLauncherQuery] = React.useState("");
     const [registerBookId, setRegisterBookId] = React.useState<string | undefined>(undefined);
     const [noteTargetBookId, setNoteTargetBookId] = React.useState<string | undefined>(undefined);
@@ -51,30 +115,45 @@ export default function MiLecturaPage() {
         setIsReviewModalOpen(true);
     };
 
-    // Fetch Data
-    React.useEffect(() => {
-        async function loadData() {
-            try {
-                const [fetchedBooks, fetchedStats, fetchedNotes, fetchedRecommendation, fetchedMilestones] = await Promise.all([
-                    getCurrentBooks(),
-                    getReadingStats(),
-                    getRecentNotes(),
-                    getRecommendedBook(),
-                    getUpcomingMilestones()
-                ]);
-                setBooks(fetchedBooks);
-                setStats(fetchedStats);
-                setNotes(fetchedNotes);
-                setRecommendedBook(fetchedRecommendation);
-                setMilestones(fetchedMilestones);
-            } catch (error) {
-                console.error("Failed to load dashboard data:", error);
-            } finally {
-                setIsLoading(false);
-            }
+    const loadDashboardData = React.useCallback(async ({ showSkeleton = false }: { showSkeleton?: boolean } = {}) => {
+        if (showSkeleton) setIsLoading(true);
+        setLoadError("");
+
+        const [booksResult, statsResult, notesResult, recommendationResult, milestonesResult] = await Promise.allSettled([
+            getCurrentBooks(),
+            getReadingStats(),
+            getRecentNotes(),
+            getRecommendedBook(),
+            getUpcomingMilestones()
+        ]);
+
+        let hasError = false;
+
+        if (booksResult.status === "fulfilled") setBooks(booksResult.value);
+        else hasError = true;
+
+        if (statsResult.status === "fulfilled") setStats(statsResult.value);
+        else hasError = true;
+
+        if (notesResult.status === "fulfilled") setNotes(notesResult.value);
+        else hasError = true;
+
+        if (recommendationResult.status === "fulfilled") setRecommendedBook(recommendationResult.value);
+        else hasError = true;
+
+        if (milestonesResult.status === "fulfilled") setMilestones(milestonesResult.value as Milestone[]);
+        else hasError = true;
+
+        if (hasError) {
+            setLoadError("No hemos podido cargar todos tus datos. Algunas secciones pueden estar incompletas.");
         }
-        loadData();
+
+        setIsLoading(false);
     }, []);
+
+    React.useEffect(() => {
+        loadDashboardData({ showSkeleton: true });
+    }, [loadDashboardData]);
 
     const hasBooks = books.length > 0;
 
@@ -95,14 +174,30 @@ export default function MiLecturaPage() {
         setIsRegisterModalOpen(true);
     };
 
-    const handleDeleteBook = async (bookId: string) => {
-        if (!confirm("¿Estás seguro de que quieres dejar de leer este libro? Se eliminará de tu lista 'Ahora leyendo'.")) return;
+    const requestDeleteBook = (bookId: string) => {
+        setActionError("");
+        setPendingDeleteBookId(bookId);
+    };
 
-        const res = await deleteBook(bookId);
-        if (res.success) {
-            setBooks(prev => prev.filter(b => b.id !== bookId));
-        } else {
-            alert("Error al eliminar el libro: " + res.error);
+    const confirmDeleteBook = async () => {
+        if (!pendingDeleteBookId) return;
+
+        setActionError("");
+        setPendingAction("delete");
+
+        try {
+            const res = await deleteBook(pendingDeleteBookId);
+            if (res.success) {
+                setBooks(prev => prev.filter(b => b.id !== pendingDeleteBookId));
+                setPendingDeleteBookId(null);
+            } else {
+                setActionError(res.error || "No hemos podido quitar el libro de tu lectura.");
+            }
+        } catch (error) {
+            console.error("Error deleting book:", error);
+            setActionError("No hemos podido quitar el libro de tu lectura.");
+        } finally {
+            setPendingAction(null);
         }
     };
 
@@ -114,14 +209,22 @@ export default function MiLecturaPage() {
     };
 
     const handleStartReading = async (bookId: string) => {
-        const res = await startReadingBook(bookId);
-        if (res.success) {
-            // Optimistic update or reload
-            // Ideally we re-fetch all data, but for now let's just reload the page or fetch data again
-            // Simple way:
-            window.location.reload();
-        } else {
-            alert("Error al iniciar lectura: " + res.error);
+        setActionError("");
+        setPendingAction(`start-${bookId}`);
+
+        try {
+            const res = await startReadingBook(bookId);
+            if (res.success) {
+                await loadDashboardData();
+                router.refresh();
+            } else {
+                setActionError(res.error || "No hemos podido empezar esta lectura.");
+            }
+        } catch (error) {
+            console.error("Error starting reading:", error);
+            setActionError("No hemos podido empezar esta lectura.");
+        } finally {
+            setPendingAction(null);
         }
     };
 
@@ -130,36 +233,73 @@ export default function MiLecturaPage() {
     }
 
     return (
-        <div>
+        <div className="space-y-6">
             {/* Header */}
             <SectionHeader
                 eyebrow="MI LECTURA"
                 title="Tu rincón de lectura"
                 subtitle="Continúa donde lo dejaste, guarda tus momentos y avanza a tu ritmo."
+                className="mb-0 md:mb-4 [&_h1]:text-[1.65rem] [&_h1]:leading-tight [&_p]:text-sm"
             />
 
+            {loadError && <InlineError message={loadError} />}
+            {actionError && <InlineError message={actionError} />}
+
+            <div className="-mb-3 overflow-x-auto pb-1">
+                <StatsRow
+                    streakDays={hasBooks && stats ? stats.streak : undefined}
+                    weeklyPages={hasBooks && stats ? stats.weeklyPages : undefined}
+                    activeClubs={hasBooks && stats ? stats.activeClubs : undefined}
+                    spoilerMode={false}
+                />
+            </div>
+
+            <div className="lg:hidden">
+                <QuickActions
+                    hasBooks={hasBooks}
+                    onRegister={() => handleManualRegister()}
+                    onNote={() => handleOpenNoteModal()}
+                />
+            </div>
+
             {/* Main Layout */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+            <div className="grid grid-cols-1 gap-7 lg:grid-cols-12 lg:gap-8">
 
                 {/* Left Column (Main Content) - 8 Cols */}
-                <div className="lg:col-span-8 space-y-10">
-
-                    {/* Stats Row */}
-                    <div className="-mb-4">
-                        <StatsRow
-                            streakDays={hasBooks && stats ? stats.streak : undefined}
-                            weeklyPages={hasBooks && stats ? stats.weeklyPages : undefined}
-                            activeClubs={hasBooks && stats ? stats.activeClubs : undefined}
-                            spoilerMode={false} // TODO: fetch from preferences
-                        />
-                    </div>
+                <div className="space-y-7 lg:col-span-8 lg:space-y-10">
 
                     {/* Section 1: Ahora Leyendo */}
                     <section>
-                        <h2 className="text-xl font-serif text-teal mb-4">Ahora leyendo</h2>
+                        <h2 className={`${sectionTitleClass} mb-4`}>Ahora leyendo</h2>
 
                         {hasBooks ? (
                             <div className="space-y-4">
+                                {pendingDeleteBookId && (
+                                    <Card className="border-coral/20 bg-coral/5">
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                            <p className="text-sm text-grey-dark">
+                                                ¿Quieres quitar este libro de “Ahora leyendo”?
+                                            </p>
+                                            <div className="flex gap-2">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => setPendingDeleteBookId(null)}
+                                                    disabled={pendingAction === "delete"}
+                                                >
+                                                    Cancelar
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    onClick={confirmDeleteBook}
+                                                    isLoading={pendingAction === "delete"}
+                                                >
+                                                    Quitar
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                )}
                                 {books.map((book) => (
                                     <BookCard
                                         key={book.id}
@@ -168,7 +308,7 @@ export default function MiLecturaPage() {
                                         onRegisterClick={() => handleManualRegister(book.id)}
                                         actionLabel="Nueva sesión"
                                         onActionClick={handleNewSession}
-                                        onDelete={() => handleDeleteBook(book.id)}
+                                        onDelete={() => requestDeleteBook(book.id)}
                                         onNotesClick={() => handleOpenNoteModal(book.id)}
                                         onReviewClick={() => handleFirstImpressions(book.id)}
                                         reviewLabel="Primeras impresiones"
@@ -177,8 +317,8 @@ export default function MiLecturaPage() {
                             </div>
                         ) : (
                             // LAUNCHER EMPTY STATE
-                            <div className="flex flex-col items-center justify-center py-16 text-center animate-fade-in bg-white/50 rounded-2xl border border-teal/5 p-8">
-                                <div className="w-20 h-20 bg-teal/5 rounded-full flex items-center justify-center mb-6 text-teal/40">
+                            <div className="flex flex-col items-center justify-center rounded-2xl border border-teal/5 bg-white/50 p-5 py-10 text-center animate-fade-in sm:p-8 md:py-16">
+                                <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-teal/5 text-teal/40 md:mb-6 md:h-20 md:w-20">
                                     <BookOpen size={32} />
                                 </div>
                                 <h3 className="text-xl md:text-2xl font-serif text-teal mb-2">Tu rincón está listo</h3>
@@ -208,9 +348,9 @@ export default function MiLecturaPage() {
                                         </button>
                                     </div>
                                 </form>
-                                <div className="mt-8 flex gap-4 text-sm text-grey/60">
+                                <div className="mt-6 flex flex-col gap-2 text-sm text-grey/60 sm:mt-8 sm:flex-row sm:gap-4">
                                     <span>¿Buscas inspiración?</span>
-                                    <Link href="/explorar" className="text-teal font-medium hover:underline">Explorar catálogos</Link>
+                                    <Link href="/app/explorar" className="text-teal font-medium hover:underline">Explorar catálogos</Link>
                                 </div>
                             </div>
                         )}
@@ -218,7 +358,7 @@ export default function MiLecturaPage() {
 
                     {/* Section 2: Próximos Hitos */}
                     <section>
-                        <h2 className="text-xl font-serif text-teal mb-4">Próximos hitos</h2>
+                        <h2 className={`${sectionTitleClass} mb-4`}>Próximos hitos</h2>
                         {milestones.length > 0 ? (
                             <div className="space-y-3">
                                 {milestones.map((m) => {
@@ -286,7 +426,7 @@ export default function MiLecturaPage() {
                     {/* Section 3: Momentos Guardados */}
                     <section>
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-xl font-serif text-teal">Momentos guardados</h2>
+                            <h2 className={sectionTitleClass}>Momentos guardados</h2>
                             {notes.length > 0 && (
                                 <Link href="/app/mi-lectura/notas" className="text-xs font-medium text-teal hover:underline">Ver todas</Link>
                             )}
@@ -296,7 +436,7 @@ export default function MiLecturaPage() {
                                 {notes.map((note) => (
                                     <Card key={note.id} className="hover:border-teal/20 cursor-pointer group bg-white">
                                         <p className="text-xs font-bold text-grey/40 mb-2 uppercase tracking-wide">{note.book}</p>
-                                        <p className="text-sm text-grey italic mb-3 line-clamp-2">"{note.snippet}"</p>
+                                        <p className="text-sm text-grey italic mb-3 line-clamp-2">&ldquo;{note.snippet}&rdquo;</p>
                                         <p className="text-[10px] text-teal/60">{note.date}</p>
                                     </Card>
                                 ))}
@@ -329,14 +469,14 @@ export default function MiLecturaPage() {
 
 
                 {/* Right Column (Sidebar) - 4 Cols */}
-                <div className="lg:col-span-4 space-y-8">
+                <div className="flex flex-col gap-7 lg:col-span-4 lg:gap-8">
 
                     {/* Section 4: Actions */}
-                    <section>
-                        <h2 className="text-sm font-bold text-grey/40 uppercase tracking-widest mb-3">A un clic</h2>
+                    <section className="order-1 hidden lg:block">
+                        <h2 className={`${sectionTitleClass} mb-3`}>A un clic</h2>
                         <div className="space-y-3">
                             <Link
-                                href="/app/mi-lectura/nuevo"
+                                href="/app/mi-lectura/nuevo?from=/app/mi-lectura"
                                 className="w-full p-3 bg-white border border-teal/5 rounded-lg text-xs font-medium text-grey hover:border-teal/20 hover:text-teal transition-all text-center shadow-sm flex items-center justify-center"
                             >
                                 Añadir libro
@@ -361,14 +501,14 @@ export default function MiLecturaPage() {
                     </section>
 
                     {/* Section: Activity Feed */}
-                    <section>
+                    <section className="order-3 lg:order-2">
                         <ActivityFeed />
                     </section>
 
                     {/* Section 5: Recommended */}
-                    <section>
+                    <section className="order-2 lg:order-3">
                         <div className="flex items-center justify-between mb-4">
-                            <h2 className="text-sm font-bold text-grey/40 uppercase tracking-widest">Recomendado hoy</h2>
+                            <h2 className={sectionTitleClass}>Recomendado hoy</h2>
                             {/* Filter hidden as requested */}
                         </div>
                         {recommendedBook ? (
@@ -378,20 +518,20 @@ export default function MiLecturaPage() {
                                 coverUrl={recommendedBook.coverUrl || ""}
                                 compact
                                 tag={`Añadido: ${recommendedBook.addedDate}`}
-                                actionLabel="Empezar"
+                                actionLabel={pendingAction === `start-${recommendedBook.id}` ? "Empezando..." : "Empezar"}
                                 onActionClick={() => handleStartReading(recommendedBook.id)}
                             />
                         ) : (
                             <Card className="bg-cream/10 border-dashed border-teal/10 p-4 text-center">
                                 <p className="text-xs text-grey/60">
-                                    Añade libros a tu lista "Quiero leer" para recibir recomendaciones aquí.
+                                    Añade libros a tu lista &ldquo;Quiero leer&rdquo; para recibir recomendaciones aquí.
                                 </p>
                             </Card>
                         )}
                     </section>
 
                     {/* Section 6: Weekly Summary */}
-                    <section>
+                    <section className="order-4">
                         <Card className="bg-[#D8E2DC]/30 border-none">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="font-serif text-teal">Tu semana en calma</h3>
@@ -417,7 +557,7 @@ export default function MiLecturaPage() {
                             ) : (
                                 <div className="py-2 text-center space-y-2">
                                     <p className="text-xs text-grey/60 italic">
-                                        "La lectura es un refugio, no una carrera."
+                                        &ldquo;La lectura es un refugio, no una carrera.&rdquo;
                                     </p>
                                     <p className="text-[10px] text-grey/40">
                                         Tus estadísticas de lectura en calma aparecerán aquí.

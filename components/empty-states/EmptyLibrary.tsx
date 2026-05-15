@@ -1,10 +1,9 @@
 "use client";
 
 import React from "react";
-import { Search, BookOpen, Plus, FolderInput } from "lucide-react";
-import { Button } from "@/components/ui/Button";
-import Link from "next/link";
+import { BookOpen, FolderInput, Plus, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/Button";
 
 export function EmptyLibrary() {
     const router = useRouter();
@@ -12,76 +11,75 @@ export function EmptyLibrary() {
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault();
+
         if (searchQuery.trim()) {
             router.push(`/app/search?q=${encodeURIComponent(searchQuery)}`);
         }
     };
 
     return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 animate-fade-in">
-            {/* Visual */}
-            <div className="w-24 h-24 bg-teal/5 rounded-full flex items-center justify-center mb-6 text-teal/40 ring-8 ring-teal/5">
+        <div className="flex min-h-[60vh] animate-fade-in flex-col items-center justify-center p-8 text-center">
+            <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-full bg-teal/5 text-teal/40 ring-8 ring-teal/5">
                 <BookOpen size={40} className="stroke-1" />
             </div>
 
-            {/* Content */}
-            <h2 className="text-2xl md:text-3xl font-serif text-teal-dark mb-3">
+            <h2 className="mb-3 font-serif text-2xl text-teal-dark md:text-3xl">
                 Tu biblioteca está esperando historias
             </h2>
-            <p className="text-grey/80 max-w-lg mb-8 leading-relaxed text-lg">
+            <p className="mb-8 max-w-lg text-lg leading-relaxed text-grey/80">
                 Este es tu espacio personal para organizar lecturas, guardar citas y seguir tu progreso.
                 Empieza añadiendo tu primer libro.
             </p>
 
-            {/* Main Action: Search */}
-            <form onSubmit={handleSearch} className="w-full max-w-md relative group mb-8">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Search size={20} className="text-teal/40 group-focus-within:text-teal transition-colors" />
+            <form onSubmit={handleSearch} className="group relative mb-8 w-full max-w-md">
+                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-4">
+                    <Search size={20} className="text-teal/40 transition-colors group-focus-within:text-teal" />
                 </div>
                 <input
                     type="text"
                     placeholder="Busca un título, autor o ISBN..."
-                    className="w-full pl-12 pr-4 py-4 bg-white border border-teal/10 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-teal/20 focus:border-teal transition-all placeholder:text-grey/40 text-teal-dark text-lg"
+                    className="w-full rounded-xl border border-teal/10 bg-white py-4 pl-12 pr-4 text-lg text-teal-dark shadow-sm transition-all placeholder:text-grey/40 focus:border-teal focus:outline-none focus:ring-2 focus:ring-teal/20"
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     autoFocus
                 />
             </form>
 
-            {/* Secondary Actions */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-md">
+            <div className="grid w-full max-w-md grid-cols-1 gap-4 sm:grid-cols-2">
                 <Button
                     variant="outline"
-                    className="h-auto py-4 justify-start px-4 border-dashed border-teal/20 hover:border-teal/40 hover:bg-teal/5 text-grey hover:text-teal"
-                    onClick={() => router.push('/app/mi-lectura/nuevo')}
+                    className="h-auto justify-start border-dashed border-teal/20 px-4 py-4 text-grey hover:border-teal/40 hover:bg-teal/5 hover:text-teal"
+                    onClick={() => router.push("/app/mi-lectura/nuevo?from=/app/mi-lectura/estanterias")}
                 >
-                    <div className="bg-teal/10 p-2 rounded-lg mr-3">
+                    <div className="mr-3 rounded-lg bg-teal/10 p-2">
                         <Plus size={18} className="text-teal" />
                     </div>
                     <div className="text-left">
-                        <span className="block font-medium text-sm">Añadir manualmente</span>
+                        <span className="block text-sm font-medium">Añadir manualmente</span>
                         <span className="block text-xs text-grey/60">Si no lo encuentras</span>
                     </div>
                 </Button>
 
                 <Button
                     variant="outline"
-                    className="h-auto py-4 justify-start px-4 border-dashed border-teal/20 hover:border-teal/40 hover:bg-teal/5 text-grey hover:text-teal"
-                    onClick={() => {/* Import flow placeholder */ }}
+                    className="h-auto justify-start border-dashed border-teal/20 px-4 py-4 text-grey hover:border-teal/40 hover:bg-teal/5 hover:text-teal"
+                    onClick={() => {
+                        // Placeholder for a future import flow.
+                    }}
                 >
-                    <div className="bg-teal/10 p-2 rounded-lg mr-3">
+                    <div className="mr-3 rounded-lg bg-teal/10 p-2">
                         <FolderInput size={18} className="text-teal" />
                     </div>
                     <div className="text-left">
-                        <span className="block font-medium text-sm">Importar biblioteca</span>
+                        <span className="block text-sm font-medium">Importar biblioteca</span>
                         <span className="block text-xs text-grey/60">Desde Goodreads o CSV</span>
                     </div>
                 </Button>
             </div>
 
-            <div className="mt-12 pt-8 border-t border-teal/5 w-full max-w-2xl text-center">
-                <p className="text-sm text-grey/40 italic">
-                    "Una habitación sin libros es como un cuerpo sin alma." — Cicerón
+            <div className="mt-12 w-full max-w-2xl border-t border-teal/5 pt-8 text-center">
+                <p className="text-sm italic text-grey/40">
+                    &quot;Una habitación sin libros es como un cuerpo sin alma.&quot; Cicerón
                 </p>
             </div>
         </div>

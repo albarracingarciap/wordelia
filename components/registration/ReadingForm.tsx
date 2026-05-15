@@ -1,13 +1,24 @@
 import * as React from "react";
+import Image from "next/image";
+import { AlertCircle, BookOpen, Lightbulb, MessageCircleQuestion, Puzzle, Quote } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
 import { Rating } from "../ui/Rating";
-import { Chip } from "../ui/Chip";
-import { BookCard } from "../ui/BookCard";
+
+export interface ReadingFormBook {
+    id: string;
+    title: string;
+    author: string;
+    coverUrl: string | null;
+    progress: {
+        label: string;
+        unit?: "PAGES" | "CHAPTERS" | string;
+    };
+}
 
 interface ReadingFormProps {
-    books: { id: string; title: string; author: string; coverUrl: string; progress: any }[]; // Added books prop
+    books: ReadingFormBook[];
     initialBookId?: string;
     initialDuration?: number;
     onCancel: () => void;
@@ -15,45 +26,55 @@ interface ReadingFormProps {
     isModal?: boolean;
 }
 
+const NOTE_CHIPS = [
+    { label: "Idea", icon: Lightbulb },
+    { label: "Pregunta", icon: MessageCircleQuestion },
+    { label: "Cita", icon: Quote },
+    { label: "Personaje", icon: Puzzle },
+];
+
 export function ReadingForm({ books, initialBookId, initialDuration, onCancel, onSuccess, isModal = false }: ReadingFormProps) {
     const [selectedBookId, setSelectedBookId] = React.useState(initialBookId || (books.length > 0 ? books[0].id : ""));
     const [progressValue, setProgressValue] = React.useState("");
-    const [durationValue, setDurationValue] = React.useState(initialDuration !== undefined ? initialDuration.toString() : ""); // Duration state
+    const [durationValue, setDurationValue] = React.useState(initialDuration !== undefined ? initialDuration.toString() : "");
     const [note, setNote] = React.useState("");
     const [isFinished, setIsFinished] = React.useState(false);
     const [rating, setRating] = React.useState(0);
+    const [isSubmitting, setIsSubmitting] = React.useState(false);
+    const [formError, setFormError] = React.useState("");
 
-    // Sync duration state when initialDuration prop changes
     React.useEffect(() => {
-        if (initialDuration !== undefined) {
-            setDurationValue(initialDuration.toString());
-        } else {
-            setDurationValue(""); // Reset if undefined (manual mode)
-        }
+        setDurationValue(initialDuration !== undefined ? initialDuration.toString() : "");
     }, [initialDuration]);
 
-    const selectedBook = books.find(b => b.id === selectedBookId);
+    const selectedBook = books.find((book) => book.id === selectedBookId);
+    const actionsClass = isModal
+        ? "sticky bottom-0 z-10 -mx-5 grid grid-cols-2 gap-3 border-t border-teal/5 bg-white/95 px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 backdrop-blur sm:static sm:mx-0 sm:flex sm:justify-end sm:border-t-0 sm:bg-transparent sm:p-0 sm:pt-2 sm:backdrop-blur-none"
+        : "flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end";
 
     const handleChipClick = (text: string) => {
-        setNote(prev => prev ? `${prev} ${text}` : text);
+        setNote((prev) => (prev ? `${prev} ${text}` : text));
     };
-
-    const [isSubmitting, setIsSubmitting] = React.useState(false);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setFormError("");
+
+        if (!selectedBookId || selectedBookId === "search") {
+            setFormError("Selecciona un libro para registrar la sesión.");
+            return;
+        }
+
+        if (!progressValue && !isFinished) {
+            setFormError("Indica tu avance de hoy o marca el libro como terminado.");
+            return;
+        }
+
         setIsSubmitting(true);
 
         try {
-            // Parse inputs
-            const duration = durationValue ? parseInt(durationValue) : 0;
-            const pages = progressValue ? parseInt(progressValue) : null;
-
-            // If we have a note, we should save it too!
-            // But logReadingSession doesn't take notes.
-            // We should probably call saveNote if there is a note.
-            // Let's import saveNote as well.
-
+            const duration = durationValue ? parseInt(durationValue, 10) : 0;
+            const pages = progressValue ? parseInt(progressValue, 10) : null;
             const { logReadingSession, saveNote } = await import("@/app/app/mi-lectura/actions");
 
             const result = await logReadingSession(
@@ -65,7 +86,7 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
             );
 
             if (result.error) {
-                alert("Error: " + result.error);
+                setFormError(result.error);
                 return;
             }
 
@@ -73,7 +94,7 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
                 await saveNote(
                     selectedBookId,
                     note,
-                    "Sesión", // Tag as session note
+                    "Sesión",
                     progressValue ? `Pág ${progressValue}` : undefined
                 );
             }
@@ -81,47 +102,66 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
             onSuccess();
         } catch (error) {
             console.error(error);
-            alert("Error al guardar la sesión.");
+            setFormError("No hemos podido guardar la sesión. Inténtalo de nuevo.");
         } finally {
             setIsSubmitting(false);
         }
     };
 
     return (
-        <form onSubmit={handleSubmit} className="space-y-6">
-            {/* 1. Select Book */}
-            <div className={`space-y-4 ${isModal ? "mb-4" : "mb-8"}`}>
+        <form onSubmit={handleSubmit} className="space-y-4">
+            <div className={`space-y-3 ${isModal ? "mb-1" : "mb-8"}`}>
                 <div className="flex flex-col gap-2">
-                    <label className="block text-xs font-bold text-grey/60 uppercase tracking-widest">
+                    <label className="block text-xs font-bold uppercase tracking-widest text-grey/60">
                         ¿Qué libro has leído?
                     </label>
                     <Select
                         options={[
-                            ...books.map(b => ({ label: b.title, value: b.id })),
-                            { label: "+ Buscar otro libro...", value: "search" }
+                            ...books.map((book) => ({ label: book.title, value: book.id })),
+                            { label: "+ Buscar otro libro...", value: "search" },
                         ]}
                         value={selectedBookId}
                         onChange={(e) => setSelectedBookId(e.target.value)}
-                        className="w-full"
+                        className="h-12 w-full rounded-2xl px-5 text-base"
                     />
                 </div>
 
                 {selectedBook && (
-                    <div className="bg-white border border-teal/10 rounded-xl p-3 flex gap-3 items-center">
-                        <img src={selectedBook.coverUrl} alt="" className="w-10 h-14 object-cover rounded shadow-sm" />
-                        <div>
-                            <p className="font-serif text-teal text-sm leading-tight">{selectedBook.title}</p>
-                            <p className="text-xs text-coral mt-0.5">{selectedBook.author}</p>
-                            <p className="text-[10px] text-grey/60 mt-1">
+                    <div className="flex items-center gap-3 rounded-2xl border border-teal/10 bg-cream/20 p-3">
+                        <div className="relative flex h-16 w-12 shrink-0 items-center justify-center overflow-hidden rounded-lg bg-white text-teal/40 shadow-sm">
+                            {selectedBook.coverUrl ? (
+                                <Image src={selectedBook.coverUrl} alt="" fill className="object-cover" sizes="48px" />
+                            ) : (
+                                <BookOpen size={20} />
+                            )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="truncate text-base font-bold leading-tight text-teal">{selectedBook.title}</p>
+                            <p className="mt-0.5 truncate text-sm text-coral">{selectedBook.author}</p>
+                            <p className="mt-1 text-xs text-grey/60">
                                 Actual: <span className="font-medium">{selectedBook.progress.label}</span>
                             </p>
                         </div>
+                        <button
+                            type="button"
+                            onClick={() => setIsFinished((current) => !current)}
+                            className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-bold transition-all ${isFinished ? "bg-teal text-white shadow-sm" : "bg-white text-grey/60 ring-1 ring-teal/10 hover:text-teal"}`}
+                            aria-pressed={isFinished}
+                        >
+                            {isFinished ? "Completado" : "Terminado"}
+                        </button>
                     </div>
                 )}
             </div>
 
-            {/* 2. Progress & Time */}
-            <div className="grid grid-cols-2 gap-4">
+            {formError && (
+                <div className="flex items-start gap-3 rounded-2xl border border-coral/20 bg-coral/10 px-4 py-3 text-sm font-medium text-coral">
+                    <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                    <p>{formError}</p>
+                </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <Input
                     label="Tu progreso de hoy"
                     type="number"
@@ -141,56 +181,45 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
                 />
             </div>
 
-            {/* 3. Session Status (Finished?) */}
-            <div className="flex items-center gap-4">
-                <label className="flex items-center gap-2 cursor-pointer group">
-                    <div className={`w-5 h-5 rounded border flex items-center justify-center transition-all ${isFinished ? "bg-teal border-teal" : "border-grey/30 bg-white"}`}>
-                        {isFinished && <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="4"><polyline points="20 6 9 17 4 12" /></svg>}
-                    </div>
-                    <input type="checkbox" className="hidden" checked={isFinished} onChange={(e) => setIsFinished(e.target.checked)} />
-                    <span className={`text-sm ${isFinished ? "text-teal font-medium" : "text-grey group-hover:text-teal/80"}`}>He terminado este libro</span>
-                </label>
-            </div>
-
-            {/* FINISHED BLOCK */}
             {isFinished && (
-                <div className="bg-cream/20 p-4 rounded-xl space-y-4 border border-teal/5 animate-fade-in">
+                <div className="animate-fade-in space-y-4 rounded-2xl border border-teal/5 bg-cream/20 p-4">
                     <div>
-                        <label className="block text-xs font-bold text-grey/60 uppercase tracking-widest mb-2">¿Qué nota le pones?</label>
+                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-grey/60">¿Qué nota le pones?</label>
                         <Rating value={rating} onChange={setRating} />
                     </div>
                 </div>
             )}
 
-            {/* 4. Note */}
             <div>
-                <label className="block text-xs font-bold text-grey/60 uppercase tracking-widest mb-2">Nota rápida (Opcional)</label>
-                <textarea
-                    rows={isModal ? 2 : 3}
-                    placeholder="¿Qué te movió hoy? Una idea, una cita..."
-                    className="w-full bg-cream/30 border border-teal/10 rounded-xl px-4 py-3 text-teal-dark placeholder:text-grey/30 text-sm focus:outline-none focus:border-teal/30 focus:bg-white focus:ring-2 focus:ring-teal/5 transition-all resize-none mb-3"
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                />
-                <div className="flex flex-wrap gap-2">
-                    {["💡 Idea", "❓ Pregunta", "✨ Cita", "🧩 Personaje"].map(tag => (
+                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-grey/60">Nota rápida (opcional)</label>
+                <div className="mb-3 flex flex-wrap gap-2">
+                    {NOTE_CHIPS.map(({ label, icon: Icon }) => (
                         <button
-                            key={tag}
+                            key={label}
                             type="button"
-                            onClick={() => handleChipClick(tag)}
-                            className="text-[10px] px-2 py-1 bg-white border border-teal/5 rounded-full text-grey/60 hover:text-teal hover:border-teal/20 transition-colors"
+                            onClick={() => handleChipClick(label)}
+                            className="inline-flex items-center gap-1.5 rounded-full border border-teal/5 bg-white px-3 py-2 text-xs text-grey/60 transition-colors hover:border-teal/20 hover:text-teal"
                         >
-                            {tag}
+                            <Icon className="h-3.5 w-3.5" />
+                            {label}
                         </button>
                     ))}
                 </div>
+                <textarea
+                    rows={isModal ? 2 : 4}
+                    placeholder="¿Qué te movió hoy? Una idea, una cita..."
+                    className="w-full resize-none rounded-2xl border border-teal/10 bg-cream/30 px-4 py-3 text-sm text-teal-dark transition-all placeholder:text-grey/30 focus:border-teal/30 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal/5"
+                    value={note}
+                    onChange={(e) => setNote(e.target.value)}
+                />
             </div>
 
-            {/* Actions */}
-            <div className={`flex items-center ${isModal ? "justify-end gap-3 mt-8" : "gap-4 mt-8 flex-col-reverse sm:flex-row"}`}>
-                <Button type="button" variant="ghost" onClick={onCancel} className={isModal ? "" : "w-full sm:w-auto"}>Cancelar</Button>
-                <Button type="submit" fullWidth={!isModal} disabled={(!progressValue && !isFinished) || isSubmitting}>
-                    {isSubmitting ? "Guardando..." : (isFinished ? "Guardar y terminar" : "Guardar sesión")}
+            <div className={actionsClass}>
+                <Button type="button" variant="ghost" onClick={onCancel} className="h-12 px-4 text-base sm:px-8" disabled={isSubmitting}>
+                    Cancelar
+                </Button>
+                <Button type="submit" className="h-12 px-4 text-base sm:min-w-48 sm:px-8" disabled={(!progressValue && !isFinished) || isSubmitting}>
+                    {isSubmitting ? "Guardando..." : (isFinished ? "Terminar" : "Guardar")}
                 </Button>
             </div>
 

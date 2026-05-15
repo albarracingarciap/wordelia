@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import { useAuth } from "@/contexts/AuthContext";
 import { login } from "@/app/auth/actions"; // Import server action
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
@@ -9,7 +8,6 @@ import Image from "next/image";
 import { Input } from "@/components/ui/Input";
 
 export default function LoginPage() {
-    // const { login } = useAuth(); // We might use this later for client-side state updates if needed
     // Server action handles redirect:
 
 
@@ -17,8 +15,6 @@ export default function LoginPage() {
         <div className="min-h-screen grid grid-cols-1 md:grid-cols-2">
             {/* Left: Branding */}
             <div className="bg-cream flex flex-col items-center justify-center p-8 md:p-12 relative overflow-hidden">
-                <div className="absolute top-0 left-0 w-full h-full bg-[url('/assets/images/grain-texture.png')] opacity-40 mix-blend-multiply pointer-events-none" />
-
                 <Link href="/" className="mb-8 z-10 flex items-center justify-center">
                     <div className="relative h-24 w-auto aspect-[4/1] flex items-center justify-center">
                         <Image

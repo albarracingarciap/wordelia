@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
@@ -136,7 +136,7 @@ function BookHelper() {
                     }
                 }
 
-            } catch (err: any) {
+            } catch (err) {
                 console.error(err);
                 setError("No pudimos cargar la información del libro.");
             } finally {
@@ -169,7 +169,7 @@ function BookHelper() {
             } else {
                 alert("Error: " + res.error);
             }
-        } catch (e) {
+        } catch {
             alert("Ocurrió un error inesperado");
         } finally {
             setIsAdding(false);

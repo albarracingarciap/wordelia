@@ -14,31 +14,31 @@ export function StatsRow({ streakDays, weeklyPages, activeClubs, spoilerMode }: 
     };
 
     return (
-        <div className="flex flex-wrap gap-3 mb-8">
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-1 md:mb-8 md:flex-wrap md:gap-3 md:overflow-visible">
             <Chip
                 label={`Racha: ${formatValue(streakDays, "días")}`}
                 variant="neutral"
                 size="sm"
-                className="bg-white/50 border-teal/5 text-grey/80"
+                className="shrink-0 bg-white/50 border-teal/5 text-grey/80"
             />
             <Chip
                 label={`Esta semana: ${formatValue(weeklyPages, "págs", "+")}`}
                 variant="neutral"
                 size="sm"
-                className="bg-white/50 border-teal/5 text-grey/80"
+                className="shrink-0 bg-white/50 border-teal/5 text-grey/80"
             />
             <Chip
                 label={`Clubs: ${formatValue(activeClubs, "activos")}`}
                 variant="neutral"
                 size="sm"
-                className="bg-white/50 border-teal/5 text-grey/80"
+                className="shrink-0 bg-white/50 border-teal/5 text-grey/80"
             />
             {spoilerMode && (
                 <Chip
                     label="Modo sin spoilers"
                     variant="selected"
                     size="sm"
-                    className="border-coral/20 bg-coral/5 text-coral"
+                    className="shrink-0 border-coral/20 bg-coral/5 text-coral"
                 />
             )}
         </div>

@@ -6,7 +6,10 @@ import { X, Lock } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/utils/supabase/client";
+import { addBookToLibrary } from "@/app/app/search/actions";
 
 interface BookPreviewModalProps {
     book: BookSearchResult;
@@ -14,89 +17,172 @@ interface BookPreviewModalProps {
     onClose: () => void;
 }
 
+function InsightPreview({ locked }: { locked: boolean }) {
+    const content = (
+        <div className="space-y-4">
+            <div>
+                <h3 className="mb-2 text-sm font-bold uppercase tracking-widest text-grey/40">
+                    Mapa emocional
+                </h3>
+                {locked ? (
+                    <div className="h-24 rounded-lg bg-gradient-to-r from-teal/20 to-coral/20 sm:h-32" />
+                ) : (
+                    <div className="rounded-lg border border-teal/10 bg-gradient-to-r from-teal/10 to-coral/10 p-4">
+                        <p className="text-sm leading-relaxed text-grey/70">
+                            Un vistazo orientativo a la intensidad, tensión y tono emocional de esta lectura.
+                        </p>
+                    </div>
+                )}
+            </div>
+
+            <div>
+                <h3 className="mb-2 text-sm font-bold uppercase tracking-widest text-grey/40">
+                    Reseñas de la comunidad
+                </h3>
+                {locked ? (
+                    <div className="space-y-2">
+                        <div className="h-14 rounded-lg bg-grey/10 sm:h-16" />
+                        <div className="h-14 rounded-lg bg-grey/10 sm:h-16" />
+                    </div>
+                ) : (
+                    <div className="space-y-2">
+                        <div className="rounded-lg bg-grey/10 p-3 text-sm text-grey/70">
+                            Lectores con gustos similares destacan su ritmo y tensión narrativa.
+                        </div>
+                        <div className="rounded-lg bg-grey/10 p-3 text-sm text-grey/70">
+                            Ideal si buscas una lectura absorbente y con atmósfera marcada.
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+
+    if (!locked) return content;
+
+    return (
+        <div className="relative">
+            <div className="filter blur-sm select-none pointer-events-none">
+                <div className="opacity-40">{content}</div>
+            </div>
+
+            <div className="absolute inset-0 flex items-center justify-center">
+                <div className="rounded-full bg-white p-4 shadow-xl">
+                    <Lock className="h-7 w-7 text-teal sm:h-8 sm:w-8" />
+                </div>
+            </div>
+        </div>
+    );
+}
+
 export function BookPreviewModal({ book, isOpen, onClose }: BookPreviewModalProps) {
-    // Prevent body scroll when modal is open
+    const router = useRouter();
+    const supabase = useMemo(() => createClient(), []);
+    const [isAuthenticated, setIsAuthenticated] = useState(false);
+    const [isCheckingSession, setIsCheckingSession] = useState(true);
+    const [isAddingBook, setIsAddingBook] = useState(false);
+    const [actionMessage, setActionMessage] = useState("");
+    const [actionError, setActionError] = useState("");
+
     useEffect(() => {
-        if (isOpen) {
-            document.body.style.overflow = "hidden";
-        } else {
-            document.body.style.overflow = "unset";
-        }
+        document.body.style.overflow = isOpen ? "hidden" : "unset";
+
         return () => {
             document.body.style.overflow = "unset";
         };
     }, [isOpen]);
 
+    useEffect(() => {
+        if (!isOpen) return;
+
+        let isMounted = true;
+        setIsCheckingSession(true);
+        setActionMessage("");
+        setActionError("");
+
+        supabase.auth.getUser().then(({ data }) => {
+            if (!isMounted) return;
+            setIsAuthenticated(Boolean(data.user));
+            setIsCheckingSession(false);
+        });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [isOpen, supabase]);
+
     if (!isOpen) return null;
 
-    // Function to strip HTML tags
-    const stripHtml = (html: string) => {
-        return html.replace(/<[^>]*>/g, '').replace(/&nbsp;/g, ' ').trim();
-    };
-
-    // Get first 150 characters of description for preview (without HTML tags)
+    const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
     const previewDescription = book.description
-        ? stripHtml(book.description).slice(0, 150) + "..."
+        ? `${stripHtml(book.description).slice(0, 150)}...`
         : "No hay descripción disponible.";
+
+    const handleAddToLibrary = async () => {
+        if (isAddingBook) return;
+
+        setIsAddingBook(true);
+        setActionMessage("");
+        setActionError("");
+
+        try {
+            const result = await addBookToLibrary(book, "WANT_TO_READ");
+            if (result.success) {
+                setActionMessage("Libro añadido a tu lista Quiero leer.");
+                router.refresh();
+            } else {
+                setActionError(result.error || "No hemos podido añadir el libro a tu biblioteca.");
+            }
+        } catch (error) {
+            console.error("Error adding book to library:", error);
+            setActionError("No hemos podido añadir el libro a tu biblioteca.");
+        } finally {
+            setIsAddingBook(false);
+        }
+    };
 
     return (
         <>
-            {/* Backdrop */}
             <div
-                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 animate-fade-in"
+                className="fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm animate-fade-in"
                 onClick={onClose}
             />
 
-            {/* Modal */}
-            <div className="fixed inset-0 z-50 flex items-center justify-center p-4 pointer-events-none">
+            <div className="fixed inset-0 z-[90] flex items-end justify-center p-0 pointer-events-none sm:items-center sm:p-4">
                 <div
-                    className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto pointer-events-auto animate-scale-in"
+                    className="max-h-[calc(100dvh-4.5rem)] w-full overflow-y-auto overscroll-contain rounded-t-2xl bg-white shadow-2xl pointer-events-auto animate-scale-in sm:max-h-[90dvh] sm:max-w-3xl sm:rounded-2xl"
                     onClick={(e) => e.stopPropagation()}
                 >
-                    {/* Close Button */}
                     <button
                         onClick={onClose}
-                        className="absolute top-4 right-4 p-2 rounded-full bg-grey/10 hover:bg-grey/20 transition-colors z-10"
+                        className="sticky top-3 float-right mr-3 mt-3 rounded-full bg-white/90 p-2 shadow-sm transition-colors hover:bg-grey/10"
+                        aria-label="Cerrar vista previa"
                     >
-                        <X className="w-5 h-5 text-grey" />
+                        <X className="h-5 w-5 text-grey" />
                     </button>
 
-                    {/* Content */}
-                    <div className="p-6 md:p-8">
-                        <div className="flex flex-col md:flex-row gap-6 md:gap-8">
-                            {/* Book Cover */}
-                            <div className="shrink-0">
-                                <div className="relative w-48 aspect-[2/3] bg-grey/10 rounded-lg overflow-hidden shadow-lg">
+                    <div className="p-5 pt-10 pb-28 sm:p-6 md:p-8">
+                        <div className="flex flex-col gap-5 sm:flex-row sm:gap-6 md:gap-8">
+                            <div className="shrink-0 self-center sm:self-start">
+                                <div className="relative w-36 overflow-hidden rounded-lg bg-grey/10 shadow-lg aspect-[2/3] sm:w-44 md:w-48">
                                     {book.cover_url ? (
-                                        <Image
-                                            src={book.cover_url}
-                                            alt={book.title}
-                                            fill
-                                            className="object-cover"
-                                        />
+                                        <Image src={book.cover_url} alt={book.title} fill className="object-cover" sizes="(max-width: 640px) 144px, 192px" />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-grey/20 to-grey/5 p-4">
-                                            <p className="text-sm text-grey/60 text-center font-serif">
-                                                {book.title}
-                                            </p>
+                                        <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-grey/20 to-grey/5 p-4">
+                                            <p className="text-center font-serif text-sm text-grey/60">{book.title}</p>
                                         </div>
                                     )}
                                 </div>
                             </div>
 
-                            {/* Book Info */}
-                            <div className="flex-1 space-y-4">
-                                {/* Title & Author */}
+                            <div className="min-w-0 flex-1 space-y-4">
                                 <div>
-                                    <h2 className="text-2xl md:text-3xl font-serif text-grey mb-2">
+                                    <h2 className="mb-2 text-2xl font-semibold leading-tight text-grey md:text-3xl">
                                         {book.title}
                                     </h2>
-                                    <p className="text-grey/70 text-lg">
-                                        {book.authors.join(", ")}
-                                    </p>
+                                    <p className="text-base text-grey/70 md:text-lg">{book.authors.join(", ")}</p>
                                 </div>
 
-                                {/* Categories/Genres */}
                                 {book.categories && book.categories.length > 0 && (
                                     <div className="flex flex-wrap gap-2">
                                         {book.categories.slice(0, 3).map((category, index) => (
@@ -107,85 +193,69 @@ export function BookPreviewModal({ book, isOpen, onClose }: BookPreviewModalProp
                                     </div>
                                 )}
 
-                                {/* Publication Info */}
-                                <div className="text-sm text-grey/60 space-y-1">
+                                <div className="space-y-1 text-sm text-grey/60">
                                     {book.publisher && <p>Editorial: {book.publisher}</p>}
-                                    {book.published_date && (
-                                        <p>Publicado: {new Date(book.published_date).getFullYear()}</p>
-                                    )}
+                                    {book.published_date && <p>Publicado: {new Date(book.published_date).getFullYear()}</p>}
                                     {book.page_count && <p>Páginas: {book.page_count}</p>}
                                 </div>
 
-                                {/* Preview Description (visible) */}
                                 <div>
-                                    <h3 className="text-sm font-bold text-grey/40 uppercase tracking-widest mb-2">
+                                    <h3 className="mb-2 text-sm font-bold uppercase tracking-widest text-grey/40">
                                         Sinopsis
                                     </h3>
-                                    <p className="text-grey/80 text-sm leading-relaxed">
-                                        {previewDescription}
-                                    </p>
+                                    <p className="text-sm leading-relaxed text-grey/80">{previewDescription}</p>
                                 </div>
 
-                                {/* Blurred Content Section */}
                                 <div className="relative">
-                                    {/* Blur overlay */}
-                                    <div className="relative">
-                                        <div className="filter blur-sm select-none pointer-events-none">
-                                            <div className="space-y-4 opacity-40">
-                                                <div>
-                                                    <h3 className="text-sm font-bold text-grey/40 uppercase tracking-widest mb-2">
-                                                        Mapa Emocional
-                                                    </h3>
-                                                    <div className="h-32 bg-gradient-to-r from-teal/20 to-coral/20 rounded-lg" />
-                                                </div>
+                                    <InsightPreview locked={!isAuthenticated} />
 
-                                                <div>
-                                                    <h3 className="text-sm font-bold text-grey/40 uppercase tracking-widest mb-2">
-                                                        Reseñas de la Comunidad
-                                                    </h3>
-                                                    <div className="space-y-2">
-                                                        <div className="h-16 bg-grey/10 rounded-lg" />
-                                                        <div className="h-16 bg-grey/10 rounded-lg" />
-                                                    </div>
-                                                </div>
-
-                                                <div>
-                                                    <h3 className="text-sm font-bold text-grey/40 uppercase tracking-widest mb-2">
-                                                        Análisis de Complejidad
-                                                    </h3>
-                                                    <div className="h-20 bg-grey/10 rounded-lg" />
-                                                </div>
-                                            </div>
-                                        </div>
-
-                                        {/* Lock icon overlay */}
-                                        <div className="absolute inset-0 flex items-center justify-center">
-                                            <div className="bg-white rounded-full p-4 shadow-xl">
-                                                <Lock className="w-8 h-8 text-teal" />
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* CTA on blur */}
-                                    <div className="mt-6 bg-gradient-to-r from-teal/10 to-coral/10 rounded-xl p-6 border-2 border-teal/20">
-                                        <h3 className="text-lg font-serif text-teal mb-2">
-                                            🔓 Desbloquea el análisis completo
-                                        </h3>
-                                        <p className="text-grey/70 text-sm mb-4">
-                                            Regístrate gratis para ver el Mapa Emocional, reseñas de la comunidad,
-                                            análisis de complejidad y mucho más.
-                                        </p>
-                                        <Link href="/register">
-                                            <Button className="w-full bg-teal hover:bg-teal-dark text-white font-semibold">
-                                                Crear cuenta gratis
-                                            </Button>
-                                        </Link>
-                                        <p className="text-xs text-grey/50 text-center mt-3">
-                                            ¿Ya tienes cuenta?{" "}
-                                            <Link href="/login" className="text-teal hover:underline">
-                                                Inicia sesión
-                                            </Link>
-                                        </p>
+                                    <div className="mt-5 rounded-xl border border-teal/20 bg-gradient-to-r from-teal/10 to-coral/10 p-4 sm:mt-6 sm:p-6">
+                                        {isCheckingSession ? (
+                                            <>
+                                                <h3 className="mb-2 text-lg font-semibold text-teal">Preparando opciones</h3>
+                                                <p className="text-sm text-grey/70">
+                                                    Estamos comprobando tu sesión para mostrarte la acción adecuada.
+                                                </p>
+                                            </>
+                                        ) : isAuthenticated ? (
+                                            <>
+                                                <h3 className="mb-2 text-lg font-semibold text-teal">Guarda esta lectura</h3>
+                                                <p className="mb-4 text-sm text-grey/70">
+                                                    Añade este libro a tu biblioteca para tenerlo en tu lista Quiero leer.
+                                                </p>
+                                                <Button type="button" onClick={handleAddToLibrary} isLoading={isAddingBook} className="w-full bg-teal font-semibold text-white hover:bg-teal-dark">
+                                                    Añadir a Quiero leer
+                                                </Button>
+                                                {actionMessage && (
+                                                    <p className="mt-3 text-center text-xs font-medium text-teal">
+                                                        {actionMessage}{" "}
+                                                        <Link href="/app/mi-lectura/estanterias" className="underline">
+                                                            Ver biblioteca
+                                                        </Link>
+                                                    </p>
+                                                )}
+                                                {actionError && <p className="mt-3 text-center text-xs font-medium text-coral">{actionError}</p>}
+                                            </>
+                                        ) : (
+                                            <>
+                                                <h3 className="mb-2 text-lg font-semibold text-teal">Desbloquea el análisis completo</h3>
+                                                <p className="mb-4 text-sm text-grey/70">
+                                                    Regístrate gratis para ver el mapa emocional, reseñas de la comunidad,
+                                                    análisis de complejidad y mucho más.
+                                                </p>
+                                                <Link href="/register">
+                                                    <Button className="w-full bg-teal font-semibold text-white hover:bg-teal-dark">
+                                                        Crear cuenta gratis
+                                                    </Button>
+                                                </Link>
+                                                <p className="mt-3 text-center text-xs text-grey/50">
+                                                    ¿Ya tienes cuenta?{" "}
+                                                    <Link href="/login" className="text-teal hover:underline">
+                                                        Inicia sesión
+                                                    </Link>
+                                                </p>
+                                            </>
+                                        )}
                                     </div>
                                 </div>
                             </div>

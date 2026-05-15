@@ -10,17 +10,17 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
     return (
-        <div className="min-h-screen bg-cream font-sans text-grey">
+        <div className="min-h-screen overflow-x-hidden bg-cream font-sans text-grey">
             {/* TopBar (Sticky) */}
             <TopBar />
 
-            <div className="flex max-w-[1400px] mx-auto min-h-[calc(100vh-72px)]">
+            <div className="mx-auto flex min-h-[calc(100vh-72px)] max-w-[1400px]">
                 {/* SideNav (Desktop) */}
                 <SideNav />
 
                 {/* Main Content Area */}
-                <main className="flex-1 min-w-0 p-4 md:p-6 pb-24 lg:pb-8 animate-fade-in relative z-0">
-                    <div className="max-w-5xl mx-auto">
+                <main className="relative z-0 min-w-0 flex-1 animate-fade-in px-4 py-4 pb-24 sm:px-6 md:p-6 lg:pb-8">
+                    <div className="mx-auto max-w-5xl min-w-0">
                         {children}
                     </div>
                 </main>

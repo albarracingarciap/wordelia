@@ -80,3 +80,14 @@ h6 {
 .animate-scale-in {
   animation: scale-in 0.3s ease-out;
 }
+
+.hide-scrollbar,
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar,
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}

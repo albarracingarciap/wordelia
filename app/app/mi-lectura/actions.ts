@@ -31,7 +31,7 @@ export interface CurrentBook {
 
 export interface Note {
     id: string;
-    type: "Cita" | "Idea" | "Pregunta" | "Subrayado" | "Nota";
+    type: "Cita" | "Idea" | "Pregunta" | "Personaje" | "Subrayado" | "Nota";
     content: string;
     bookTitle: string;
     bookAuthor: string;
@@ -382,7 +382,7 @@ export async function getRecentNotes(): Promise<Note[]> {
 
         return {
             id: n.id,
-            type: type as "Cita" | "Idea" | "Pregunta" | "Subrayado" | "Nota",
+            type: type as "Cita" | "Idea" | "Pregunta" | "Personaje" | "Subrayado" | "Nota",
             content: cleanContent,
             bookTitle: n.books.title,
             bookAuthor: author,
@@ -442,7 +442,7 @@ export async function getAllNotes(): Promise<Note[]> {
 
         return {
             id: n.id,
-            type: type as "Cita" | "Idea" | "Pregunta" | "Subrayado" | "Nota",
+            type: type as "Cita" | "Idea" | "Pregunta" | "Personaje" | "Subrayado" | "Nota",
             content: cleanContent,
             bookTitle: n.books.title,
             bookAuthor: author,
@@ -663,8 +663,8 @@ export async function saveNote(
         // Schema: user_id, book_id, content, page_number, chapter
         const finalContent = type ? `[${type}] ${content}` : content;
 
-        // by default let's make quotes public so they appear in feed, other types private
-        const isPrivate = !(type === "Cita" || type === "Subrayado");
+        // By default, only direct quotes appear in the community feed.
+        const isPrivate = type !== "Cita";
 
         const { error, data: noteData } = await supabase
             .from("book_notes")

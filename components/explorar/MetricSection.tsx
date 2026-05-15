@@ -1,8 +1,10 @@
 "use client";
 
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BookSearchResult } from "@/lib/isbndb";
 import { ExploreBookCard } from "./ExploreBookCard";
 import * as LucideIcons from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 
 interface MetricSectionProps {
     collection: {
@@ -18,7 +20,6 @@ interface MetricSectionProps {
     onBookClick: (isbn: string, book: BookSearchResult) => void;
 }
 
-// Color theme configurations
 const COLOR_THEMES: Record<string, { gradient: string; accent: string; bg: string }> = {
     "red-orange": {
         gradient: "from-red-50 to-orange-50",
@@ -47,50 +48,137 @@ const COLOR_THEMES: Record<string, { gradient: string; accent: string; bg: strin
     },
 };
 
-export function MetricSection({ collection, onBookClick }: MetricSectionProps) {
-    const theme = COLOR_THEMES[collection.color_theme] || COLOR_THEMES["blue-grey"];
+const iconMap = LucideIcons as unknown as Record<string, LucideIcon | undefined>;
 
-    // Get the icon component dynamically
-    const IconComponent = (LucideIcons as any)[
-        collection.icon
-            .split("-")
-            .map((word: string) => word.charAt(0).toUpperCase() + word.slice(1))
-            .join("")
-    ] || LucideIcons.BookOpen;
+function toPascalCaseIcon(icon: string) {
+    return icon
+        .split("-")
+        .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+        .join("");
+}
+
+function BookCarousel({
+    books,
+    colorAccent,
+    onBookClick,
+}: {
+    books: BookSearchResult[];
+    colorAccent: string;
+    onBookClick: (isbn: string, book: BookSearchResult) => void;
+}) {
+    const scrollerRef = useRef<HTMLDivElement>(null);
+    const [canScrollPrev, setCanScrollPrev] = useState(false);
+    const [canScrollNext, setCanScrollNext] = useState(false);
+
+    const updateScrollState = useCallback(() => {
+        const scroller = scrollerRef.current;
+        if (!scroller) return;
+
+        const maxScrollLeft = scroller.scrollWidth - scroller.clientWidth;
+        setCanScrollPrev(scroller.scrollLeft > 4);
+        setCanScrollNext(scroller.scrollLeft < maxScrollLeft - 4);
+    }, []);
+
+    useEffect(() => {
+        updateScrollState();
+        window.addEventListener("resize", updateScrollState);
+        return () => window.removeEventListener("resize", updateScrollState);
+    }, [books.length, updateScrollState]);
+
+    const scrollByPage = (direction: "prev" | "next") => {
+        const scroller = scrollerRef.current;
+        if (!scroller) return;
+
+        scroller.scrollBy({
+            left: direction === "next" ? scroller.clientWidth * 0.9 : -scroller.clientWidth * 0.9,
+            behavior: "smooth",
+        });
+    };
 
     return (
-        <section className="space-y-6">
-            {/* Section Header */}
-            <div className={`bg-gradient-to-r ${theme.gradient} rounded-2xl p-6 md:p-8 border border-grey/10`}>
-                <div className="flex items-start gap-4">
-                    {/* Icon */}
-                    <div className={`${theme.bg} rounded-xl p-3 shrink-0`}>
-                        <IconComponent className={`w-8 h-8 ${theme.accent}`} />
+        <div className="relative overflow-hidden lg:hidden">
+            <div
+                ref={scrollerRef}
+                onScroll={updateScrollState}
+                className="flex snap-x snap-mandatory gap-3 overflow-x-auto px-3 pb-1 hide-scrollbar"
+            >
+                {books.map((book, index) => (
+                    <div
+                        key={book.isbn || book.id || `${book.title}-${index}`}
+                        className="min-w-0 shrink-0 basis-[132px] snap-start sm:basis-[148px] md:basis-[156px]"
+                    >
+                        <ExploreBookCard
+                            book={book}
+                            onClick={() => onBookClick(book.isbn || book.id || "", book)}
+                            colorAccent={colorAccent}
+                            className="w-full"
+                        />
+                    </div>
+                ))}
+            </div>
+
+            <button
+                type="button"
+                onClick={() => scrollByPage("prev")}
+                disabled={!canScrollPrev}
+                className="absolute left-2 top-[82px] z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-teal/10 bg-white/95 text-teal shadow-md backdrop-blur transition-all hover:border-teal/25 hover:bg-white disabled:pointer-events-none disabled:opacity-0 sm:top-[92px]"
+                aria-label="Ver libros anteriores"
+            >
+                <LucideIcons.ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+                type="button"
+                onClick={() => scrollByPage("next")}
+                disabled={!canScrollNext}
+                className="absolute right-2 top-[82px] z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-teal/10 bg-white/95 text-teal shadow-md backdrop-blur transition-all hover:border-teal/25 hover:bg-white disabled:pointer-events-none disabled:opacity-0 sm:top-[92px]"
+                aria-label="Ver libros siguientes"
+            >
+                <LucideIcons.ChevronRight className="h-4 w-4" />
+            </button>
+        </div>
+    );
+}
+
+export function MetricSection({ collection, onBookClick }: MetricSectionProps) {
+    const theme = COLOR_THEMES[collection.color_theme] || COLOR_THEMES["blue-grey"];
+    const IconComponent = iconMap[toPascalCaseIcon(collection.icon)] || LucideIcons.BookOpen;
+
+    return (
+        <section className="space-y-4 md:space-y-6">
+            <div className={`rounded-2xl border border-grey/10 bg-gradient-to-r ${theme.gradient} p-4 sm:p-5 md:p-8`}>
+                <div className="flex items-start gap-3 md:gap-4">
+                    <div className={`${theme.bg} shrink-0 rounded-xl p-2.5 md:p-3`}>
+                        <IconComponent className={`h-6 w-6 md:h-8 md:w-8 ${theme.accent}`} />
                     </div>
 
-                    {/* Text */}
-                    <div className="flex-1">
-                        <h2 className={`text-2xl md:text-3xl font-serif mb-2 ${theme.accent}`}>
+                    <div className="min-w-0 flex-1">
+                        <h2 className={`mb-1 text-xl font-semibold leading-tight md:mb-2 md:text-3xl ${theme.accent}`}>
                             {collection.name}
                         </h2>
-                        <p className="text-grey/70 mb-2 text-sm md:text-base">
+                        <p className="mb-2 text-sm leading-relaxed text-grey/70 md:text-base">
                             {collection.description}
                         </p>
-                        <p className={`text-xs md:text-sm font-medium italic ${theme.accent} opacity-80`}>
-                            "{collection.tag_line}"
+                        <p className={`text-xs font-medium italic md:text-sm ${theme.accent} opacity-80`}>
+                            &ldquo;{collection.tag_line}&rdquo;
                         </p>
                     </div>
                 </div>
             </div>
 
-            {/* Books Grid */}
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 md:gap-6">
-                {collection.books.map((book) => (
+            <BookCarousel
+                books={collection.books}
+                colorAccent={theme.accent}
+                onBookClick={onBookClick}
+            />
+
+            <div className="hidden grid-cols-6 gap-6 lg:grid">
+                {collection.books.map((book, index) => (
                     <ExploreBookCard
-                        key={book.isbn || book.id}
+                        key={book.isbn || book.id || `${book.title}-${index}`}
                         book={book}
-                        onClick={() => onBookClick(book.isbn || book.id, book)}
+                        onClick={() => onBookClick(book.isbn || book.id || "", book)}
                         colorAccent={theme.accent}
+                        className="min-w-0"
                     />
                 ))}
             </div>

@@ -1,9 +1,8 @@
-import { Badge } from "../ui/Badge";
 import * as React from "react";
 
 export interface Note {
     id: string;
-    type: "Cita" | "Idea" | "Pregunta" | "Subrayado" | "Nota";
+    type: "Cita" | "Idea" | "Pregunta" | "Personaje" | "Subrayado" | "Nota";
     content: string;
     bookTitle: string;
     bookAuthor: string;
@@ -22,6 +21,7 @@ const TYPE_COLORS = {
     "Cita": "bg-purple-100 text-purple-700 border-purple-200",
     "Idea": "bg-yellow-100 text-yellow-700 border-yellow-200",
     "Pregunta": "bg-blue-100 text-blue-700 border-blue-200",
+    "Personaje": "bg-green-100 text-green-700 border-green-200",
     "Subrayado": "bg-gray-100 text-gray-700 border-gray-200",
 };
 
@@ -44,7 +44,7 @@ export function NoteCard({ note, onClick, onEdit }: NoteCardProps & { onEdit?: (
             {/* Content */}
             <div className="mb-4">
                 <p className={`text-sm text-grey-dark leading-relaxed ${note.type === "Cita" ? "italic font-serif text-teal-dark/80" : ""}`}>
-                    "{note.content}"
+                    &ldquo;{note.content}&rdquo;
                 </p>
             </div>
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { MetricSection } from "@/components/explorar/MetricSection";
 import { BookPreviewModal } from "@/components/explorar/BookPreviewModal";
 import { BookSearchResult } from "@/lib/isbndb";
@@ -12,25 +13,26 @@ interface ExplorarClientProps {
     initialCollections: CuratedCollectionWithBooks[];
 }
 
+const sectionTitleClass = "text-xs font-bold uppercase tracking-widest text-grey/40 lg:text-sm";
+
 export default function ExplorarClient({ initialCollections }: ExplorarClientProps) {
     const [selectedBook, setSelectedBook] = useState<BookSearchResult | null>(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
 
-    const handleBookClick = (isbn: string, book: BookSearchResult) => {
+    const handleBookClick = (_isbn: string, book: BookSearchResult) => {
         setSelectedBook(book);
         setIsModalOpen(true);
     };
 
     const handleCloseModal = () => {
         setIsModalOpen(false);
-        // Small delay before clearing to allow animation
         setTimeout(() => setSelectedBook(null), 200);
     };
 
     if (!initialCollections || initialCollections.length === 0) {
         return (
-            <div className="space-y-12 animate-fade-in pb-8">
-                <div className="text-center py-12">
+            <div className="space-y-8 animate-fade-in pb-8">
+                <div className="rounded-2xl border border-teal/5 bg-white/50 px-4 py-10 text-center">
                     <p className="text-grey/60">No hay colecciones disponibles en este momento.</p>
                 </div>
             </div>
@@ -39,41 +41,49 @@ export default function ExplorarClient({ initialCollections }: ExplorarClientPro
 
     return (
         <>
-            <div className="space-y-10 animate-fade-in pb-12">
-                {/* Personalized Recommendation (Mock for now, could be its own component later) */}
+            <div className="space-y-8 animate-fade-in pb-12 md:space-y-10">
                 <section>
-                    <div className="flex items-center gap-2 mb-4">
-                        <Sparkles className="w-5 h-5 text-teal" />
-                        <h2 className="text-xl font-serif text-teal">Para ti</h2>
+                    <div className="mb-3 flex items-center gap-2 md:mb-4">
+                        <Sparkles className="h-4 w-4 text-teal md:h-5 md:w-5" />
+                        <h2 className={sectionTitleClass}>Para ti</h2>
                     </div>
-                    <Card className="bg-gradient-to-br from-teal/5 to-cream border-teal/10 p-6 flex flex-col md:flex-row items-center gap-6">
+                    <Card className="flex flex-col gap-5 border-teal/10 bg-gradient-to-br from-teal/5 to-cream p-4 sm:p-5 md:flex-row md:items-center md:gap-6 md:p-6">
                         <div className="flex-1 space-y-2">
-                            <h3 className="text-lg font-bold text-teal-dark">Basado en tu actividad reciente</h3>
-                            <p className="text-sm text-grey/80">Porque guardaste libros de fantasía épica, creemos que estas historias llenas de mundos complejos y magia antigua te encantarán.</p>
+                            <h3 className="text-base font-bold text-teal-dark md:text-lg">Basado en tu actividad reciente</h3>
+                            <p className="text-sm leading-relaxed text-grey/80">
+                                Porque guardaste libros de fantasía épica, creemos que estas historias llenas de mundos complejos y magia antigua te encantarán.
+                            </p>
                         </div>
-                        <div className="flex gap-4 overflow-x-auto pb-2 snap-x hide-scrollbar max-w-full md:max-w-[50%]">
-                            {/* Taking a few books from the first available collection just to show something interesting */}
-                            {initialCollections[0]?.books.slice(0, 3).map((book) => (
-                                <div
-                                    key={book.isbn || book.id || String(Math.random())}
-                                    className="shrink-0 w-24 snap-start cursor-pointer hover:scale-105 transition-transform"
-                                    onClick={() => handleBookClick(book.isbn || book.id || '', book)}
+                        <div className="-mx-4 flex max-w-full snap-x gap-3 overflow-x-auto px-4 pb-1 hide-scrollbar sm:mx-0 sm:px-0 md:max-w-[50%] md:gap-4">
+                            {initialCollections[0]?.books.slice(0, 3).map((book, index) => (
+                                <button
+                                    type="button"
+                                    key={book.isbn || book.id || `${book.title}-${index}`}
+                                    className="w-20 shrink-0 snap-start cursor-pointer text-left transition-transform hover:scale-105 sm:w-24"
+                                    onClick={() => handleBookClick(book.isbn || book.id || "", book)}
                                 >
                                     {book.cover_url ? (
-                                        <img src={book.cover_url} alt={book.title} className="w-full h-36 object-cover rounded shadow-sm" />
+                                        <div className="relative aspect-[2/3] w-full overflow-hidden rounded shadow-sm">
+                                            <Image
+                                                src={book.cover_url}
+                                                alt={book.title}
+                                                fill
+                                                sizes="96px"
+                                                className="object-cover"
+                                            />
+                                        </div>
                                     ) : (
-                                        <div className="w-full h-36 bg-teal/10 rounded flex items-center justify-center text-xs text-center p-2 text-teal-dark border border-teal/20">
+                                        <div className="flex aspect-[2/3] w-full items-center justify-center rounded border border-teal/20 bg-teal/10 p-2 text-center text-xs text-teal-dark">
                                             {book.title}
                                         </div>
                                     )}
-                                </div>
+                                </button>
                             ))}
                         </div>
                     </Card>
                 </section>
 
-                {/* Metric Sections (from public explore) */}
-                <div className="space-y-12 text-teal">
+                <div className="space-y-10 text-teal md:space-y-12">
                     {initialCollections.map((collection) => (
                         <MetricSection
                             key={collection.id}
@@ -83,33 +93,37 @@ export default function ExplorarClient({ initialCollections }: ExplorarClientPro
                     ))}
                 </div>
 
-                {/* Community Trends */}
                 <section>
-                    <h2 className="text-xl font-serif text-teal mb-4">Tendencias en la comunidad</h2>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        <Card className="p-5 hover:border-teal/30 transition-colors cursor-pointer group">
-                            <p className="text-xs font-bold text-teal/50 uppercase tracking-widest mb-1">Club más activo</p>
-                            <h3 className="text-md font-bold text-grey group-hover:text-teal transition-colors">Lectores de Fantasía Épica</h3>
-                            <p className="text-sm text-grey/60 mt-2 line-clamp-2">Comentando actualmente "El Archivo de las Tormentas". ¡Únete a la discusión del capítulo 5!</p>
-                            <div className="mt-3 text-xs text-teal font-medium">124 miembros activos hoy</div>
+                    <h2 className={`${sectionTitleClass} mb-4`}>Tendencias en la comunidad</h2>
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+                        <Card className="cursor-pointer p-5 transition-colors hover:border-teal/30 group">
+                            <p className="mb-1 text-xs font-bold uppercase tracking-widest text-teal/50">Club más activo</p>
+                            <h3 className="text-md font-bold text-grey transition-colors group-hover:text-teal">Lectores de Fantasía Épica</h3>
+                            <p className="mt-2 line-clamp-2 text-sm text-grey/60">
+                                Comentando actualmente &ldquo;El Archivo de las Tormentas&rdquo;. Únete a la discusión del capítulo 5.
+                            </p>
+                            <div className="mt-3 text-xs font-medium text-teal">124 miembros activos hoy</div>
                         </Card>
-                        <Card className="p-5 hover:border-teal/30 transition-colors cursor-pointer group">
-                            <p className="text-xs font-bold text-teal/50 uppercase tracking-widest mb-1">Debate candente</p>
-                            <h3 className="text-md font-bold text-grey group-hover:text-teal transition-colors">¿El final de Proyecto Hail Mary?</h3>
-                            <p className="text-sm text-grey/60 mt-2 line-clamp-2">Spoilers permitidos. Discutiendo las implicaciones físicas del final.</p>
-                            <div className="mt-3 text-xs text-teal font-medium">89 comentarios nuevos</div>
+                        <Card className="cursor-pointer p-5 transition-colors hover:border-teal/30 group">
+                            <p className="mb-1 text-xs font-bold uppercase tracking-widest text-teal/50">Debate candente</p>
+                            <h3 className="text-md font-bold text-grey transition-colors group-hover:text-teal">¿El final de Proyecto Hail Mary?</h3>
+                            <p className="mt-2 line-clamp-2 text-sm text-grey/60">
+                                Spoilers permitidos. Discutiendo las implicaciones físicas del final.
+                            </p>
+                            <div className="mt-3 text-xs font-medium text-teal">89 comentarios nuevos</div>
                         </Card>
-                        <Card className="p-5 hover:border-teal/30 transition-colors cursor-pointer group">
-                            <p className="text-xs font-bold text-teal/50 uppercase tracking-widest mb-1">Reseña destacada</p>
-                            <h3 className="text-md font-bold text-grey group-hover:text-teal transition-colors">"Una obra maestra imperfecta"</h3>
-                            <p className="text-sm text-grey/60 mt-2 line-clamp-2">Análisis profundo sobre el desarrollo de personajes en Babel por R.F. Kuang.</p>
-                            <div className="mt-3 text-xs text-teal font-medium">Por @saraleetodo</div>
+                        <Card className="cursor-pointer p-5 transition-colors hover:border-teal/30 group">
+                            <p className="mb-1 text-xs font-bold uppercase tracking-widest text-teal/50">Reseña destacada</p>
+                            <h3 className="text-md font-bold text-grey transition-colors group-hover:text-teal">&ldquo;Una obra maestra imperfecta&rdquo;</h3>
+                            <p className="mt-2 line-clamp-2 text-sm text-grey/60">
+                                Análisis profundo sobre el desarrollo de personajes en Babel por R.F. Kuang.
+                            </p>
+                            <div className="mt-3 text-xs font-medium text-teal">Por @saraleetodo</div>
                         </Card>
                     </div>
                 </section>
             </div>
 
-            {/* Book Preview Modal */}
             {selectedBook && (
                 <BookPreviewModal
                     book={selectedBook}

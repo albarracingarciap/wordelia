@@ -10,15 +10,6 @@ import { NoteCard, Note } from "@/components/notes/NoteCard";
 import { NotesStats } from "@/components/notes/NotesStats";
 import { CreateNoteModal } from "@/components/notes/CreateNoteModal";
 
-// --- MOCK DATA ---
-const NOTES_MOCK: Note[] = [
-    { id: "1", type: "Cita", content: "Nolite te bastardes carborundorum.", bookTitle: "El cuento de la criada", bookAuthor: "M. Atwood", location: "Cap. 12", date: "Hace 2h" },
-    { id: "2", type: "Idea", content: "Me recuerda mucho a la situación política actual en...", bookTitle: "1984", bookAuthor: "G. Orwell", isPrivate: true, date: "Ayer" },
-    { id: "3", type: "Pregunta", content: "¿Por qué el personaje decide volver?", bookTitle: "Seda", bookAuthor: "A. Baricco", location: "p. 45", date: "Hace 3 días" },
-    { id: "4", type: "Subrayado", content: "La belleza no es más que el inicio de lo terrible.", bookTitle: "Elegías de Duino", bookAuthor: "Rilke", date: "Semana pasada" },
-    { id: "5", type: "Idea", content: "Investigar más sobre la simbología de las flores rojas.", bookTitle: "El cuento de la criada", bookAuthor: "M. Atwood", tags: ["Simbología"], date: "Semana pasada" },
-];
-
 export default function NotesPage() {
     // Real Data State
     const [books, setBooks] = React.useState<{ id: string; title: string }[]>([]);
@@ -72,18 +63,7 @@ export default function NotesPage() {
 
     // 3. Stats Calculation
     const stats = React.useMemo(() => {
-        const now = new Date();
-        const currentMonth = now.getMonth();
-        const notesThisMonth = notes.filter(n => {
-            // We need to parse the date or check creation time.
-            // Current `Note` interface only has `date` string.
-            // We should trust the DB count or update interface. 
-            // Limitation: we don't have raw date in Note interface here.
-            // Let's assume if text says "Hace..." it's recent? 
-            // Better: update Note interface to include raw createdAt?
-            // For now, let's return total notes count as placeholder for "This Month" 
-            return true;
-        }).length;
+        const notesThisMonth = notes.length;
 
         const uniqueBooks = new Set(notes.map(n => n.bookTitle)).size;
         const questions = notes.filter(n => n.type === 'Pregunta').length;
@@ -166,7 +146,7 @@ export default function NotesPage() {
                             { label: "Ordenar: Libro", value: "book" },
                         ]}
                         value={sortOrder}
-                        onChange={(e) => setSortOrder(e.target.value as any)}
+                        onChange={(e) => setSortOrder(e.target.value as "recent" | "book")}
                     />
                 </div>
             </div>
@@ -190,10 +170,10 @@ export default function NotesPage() {
                                     return (
                                         <div className="flex flex-col md:flex-row gap-4 items-start">
                                             <div className="flex-1 space-y-4 w-full">
-                                                {left.map(note => <NoteCard key={note.id} note={note as any} onEdit={handleEditNote} />)}
+                                                {left.map(note => <NoteCard key={note.id} note={note} onEdit={handleEditNote} />)}
                                             </div>
                                             <div className="flex-1 space-y-4 w-full">
-                                                {right.map(note => <NoteCard key={note.id} note={note as any} onEdit={handleEditNote} />)}
+                                                {right.map(note => <NoteCard key={note.id} note={note} onEdit={handleEditNote} />)}
                                             </div>
                                         </div>
                                     );
@@ -222,10 +202,10 @@ export default function NotesPage() {
                                                 </h3>
                                                 <div className="flex flex-col md:flex-row gap-4 items-start">
                                                     <div className="flex-1 space-y-4 w-full">
-                                                        {left.map(note => <NoteCard key={note.id} note={note as any} onEdit={handleEditNote} />)}
+                                                        {left.map(note => <NoteCard key={note.id} note={note} onEdit={handleEditNote} />)}
                                                     </div>
                                                     <div className="flex-1 space-y-4 w-full">
-                                                        {right.map(note => <NoteCard key={note.id} note={note as any} onEdit={handleEditNote} />)}
+                                                        {right.map(note => <NoteCard key={note.id} note={note} onEdit={handleEditNote} />)}
                                                     </div>
                                                 </div>
                                             </div>

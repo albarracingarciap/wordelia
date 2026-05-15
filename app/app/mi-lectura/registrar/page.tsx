@@ -3,13 +3,13 @@
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Container } from "@/components/ui/Container";
 import { Card } from "@/components/ui/Card";
-import { ReadingForm } from "@/components/registration/ReadingForm";
+import { ReadingForm, ReadingFormBook } from "@/components/registration/ReadingForm";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
 export default function RegisterReadingPage() {
     const router = useRouter();
-    const [books, setBooks] = React.useState<any[]>([]);
+    const [books, setBooks] = React.useState<ReadingFormBook[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
 
     React.useEffect(() => {

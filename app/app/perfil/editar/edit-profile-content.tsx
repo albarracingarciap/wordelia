@@ -5,12 +5,17 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import {
     User, BookOpen, Target, Bell, Lock, Settings, ChevronLeft,
-    Camera, MapPin, Calendar as CalendarIcon, Save, Heart,
-    Moon, Sun, Coffee, Headphones, Smartphone,
-    CheckCircle2, AlertCircle, Eye, EyeOff, FileUp, FileSpreadsheet
+    Camera, MapPin, Calendar as CalendarIcon, Save,
+    Smartphone, Eye
 } from "lucide-react";
 import { updateProfile, updatePreferences, updateGoals, updateSettings } from "../actions";
 import { createClient } from "@/utils/supabase/client";
+
+type NotificationSettings = Record<string, boolean>;
+type PrivacySettings = {
+    profile_visibility: string;
+    [key: string]: boolean | string;
+};
 
 // --- Types ---
 type ProfileData = {
@@ -34,8 +39,8 @@ type ProfileData = {
         secondary: string[];
     } | null;
     favorite_genres: string[] | null;
-    notification_settings: any | null;
-    privacy_settings: any | null;
+    notification_settings: NotificationSettings | null;
+    privacy_settings: PrivacySettings | null;
 };
 
 const TABS = [
@@ -49,13 +54,11 @@ const TABS = [
 
 export default function EditProfileContent({ profile }: { profile: ProfileData }) {
     const [activeTab, setActiveTab] = React.useState("personal");
-    const [progress, setProgress] = React.useState(30); // Simple mock progress
-    const [loading, setLoading] = React.useState(false);
 
     return (
         <div className="min-h-screen bg-cream/20 pb-20">
             {/* Header */}
-            <header className="bg-white border-b border-grey/10 pt-20 pb-4 px-6 sticky top-0 z-50 shadow-sm">
+            <header className="bg-white border-b border-grey/10 pt-4 pb-4 px-4 sm:px-6 sticky top-[72px] lg:top-0 z-40 shadow-sm">
                 <div className="max-w-5xl mx-auto flex items-center justify-between">
                     <div className="flex items-center gap-4">
                         <Link href="/app/perfil" className="p-2 -ml-2 hover:bg-grey/5 rounded-full transition-colors text-grey/60 hover:text-teal-dark">
@@ -66,15 +69,15 @@ export default function EditProfileContent({ profile }: { profile: ProfileData }
                 </div>
             </header>
 
-            <main className="max-w-5xl mx-auto px-6 py-8">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <main className="max-w-5xl mx-auto px-0 sm:px-6 py-5 sm:py-8">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-5 sm:gap-8">
                     {/* Navigation Sidebar (Tabs) */}
-                    <nav className="md:col-span-1 space-y-2 sticky top-32 self-start">
+                    <nav className="md:col-span-1 flex gap-2 overflow-x-auto px-4 sm:px-0 pb-1 md:block md:space-y-2 md:sticky md:top-32 md:self-start">
                         {TABS.map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === tab.id
+                                className={`shrink-0 md:w-full flex items-center gap-2 sm:gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === tab.id
                                     ? "bg-white text-teal-dark shadow-md border border-grey/5 translate-x-1"
                                     : "text-grey/60 hover:text-teal hover:bg-white/50"
                                     }`}
@@ -86,12 +89,12 @@ export default function EditProfileContent({ profile }: { profile: ProfileData }
                     </nav>
 
                     {/* Content Area */}
-                    <div className="md:col-span-3">
-                        <div className="bg-white rounded-3xl p-6 md:p-8 border border-grey/10 shadow-sm min-h-[600px] relative overflow-hidden">
+                    <div className="md:col-span-3 px-4 sm:px-0">
+                        <div className="bg-white rounded-2xl sm:rounded-3xl p-5 md:p-8 border border-grey/10 shadow-sm min-h-[600px] relative overflow-hidden">
                             {/* Decorative background element */}
                             <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-teal/5 to-coral/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
 
-                            {activeTab === "personal" && <PersonalTab profile={profile} progress={progress} />}
+                            {activeTab === "personal" && <PersonalTab profile={profile} />}
                             {activeTab === "preferences" && <PreferencesTab profile={profile} />}
                             {activeTab === "goals" && <GoalsTab profile={profile} />}
                             {activeTab === "notifications" && <NotificationsTab profile={profile} />}
@@ -107,7 +110,7 @@ export default function EditProfileContent({ profile }: { profile: ProfileData }
 
 // --- TAB 1: Personal ---
 
-function PersonalTab({ profile, progress }: { profile: ProfileData; progress: number }) {
+function PersonalTab({ profile }: { profile: ProfileData }) {
     const [loading, setLoading] = React.useState(false);
     const [avatarUrl, setAvatarUrl] = React.useState(profile.avatar_url);
     const [isUploading, setIsUploading] = React.useState(false);
@@ -131,8 +134,9 @@ function PersonalTab({ profile, progress }: { profile: ProfileData; progress: nu
 
             const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
             setAvatarUrl(data.publicUrl);
-        } catch (error: any) {
-            alert('Error uploading image: ' + error.message);
+        } catch (error: unknown) {
+            const message = error instanceof Error ? error.message : "Error desconocido";
+            alert('Error uploading image: ' + message);
         } finally {
             setIsUploading(false);
         }
@@ -152,19 +156,19 @@ function PersonalTab({ profile, progress }: { profile: ProfileData; progress: nu
     return (
         <form action={handleSubmit} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
             <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
                         <h2 className="text-xl font-bold text-teal-dark font-serif">Información Personal</h2>
                         <p className="text-sm text-grey/60">Completa tu perfil para que otros lectores te conozcan.</p>
                     </div>
-                    <Button type="submit" size="sm" isLoading={loading} className="bg-teal hover:bg-teal-dark text-white gap-2 shadow-sm">
+                    <Button type="submit" size="sm" isLoading={loading} className="w-full sm:w-auto bg-teal hover:bg-teal-dark text-white gap-2 shadow-sm">
                         <Save className="w-4 h-4" /> Guardar
                     </Button>
                 </div>
             </div>
 
             {/* Photo Upload */}
-            <div className="flex flex-col sm:flex-row items-center gap-6 p-6 bg-cream/30 rounded-2xl border border-grey/5">
+            <div className="flex flex-col sm:flex-row items-center gap-5 sm:gap-6 p-4 sm:p-6 bg-cream/30 rounded-2xl border border-grey/5">
                 <div className="relative group cursor-pointer shrink-0" onClick={() => document.getElementById("photo-upload")?.click()}>
                     <div className="w-24 h-24 rounded-full bg-white border-4 border-white shadow-md overflow-hidden flex items-center justify-center text-4xl">
                         {avatarUrl ? (
@@ -193,7 +197,7 @@ function PersonalTab({ profile, progress }: { profile: ProfileData; progress: nu
             </div>
 
             {/* Form Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
                 <div className="space-y-2">
                     <label className="text-xs font-bold text-grey-dark uppercase tracking-wide">Nombre Completo</label>
                     <input name="fullName" type="text" defaultValue={profile.full_name} className="w-full bg-grey/5 border border-grey/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal/20 text-teal-dark font-medium transition-all" required />
@@ -254,7 +258,6 @@ function PreferencesTab({ profile }: { profile: ProfileData }) {
     const handleSubmit = async (formData: FormData) => {
         setLoading(true);
         // Collect engagement elements
-        const elements = [];
         // We need to parse checkboxes manually if we don't control them or use hidden inputs.
         // A cleaner way in React form actions with checkboxes is maintaining state or using formData.getAll().
         // Let's rely on standard form behavior but we need correctly named inputs.
@@ -284,20 +287,20 @@ function PreferencesTab({ profile }: { profile: ProfileData }) {
 
     return (
         <form action={handleSubmit} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center justify-between border-b border-grey/10 pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-grey/10 pb-4">
                 <div>
                     <h2 className="text-xl font-bold text-teal-dark font-serif">Tu Perfil Lector</h2>
                     <p className="text-sm text-grey/60">Personaliza tu experiencia.</p>
                 </div>
-                <Button type="submit" size="sm" isLoading={loading} className="bg-teal hover:bg-teal-dark text-white gap-2 shadow-sm">
+                <Button type="submit" size="sm" isLoading={loading} className="w-full sm:w-auto bg-teal hover:bg-teal-dark text-white gap-2 shadow-sm">
                     <Save className="w-4 h-4" /> Guardar
                 </Button>
             </div>
 
-            <div className="space-y-6 max-w-2xl mx-auto pt-4">
+            <div className="space-y-6 max-w-2xl mx-auto pt-2 sm:pt-4">
                 <div className="space-y-3">
                     <label className="text-sm font-medium text-grey-dark block">Formato favorito</label>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <input type="hidden" name="readingFormat" value={format} />
                         <button type="button" onClick={() => setFormat("physical")} className={`flex items-center justify-center gap-3 p-3 rounded-xl border font-bold text-sm transition-all ${format === "physical" ? "bg-teal text-white border-teal" : "bg-white text-grey-dark border-grey/10"}`}>
                             <BookOpen className="w-4 h-4" /> Papel (Físico)
@@ -322,7 +325,7 @@ function PreferencesTab({ profile }: { profile: ProfileData }) {
                     </div>
                 </div>
 
-                <div className="flex items-center justify-between p-4 bg-white border border-grey/10 rounded-xl shadow-sm">
+                <div className="flex items-start sm:items-center justify-between gap-4 p-4 bg-white border border-grey/10 rounded-xl shadow-sm">
                     <div className="space-y-0.5">
                         <label className="text-sm font-medium text-grey-dark block">Mostrar Spoilers</label>
                         <p className="text-xs text-grey/60">¿Quieres ver contenido marcado como spoiler por defecto?</p>
@@ -379,12 +382,12 @@ function GoalsTab({ profile }: { profile: ProfileData }) {
 
     return (
         <form action={handleSubmit} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center justify-between border-b border-grey/10 pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-grey/10 pb-4">
                 <div>
                     <h2 className="text-xl font-bold text-teal-dark font-serif">Metas de Lectura</h2>
                     <p className="text-sm text-grey/60">Define tus desafíos para este año.</p>
                 </div>
-                <Button type="submit" size="sm" isLoading={loading} className="bg-teal hover:bg-teal-dark text-white gap-2 shadow-sm">
+                <Button type="submit" size="sm" isLoading={loading} className="w-full sm:w-auto bg-teal hover:bg-teal-dark text-white gap-2 shadow-sm">
                     <Save className="w-4 h-4" /> Guardar
                 </Button>
             </div>
@@ -461,7 +464,7 @@ function NotificationsTab({ profile }: { profile: ProfileData }) {
     const [loading, setLoading] = React.useState(false);
 
     const toggle = (key: string) => {
-        setCurrentSettings((prev: any) => ({ ...prev, [key]: !prev[key] }));
+        setCurrentSettings((prev: NotificationSettings) => ({ ...prev, [key]: !prev[key] }));
     }
 
     const handleSave = async () => {
@@ -480,19 +483,19 @@ function NotificationsTab({ profile }: { profile: ProfileData }) {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center justify-between border-b border-grey/10 pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-grey/10 pb-4">
                 <div>
                     <h2 className="text-xl font-bold text-teal-dark font-serif">Notificaciones</h2>
                     <p className="text-sm text-grey/60">Decide cómo y cuándo quieres que te contactemos.</p>
                 </div>
-                <Button onClick={handleSave} size="sm" isLoading={loading} className="bg-teal hover:bg-teal-dark text-white gap-2 shadow-sm">
+                <Button onClick={handleSave} size="sm" isLoading={loading} className="w-full sm:w-auto bg-teal hover:bg-teal-dark text-white gap-2 shadow-sm">
                     <Save className="w-4 h-4" /> Guardar
                 </Button>
             </div>
 
             <div className="space-y-6">
                 {items.map((item, i) => (
-                    <div key={i} className="flex items-start justify-between py-2">
+                    <div key={i} className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-2">
                         <div className="max-w-md">
                             <h4 className="font-bold text-teal-dark text-sm">{item.title}</h4>
                             <p className="text-xs text-grey/60">{item.desc}</p>
@@ -528,8 +531,8 @@ function PrivacyTab({ profile }: { profile: ProfileData }) {
     const [currentSettings, setCurrentSettings] = React.useState(settings);
     const [loading, setLoading] = React.useState(false);
 
-    const update = (key: string, value: any) => {
-        setCurrentSettings((prev: any) => ({ ...prev, [key]: value }));
+    const update = (key: string, value: boolean | string) => {
+        setCurrentSettings((prev: PrivacySettings) => ({ ...prev, [key]: value }));
     }
 
     const handleSave = async () => {
@@ -541,12 +544,12 @@ function PrivacyTab({ profile }: { profile: ProfileData }) {
 
     return (
         <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex items-center justify-between border-b border-grey/10 pb-4">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-grey/10 pb-4">
                 <div>
                     <h2 className="text-xl font-bold text-teal-dark font-serif">Privacidad</h2>
                     <p className="text-sm text-grey/60">Controla quién puede ver tu actividad.</p>
                 </div>
-                <Button onClick={handleSave} size="sm" isLoading={loading} className="bg-teal hover:bg-teal-dark text-white gap-2 shadow-sm">
+                <Button onClick={handleSave} size="sm" isLoading={loading} className="w-full sm:w-auto bg-teal hover:bg-teal-dark text-white gap-2 shadow-sm">
                     <Save className="w-4 h-4" /> Guardar
                 </Button>
             </div>
@@ -584,7 +587,7 @@ function PrivacyTab({ profile }: { profile: ProfileData }) {
                         <div key={item.id} className="flex items-center justify-between p-3 bg-white border border-grey/10 rounded-xl">
                             <span className="text-sm text-grey-dark">{item.label}</span>
                             <label className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                                <input type="checkbox" checked={currentSettings[item.id]} onChange={(e) => update(item.id, e.target.checked)} className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 checked:border-teal" />
+                                <input type="checkbox" checked={Boolean(currentSettings[item.id])} onChange={(e) => update(item.id, e.target.checked)} className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 checked:border-teal" />
                                 <span className="toggle-label block overflow-hidden h-5 rounded-full bg-grey/20 cursor-pointer text-transparent">.</span>
                             </label>
                         </div>
@@ -608,7 +611,7 @@ function AccountTab({ email }: { email: string }) {
             <div className="space-y-6">
                 <div className="space-y-2">
                     <label className="text-xs font-bold text-grey-dark uppercase tracking-wide">Correo Electrónico</label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                         <input type="email" defaultValue={email} disabled className="flex-1 bg-grey/5 border border-grey/10 rounded-xl px-4 py-2 text-sm text-grey-dark cursor-not-allowed" />
                         <Button variant="outline" size="sm">Cambiar</Button>
                     </div>
@@ -616,7 +619,7 @@ function AccountTab({ email }: { email: string }) {
 
                 <div className="space-y-2">
                     <label className="text-xs font-bold text-grey-dark uppercase tracking-wide">Contraseña</label>
-                    <div className="flex gap-2">
+                    <div className="flex flex-col sm:flex-row gap-2">
                         <input type="password" value="********" disabled className="flex-1 bg-grey/5 border border-grey/10 rounded-xl px-4 py-2 text-sm text-grey-dark cursor-not-allowed" />
                         <Button variant="outline" size="sm">Actualizar</Button>
                     </div>
