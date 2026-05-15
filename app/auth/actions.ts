@@ -15,6 +15,10 @@ function getAuthErrorMessage(message: string) {
         return 'Ya existe una cuenta con este email. Prueba a iniciar sesión.';
     }
 
+    if (normalized.includes('invalid login credentials') || normalized.includes('invalid credentials')) {
+        return 'Email o contraseña incorrectos. Revisa los datos e inténtalo de nuevo.';
+    }
+
     if (normalized.includes('password')) {
         return 'La contraseña no cumple los requisitos mínimos.';
     }
@@ -26,11 +30,19 @@ function getAuthErrorMessage(message: string) {
     return message || 'No se ha podido completar la acción. Inténtalo de nuevo.';
 }
 
-export async function login(formData: FormData) {
+export async function login(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
     const supabase = await createClient()
 
-    const email = formData.get('email') as string
-    const password = formData.get('password') as string
+    const email = String(formData.get('email') || '').trim().toLowerCase()
+    const password = String(formData.get('password') || '')
+
+    if (!email || !email.includes('@')) {
+        return { error: 'Introduce un email válido.' }
+    }
+
+    if (!password) {
+        return { error: 'Introduce tu contraseña.' }
+    }
 
     const { error } = await supabase.auth.signInWithPassword({
         email,
@@ -38,7 +50,7 @@ export async function login(formData: FormData) {
     })
 
     if (error) {
-        return { error: error.message }
+        return { error: getAuthErrorMessage(error.message) }
     }
 
     revalidatePath('/', 'layout')

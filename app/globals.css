@@ -36,10 +36,17 @@
   /* 18px */
 }
 
+html {
+  background-color: var(--color-cream);
+  overflow-x: hidden;
+}
+
 body {
   background-color: var(--color-cream);
   color: var(--color-grey);
   font-family: var(--font-sans);
+  margin: 0;
+  overflow-x: hidden;
 }
 
 h1,

@@ -14,7 +14,7 @@ export function StatsRow({ streakDays, weeklyPages, activeClubs, spoilerMode }: 
     };
 
     return (
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-1 md:mb-8 md:flex-wrap md:gap-3 md:overflow-visible">
+        <div className="mb-6 flex flex-wrap gap-2 pb-1 md:mb-8 md:gap-3">
             <Chip
                 label={`Racha: ${formatValue(streakDays, "días")}`}
                 variant="neutral"

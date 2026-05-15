@@ -245,7 +245,7 @@ export default function MiLecturaPage() {
             {loadError && <InlineError message={loadError} />}
             {actionError && <InlineError message={actionError} />}
 
-            <div className="-mb-3 overflow-x-auto pb-1">
+            <div className="-mb-3 pb-1">
                 <StatsRow
                     streakDays={hasBooks && stats ? stats.streak : undefined}
                     weeklyPages={hasBooks && stats ? stats.weeklyPages : undefined}
