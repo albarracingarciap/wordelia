@@ -10,7 +10,7 @@ interface AppShellProps {
 
 export function AppShell({ children }: AppShellProps) {
     return (
-        <div className="min-h-screen overflow-x-hidden bg-cream font-sans text-grey">
+        <div className="min-h-screen overflow-x-hidden border-t-0 bg-cream font-sans text-grey outline-none">
             {/* TopBar (Sticky) */}
             <TopBar />
 

@@ -38,15 +38,22 @@
 
 html {
   background-color: var(--color-cream);
+  border-top: 0;
   overflow-x: hidden;
 }
 
 body {
   background-color: var(--color-cream);
+  border-top: 0;
   color: var(--color-grey);
   font-family: var(--font-sans);
   margin: 0;
+  outline: 0;
   overflow-x: hidden;
+}
+
+body::before {
+  content: none;
 }
 
 h1,

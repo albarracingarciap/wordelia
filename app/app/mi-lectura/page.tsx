@@ -49,12 +49,13 @@ function QuickActions({
     onNote: () => void;
 }) {
     const actionClass = "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-teal/10 bg-white px-3 py-3 text-center text-xs font-semibold text-grey shadow-sm transition-all hover:border-teal/25 hover:text-teal";
+    const primaryActionClass = "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-coral bg-coral px-3 py-3 text-center text-xs font-bold text-white shadow-md transition-all hover:bg-[#C25852] hover:shadow-lg";
 
     return (
         <section>
             <h2 className={`${sectionTitleClass} mb-3`}>A un clic</h2>
             <div className="grid grid-cols-2 gap-3">
-                <Link href="/app/mi-lectura/nuevo?from=/app/mi-lectura" className={`${actionClass} col-span-2 sm:col-span-1 lg:col-span-2`}>
+                <Link href="/app/mi-lectura/nuevo?from=/app/mi-lectura" className={`${primaryActionClass} col-span-2 sm:col-span-1 lg:col-span-2`}>
                     <Plus className="h-4 w-4" /> Añadir libro
                 </Link>
                 <button type="button" onClick={onRegister} className={actionClass}>

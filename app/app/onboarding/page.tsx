@@ -390,7 +390,7 @@ export default function OnboardingPage() {
                         key="preferences"
                         initial={{ opacity: 0, x: 20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        className="w-full max-w-4xl space-y-7 pb-28 pt-16 md:pt-0"
+                        className="w-full max-w-4xl space-y-7 pb-48 pt-16 md:pb-28 md:pt-0"
                     >
                         <div className="text-center space-y-2">
                             <h2 className="font-serif text-2xl sm:text-3xl text-teal-dark">Tus preferencias</h2>
@@ -478,7 +478,7 @@ export default function OnboardingPage() {
                             </div>
                         </div>
 
-                        <div className="fixed inset-x-0 bottom-0 z-20 bg-cream/95 p-4 shadow-[0_-8px_24px_rgba(35,74,78,0.08)] md:static md:bg-transparent md:p-0 md:shadow-none pt-4 flex justify-end">
+                        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-[60] flex justify-end bg-cream/95 p-4 pt-4 shadow-[0_-8px_24px_rgba(35,74,78,0.08)] md:static md:bg-transparent md:p-0 md:shadow-none">
                             {submitError && (
                                 <p className="absolute -top-14 left-4 right-4 rounded-xl border border-coral/30 bg-white px-4 py-3 text-sm text-coral shadow-sm md:static md:mr-4 md:max-w-md">
                                     {submitError}

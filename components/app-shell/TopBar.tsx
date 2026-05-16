@@ -66,7 +66,7 @@ export function TopBar() {
     };
 
     return (
-        <header className="sticky top-0 z-40 flex h-14 w-full items-center overflow-visible border-b border-teal/5 bg-cream/90 px-3 backdrop-blur-md transition-all md:h-[72px] md:px-8">
+        <header className="sticky top-0 z-40 flex h-14 w-full items-center overflow-visible border-x-0 border-b border-t-0 border-teal/5 bg-cream/90 px-3 shadow-none outline-none backdrop-blur-md transition-all md:h-[72px] md:px-8">
             <div className="mx-auto flex w-full max-w-[1400px] min-w-0 items-center justify-between gap-2 min-[560px]:gap-3 md:gap-4">
 
                 {/* Left: Logo (Mobile only mostly, or global home link) */}

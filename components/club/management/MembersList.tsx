@@ -16,7 +16,7 @@ import {
     inviteMemberByUsername,
     regenerateJoinCode,
 } from "@/app/app/clubs/[id]/actions";
-import { Copy, RefreshCw, UserPlus, Check, ChevronDown, ShieldCheck, Shield, UserX } from "lucide-react";
+import { Copy, RefreshCw, UserPlus, Check, ChevronDown, ShieldCheck, Shield, UserX, X } from "lucide-react";
 
 interface Member {
     user_id: string;
@@ -64,33 +64,38 @@ function InviteModal({ clubId, onClose, onSuccess }: InviteModalProps) {
     };
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-            <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center bg-black/60 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+            <div className="w-full rounded-t-3xl bg-white p-6 shadow-2xl sm:max-w-sm sm:rounded-2xl">
                 <div className="flex items-center justify-between">
-                    <h3 className="font-serif text-lg text-teal-dark font-bold">Invitar miembro</h3>
-                    <button onClick={onClose} className="text-grey/40 hover:text-coral transition-colors">
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    <h3 className="text-xl font-bold text-teal-dark">Invitar miembro</h3>
+                    <button
+                        onClick={onClose}
+                        className="flex h-10 w-10 items-center justify-center rounded-full text-grey/40 transition-colors hover:bg-grey/5 hover:text-coral"
+                        aria-label="Cerrar"
+                    >
+                        <X size={20} />
                     </button>
                 </div>
-                <p className="text-sm text-grey/60">Busca por nombre de usuario o nombre completo.</p>
+                <p className="mt-3 text-sm leading-relaxed text-grey/60">Busca por nombre de usuario o nombre completo.</p>
                 <Input
+                    className="mt-4"
                     placeholder="ej. maria_lectora"
                     value={query}
                     onChange={e => setQuery(e.target.value)}
                     autoFocus
                     onKeyDown={e => e.key === 'Enter' && handleInvite()}
                 />
-                {error && <p className="text-sm text-coral">{error}</p>}
+                {error && <p className="mt-3 text-sm text-coral">{error}</p>}
                 {success && (
-                    <p className="text-sm text-teal flex items-center gap-2">
+                    <p className="mt-3 flex items-center gap-2 text-sm text-teal">
                         <Check size={14} /> {success}
                     </p>
                 )}
-                <div className="flex gap-2 pt-1">
-                    <Button variant="primary" onClick={handleInvite} disabled={loading || !query.trim()} className="flex-1">
+                <div className="mt-5 grid gap-3 sm:flex">
+                    <Button variant="primary" onClick={handleInvite} disabled={loading || !query.trim()} className="w-full sm:flex-1">
                         {loading ? "Buscando..." : "Invitar"}
                     </Button>
-                    <Button variant="ghost" onClick={onClose}>Cancelar</Button>
+                    <Button variant="ghost" onClick={onClose} className="w-full sm:w-auto">Cancelar</Button>
                 </div>
             </div>
         </div>
@@ -125,7 +130,7 @@ export function MembersList({ club }: { club?: any }) {
     React.useEffect(() => { reload(); }, [clubId]);
 
     const copyCode = () => {
-        const link = `${window.location.origin}/clubs/unirse?code=${joinCode}`;
+        const link = `${window.location.origin}/app/clubs?join=${encodeURIComponent(joinCode)}`;
         navigator.clipboard.writeText(link);
         setCopiedCode(true);
         setTimeout(() => setCopiedCode(false), 2000);
@@ -173,7 +178,7 @@ export function MembersList({ club }: { club?: any }) {
     return (
         <div className="space-y-6">
             {/* Join code card — only for private clubs */}
-            {visibility === 'private' && joinCode && (
+            {(visibility === 'private' || visibility === 'secret') && joinCode && (
                 <Card className="border-teal/10 bg-teal/5">
                     <h4 className="text-sm font-bold text-teal-dark mb-1">Código de acceso</h4>
                     <p className="text-xs text-grey/60 mb-3">Comparte este enlace para que nuevos miembros soliciten acceso.</p>
@@ -195,7 +200,7 @@ export function MembersList({ club }: { club?: any }) {
             )}
 
             {/* Pending requests — only for private clubs */}
-            {visibility === 'private' && pending.length > 0 && (
+            {(visibility === 'private' || visibility === 'secret') && pending.length > 0 && (
                 <Card className="border-amber-200 bg-amber-50/30">
                     <h3 className="text-sm font-bold text-amber-800 uppercase tracking-wider mb-4">
                         Solicitudes pendientes ({pending.length})
@@ -236,14 +241,14 @@ export function MembersList({ club }: { club?: any }) {
             )}
 
             {/* Members list */}
-            <Card>
-                <div className="flex justify-between items-center mb-6">
-                    <h3 className="text-lg font-serif text-teal">
+            <Card className="overflow-visible rounded-3xl">
+                <div className="mb-6 flex items-center justify-between gap-3">
+                    <h3 className="text-xl font-bold text-teal">
                         Miembros del club
                         {!loading && <span className="text-sm font-sans text-grey/50 ml-2">({members.length})</span>}
                     </h3>
                     {isAdminOrMod && (
-                        <Button variant="outline" size="sm" onClick={() => setShowInviteModal(true)}>
+                        <Button variant="outline" size="sm" onClick={() => setShowInviteModal(true)} className="shrink-0">
                             <UserPlus size={14} className="mr-1" /> Invitar
                         </Button>
                     )}
@@ -254,26 +259,26 @@ export function MembersList({ club }: { club?: any }) {
                 ) : members.length === 0 ? (
                     <div className="py-8 text-center text-sm text-grey/40 italic">No hay miembros todavía.</div>
                 ) : (
-                    <div className="space-y-1">
+                    <div className="space-y-3">
                         {members.map(member => {
                             const name = member.profile?.full_name || "Usuario";
                             const isCurrentAdmin = member.role === 'admin';
                             return (
                                 <div
                                     key={member.user_id}
-                                    className="flex items-center justify-between p-3 hover:bg-grey/5 rounded-lg transition-colors group relative"
+                                    className="relative flex items-start justify-between gap-3 rounded-2xl bg-grey/[0.04] p-3 transition-colors hover:bg-grey/[0.06]"
                                 >
-                                    <div className="flex items-center gap-3">
+                                    <div className="flex min-w-0 items-center gap-3">
                                         <Avatar
                                             fallback={name[0]}
                                             src={member.profile?.avatar_url || undefined}
                                         />
-                                        <div>
-                                            <div className="flex items-center gap-2">
-                                                <p className="font-bold text-sm text-grey-dark">{name}</p>
+                                        <div className="min-w-0">
+                                            <div className="flex min-w-0 flex-wrap items-center gap-2">
+                                                <p className="truncate text-sm font-bold text-grey-dark">{name}</p>
                                                 <RoleBadge role={member.role} />
                                             </div>
-                                            <p className="text-xs text-grey/50">
+                                            <p className="text-xs leading-relaxed text-grey/50">
                                                 {member.profile?.username ? `@${member.profile.username} · ` : ""}
                                                 Se unió {formatDate(member.joined_at)}
                                             </p>
@@ -285,16 +290,16 @@ export function MembersList({ club }: { club?: any }) {
                                         <div className="relative">
                                             <button
                                                 onClick={() => setOpenMenuId(openMenuId === member.user_id ? null : member.user_id)}
-                                                className="opacity-0 group-hover:opacity-100 flex items-center gap-1 px-2 py-1 rounded-lg text-xs text-grey/60 hover:bg-grey/10 transition-all"
+                                                className="flex items-center gap-1 rounded-xl px-3 py-2 text-xs font-bold text-grey/60 transition-colors hover:bg-white hover:text-teal-dark"
                                             >
                                                 Gestionar <ChevronDown size={12} />
                                             </button>
                                             {openMenuId === member.user_id && (
-                                                <div className="absolute right-0 top-8 z-20 bg-white border border-black/5 rounded-xl shadow-lg w-48 overflow-hidden py-1">
+                                                <div className="absolute right-0 top-10 z-[80] w-56 overflow-hidden rounded-2xl border border-black/5 bg-white py-1 shadow-xl">
                                                     {isAdmin && (
                                                         <button
                                                             onClick={() => handleRoleChange(member.user_id, member.role)}
-                                                            className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-grey/5 text-grey-dark"
+                                                            className="flex w-full items-center gap-2 px-3 py-2 text-sm font-bold text-grey-dark hover:bg-grey/5"
                                                         >
                                                             {member.role === 'moderator'
                                                                 ? <><Shield size={14} className="text-grey/40" /> Retirar moderador</>
@@ -304,7 +309,7 @@ export function MembersList({ club }: { club?: any }) {
                                                     )}
                                                     <button
                                                         onClick={() => handleRemove(member.user_id, name)}
-                                                        className="w-full flex items-center gap-2 px-3 py-2 text-sm hover:bg-red-50 text-red-600"
+                                                        className="flex w-full items-center gap-2 px-3 py-2 text-sm font-bold text-coral hover:bg-coral/5"
                                                     >
                                                         <UserX size={14} /> Expulsar del club
                                                     </button>

@@ -1,122 +1,152 @@
+import * as React from "react";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { Card } from "@/components/ui/Card";
+import type { CreateClubFormData } from "@/app/app/clubs/crear/CreateClubClient";
+import { X } from "lucide-react";
 
 interface StepIdentityProps {
-    data: any;
-    onUpdate: (field: string, value: any) => void;
+    data: CreateClubFormData;
+    onUpdate: (field: keyof CreateClubFormData, value: CreateClubFormData[keyof CreateClubFormData]) => void;
 }
 
 export function StepIdentity({ data, onUpdate }: StepIdentityProps) {
+    const [tagInput, setTagInput] = React.useState("");
+
+    const addTag = (rawTag: string) => {
+        const tag = rawTag.trim().replace(/^#/, "").replace(/\s+/g, "-").toLowerCase();
+        if (!tag || data.tags.includes(tag)) return;
+
+        onUpdate("tags", [...data.tags, tag]);
+        setTagInput("");
+    };
+
+    const removeTag = (tag: string) => {
+        onUpdate("tags", data.tags.filter(item => item !== tag));
+    };
+
     return (
-        <Card className="animate-fade-in-up">
-            <h3 className="text-lg font-serif text-teal mb-6">Identidad del club</h3>
+        <Card className="animate-fade-in-up rounded-3xl">
+            <h3 className="mb-6 text-xl font-bold text-teal">Identidad del club</h3>
 
             <div className="space-y-6">
                 <div>
-                    <label className="block text-sm font-bold text-grey-dark mb-1.5">Nombre del club <span className="text-coral">*</span></label>
+                    <label className="mb-1.5 block text-sm font-bold text-grey-dark">
+                        Nombre del club <span className="text-coral">*</span>
+                    </label>
                     <Input
                         placeholder="Ej. Lecturas con calma"
                         value={data.name}
-                        onChange={(e) => onUpdate("name", e.target.value)}
+                        onChange={(event) => onUpdate("name", event.target.value)}
                         autoFocus
+                        className="h-12 text-base"
                     />
-                    <p className="text-xs text-grey/50 mt-1">Puedes cambiarlo luego.</p>
+                    <p className="mt-1 text-xs text-grey/50">Puedes cambiarlo luego.</p>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-bold text-grey-dark mb-3">Tipo de Club</label>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <button
-                            onClick={() => onUpdate("readingType", "guided")}
-                            className={`text-left p-3 rounded-xl border transition-all ${data.readingType === 'guided' ? 'bg-teal/5 border-teal ring-1 ring-teal/20' : 'bg-white border-grey/10 hover:border-teal/30'}`}
-                        >
-                            <div className="font-bold text-sm text-grey-dark mb-1">Lectura Guiada</div>
-                            <div className="text-xs text-grey/60 leading-tight">Leemos juntos paso a paso. Ideal para primeras lecturas.</div>
-                        </button>
-                        <button
-                            onClick={() => onUpdate("readingType", "analysis")}
-                            className={`text-left p-3 rounded-xl border transition-all ${data.readingType === 'analysis' ? 'bg-teal/5 border-teal ring-1 ring-teal/20' : 'bg-white border-grey/10 hover:border-teal/30'}`}
-                        >
-                            <div className="font-bold text-sm text-grey-dark mb-1">Club de Análisis</div>
-                            <div className="text-xs text-grey/60 leading-tight">Ya lo hemos leído. Nos reunimos a profundizar.</div>
-                        </button>
+                    <label className="mb-3 block text-sm font-bold text-grey-dark">Tipo de club</label>
+                    <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        {[
+                            { value: "guided" as const, label: "Lectura guiada", desc: "Leemos juntos paso a paso. Ideal para primeras lecturas." },
+                            { value: "analysis" as const, label: "Club de análisis", desc: "Ya lo hemos leído. Nos reunimos para profundizar." },
+                        ].map((option) => (
+                            <button
+                                key={option.value}
+                                type="button"
+                                onClick={() => onUpdate("readingType", option.value)}
+                                className={`rounded-2xl border p-4 text-left transition-all ${data.readingType === option.value ? "border-teal bg-teal/5 ring-1 ring-teal/20" : "border-grey/10 bg-white hover:border-teal/30"}`}
+                            >
+                                <div className="mb-1 text-sm font-bold text-grey-dark">{option.label}</div>
+                                <div className="text-xs leading-5 text-grey/60">{option.desc}</div>
+                            </button>
+                        ))}
                     </div>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-bold text-grey-dark mb-1.5">¿De qué va este club?</label>
+                    <label className="mb-1.5 block text-sm font-bold text-grey-dark">¿De qué va este club?</label>
                     <textarea
-                        className="w-full rounded-xl border border-grey/20 bg-white px-4 py-3 text-sm text-grey-dark placeholder:text-grey/40 focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal/20 min-h-[100px] resize-none"
+                        className="min-h-[120px] w-full resize-none rounded-2xl border border-grey/20 bg-white px-4 py-3 text-base text-grey-dark placeholder:text-grey/40 focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal/20"
                         placeholder="Leemos sin prisa y debatimos con respeto..."
                         value={data.description}
-                        onChange={(e) => onUpdate("description", e.target.value)}
+                        onChange={(event) => onUpdate("description", event.target.value)}
                     />
-                    <p className="text-xs text-grey/50 mt-1">2–3 líneas bastan.</p>
+                    <p className="mt-1 text-xs text-grey/50">2-3 líneas bastan.</p>
                 </div>
 
-                <div className="flex gap-4">
-                    <div className="w-full md:w-1/2">
-                        <label className="block text-sm font-bold text-grey-dark mb-1.5">Idioma</label>
+                <div className="grid grid-cols-2 gap-3 md:gap-4">
+                    <div>
+                        <label className="mb-1.5 block text-sm font-bold text-grey-dark">Idioma</label>
                         <Select
+                            className="h-12 w-full"
                             options={[
                                 { label: "Español", value: "es" },
                                 { label: "English", value: "en" },
                                 { label: "Català", value: "ca" },
                             ]}
                             value={data.language}
-                            onChange={(e) => onUpdate("language", e.target.value)}
+                            onChange={(event) => onUpdate("language", event.target.value)}
                         />
                     </div>
-                    <div className="w-full md:w-1/2">
-                        <label className="block text-sm font-bold text-grey-dark mb-1.5">Precio (Opcional)</label>
+                    <div>
+                        <label className="mb-1.5 block text-sm font-bold text-grey-dark">Precio opcional</label>
                         <div className="relative">
                             <Input
                                 type="number"
                                 placeholder="0.00"
-                                value={data.price || ''}
-                                onChange={(e) => onUpdate("price", e.target.value)}
-                                className="pl-12"
+                                value={data.price || ""}
+                                onChange={(event) => onUpdate("price", event.target.value)}
+                                className="h-12 pl-12 text-base"
                             />
                             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-grey/60">€</span>
                         </div>
-                        <p className="text-[10px] text-grey/50 mt-1">Deja vacío para gratuito.</p>
+                        <p className="mt-1 text-[10px] text-grey/50">Déjalo vacío para gratuito.</p>
                     </div>
                 </div>
 
                 <div>
-                    <label className="block text-sm font-bold text-grey-dark mb-1.5">Etiquetas</label>
-                    <div className="flex flex-wrap gap-2 mb-2">
-                        {data.tags?.map((tag: string) => (
-                            <span key={tag} className="bg-teal/10 text-teal-dark text-xs px-2 py-1 rounded-full flex items-center gap-1">
-                                {tag}
-                                <button
-                                    onClick={() => onUpdate("tags", data.tags.filter((t: string) => t !== tag))}
-                                    className="hover:text-red-500 font-bold"
-                                >
-                                    ×
-                                </button>
-                            </span>
-                        ))}
-                    </div>
+                    <label className="mb-2 block text-sm font-bold text-grey-dark">Etiquetas</label>
+                    {data.tags.length > 0 && (
+                        <div className="mb-3 flex flex-wrap gap-2">
+                            {data.tags.map((tag) => (
+                                <span key={tag} className="inline-flex min-h-9 items-center gap-2 rounded-full border border-teal/10 bg-teal/5 px-3 text-sm font-bold text-teal">
+                                    #{tag}
+                                    <button
+                                        type="button"
+                                        onClick={() => removeTag(tag)}
+                                        className="rounded-full p-0.5 text-teal/60 transition-colors hover:bg-teal/10 hover:text-coral"
+                                        aria-label={`Eliminar etiqueta ${tag}`}
+                                    >
+                                        <X className="h-3.5 w-3.5" />
+                                    </button>
+                                </span>
+                            ))}
+                        </div>
+                    )}
                     <Input
-                        placeholder="Escribe una etiqueta y pulsa Enter (ej. scifi, feminismo, clásico...)"
-                        onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                                e.preventDefault();
-                                const val = e.currentTarget.value.trim();
-                                if (val && !data.tags?.includes(val)) {
-                                    onUpdate("tags", [...(data.tags || []), val]);
-                                    e.currentTarget.value = "";
-                                }
+                        placeholder="Escribe una etiqueta y pulsa Enter"
+                        value={tagInput}
+                        onChange={(event) => setTagInput(event.target.value)}
+                        onKeyDown={(event) => {
+                            if (event.key === "Enter" || event.key === ",") {
+                                event.preventDefault();
+                                addTag(tagInput);
+                            }
+
+                            if (event.key === "Backspace" && !tagInput && data.tags.length > 0) {
+                                removeTag(data.tags[data.tags.length - 1]);
                             }
                         }}
+                        onBlur={() => addTag(tagInput)}
+                        className="h-12 text-base"
                     />
+                    <p className="mt-1 text-xs text-grey/50">Ej. #clásicos, #feminismo, #scifi.</p>
                 </div>
             </div>
 
-            <div className="mt-8 pt-6 border-t border-black/5 text-center">
-                <p className="text-sm text-grey/60 italic font-serif">"Un buen club empieza con un propósito sencillo."</p>
+            <div className="mt-8 border-t border-black/5 pt-6 text-center">
+                <p className="text-sm italic text-grey/60">&ldquo;Un buen club empieza con un propósito sencillo.&rdquo;</p>
             </div>
         </Card>
     );

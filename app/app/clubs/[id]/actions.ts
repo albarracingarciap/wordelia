@@ -1,7 +1,19 @@
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
+
+function getAdminClient() {
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+    if (!serviceRoleKey) return null;
+
+    return createSupabaseClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        serviceRoleKey
+    );
+}
 
 export async function getClubDetails(clubId: string) {
     const supabase = await createClient();
@@ -257,6 +269,43 @@ export async function startReading(clubId: string, bookData: any, config: any) {
 
                 if (newBook) bookId = newBook.id;
             }
+        } else if (!bookId) {
+            const authorName = bookData.authors?.[0] || bookData.author || "Autor desconocido";
+            let authorId = null;
+
+            const { data: existingAuthor } = await supabase
+                .from('authors')
+                .select('id')
+                .eq('name', authorName)
+                .single();
+
+            if (existingAuthor) {
+                authorId = existingAuthor.id;
+            } else {
+                const { data: newAuthor } = await supabase
+                    .from('authors')
+                    .insert({ name: authorName })
+                    .select()
+                    .single();
+                if (newAuthor) authorId = newAuthor.id;
+            }
+
+            const { data: newBook, error: manualBookError } = await supabase.from('books').insert({
+                title: bookData.title,
+                author_id: authorId,
+                cover_url: bookData.cover_url || null,
+                description: bookData.description || "",
+                isbn: null,
+                page_count: bookData.page_count || null,
+                language: bookData.language || "es",
+            }).select().single();
+
+            if (manualBookError) {
+                console.error("Error creating manual book:", manualBookError);
+                return { error: "No se pudo crear la ficha manual del libro." };
+            }
+
+            if (newBook) bookId = newBook.id;
         }
 
         if (!bookId) return { error: "No se pudo identificar el libro." };
@@ -271,9 +320,9 @@ export async function startReading(clubId: string, bookData: any, config: any) {
         // 3b. Close any active polls for this club
         await supabase
             .from('polls')
-            .update({ is_active: false })
+            .update({ is_open: false, ended_at: new Date().toISOString() })
             .eq('club_id', clubId)
-            .eq('is_active', true);
+            .eq('is_open', true);
 
         // 4. Insert new Club Book
         const { error: insertError } = await supabase.from('club_books').insert({
@@ -302,6 +351,86 @@ export async function startReading(clubId: string, bookData: any, config: any) {
     }
 }
 
+export async function updateClubBookDetails(
+    clubId: string,
+    bookId: string,
+    data: {
+        title: string;
+        author: string;
+        coverUrl?: string | null;
+        description?: string | null;
+        pageCount?: number | null;
+        isbn?: string | null;
+        publisher?: string | null;
+    }
+) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "No autenticado" };
+
+    try {
+        await assertAdminOrMod(supabase, clubId, user.id);
+
+        const cleanTitle = data.title.trim();
+        const cleanAuthor = data.author.trim() || "Autor desconocido";
+
+        if (!cleanTitle) {
+            return { error: "El título es obligatorio." };
+        }
+
+        const { data: linkedBook } = await supabase
+            .from("club_books")
+            .select("id")
+            .eq("club_id", clubId)
+            .eq("book_id", bookId)
+            .maybeSingle();
+
+        if (!linkedBook) {
+            return { error: "Este libro no pertenece al club." };
+        }
+
+        const pageCount = Number.isFinite(data.pageCount) && data.pageCount && data.pageCount > 0
+            ? data.pageCount
+            : null;
+
+        const updatePayload = {
+            title: cleanTitle,
+            author: cleanAuthor,
+            cover_url: data.coverUrl?.trim() || null,
+            description: data.description?.trim() || "",
+            page_count: pageCount,
+            isbn: data.isbn?.trim() || null,
+            publisher: data.publisher?.trim() || null,
+        };
+
+        const { data: updatedBook, error } = await supabase
+            .rpc("update_club_book_details_for_admin", {
+                target_club_id: clubId,
+                target_book_id: bookId,
+                book_title: cleanTitle,
+                book_author: cleanAuthor,
+                book_cover_url: data.coverUrl?.trim() || null,
+                book_description: data.description?.trim() || "",
+                book_page_count: pageCount,
+                book_isbn: data.isbn?.trim() || null,
+                book_publisher: data.publisher?.trim() || null,
+            })
+            .single();
+
+        if (error) {
+            console.error("[updateClubBookDetails] book error:", error);
+            return { error: "No se pudo actualizar la ficha." };
+        }
+
+        revalidatePath(`/app/clubs/${clubId}`);
+        revalidatePath(`/app/libros/${bookId}`);
+        return { success: true, book: updatedBook || { id: bookId, ...updatePayload, author: { name: cleanAuthor } } };
+    } catch (e: any) {
+        return { error: e.message || "No se pudo actualizar la ficha." };
+    }
+}
+
 
 // POLL ACTIONS
 
@@ -312,6 +441,18 @@ export async function createPoll(clubId: string, question: string, options: stri
     if (!user) return { error: "Debes iniciar sesión" };
 
     try {
+        const { data: openPoll } = await supabase
+            .from('polls')
+            .select('id')
+            .eq('club_id', clubId)
+            .eq('is_active', true)
+            .eq('is_open', true)
+            .maybeSingle();
+
+        if (openPoll) {
+            return { error: "Ya hay una votación activa en este club." };
+        }
+
         // 1. Create Poll
         const { data: poll, error: pollError } = await supabase
             .from('polls')
@@ -319,7 +460,9 @@ export async function createPoll(clubId: string, question: string, options: stri
                 club_id: clubId,
                 question,
                 created_by: user.id,
-                is_active: true
+                is_active: true,
+                is_open: true,
+                ended_at: null
             })
             .select()
             .single();
@@ -367,9 +510,10 @@ export async function getActivePoll(clubId: string) {
         `)
         .eq('club_id', clubId)
         .eq('is_active', true)
+        .eq('is_open', true)
         .order('created_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
     if (error || !poll) return null;
 
@@ -396,6 +540,71 @@ export async function getActivePoll(clubId: string) {
         userVoteId: myVoteId,
         totalVotes: poll.options.reduce((acc: number, o: any) => acc + (o.votes?.[0]?.count || 0), 0)
     };
+}
+
+export async function getClosedPolls(clubId: string, limit = 8) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { data: polls, error } = await supabase
+        .from('polls')
+        .select(`
+            *,
+            options:poll_options(
+                id,
+                text,
+                votes:poll_votes(count)
+            )
+        `)
+        .eq('club_id', clubId)
+        .eq('is_active', true)
+        .eq('is_open', false)
+        .order('ended_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+    if (error || !polls) {
+        if (error) console.error("Error fetching closed polls:", error);
+        return [];
+    }
+
+    let myVotes: Record<string, string> = {};
+    if (user && polls.length > 0) {
+        const { data: votes } = await supabase
+            .from('poll_votes')
+            .select('poll_id, option_id')
+            .in('poll_id', polls.map((poll: any) => poll.id))
+            .eq('user_id', user.id);
+
+        myVotes = (votes || []).reduce((acc: Record<string, string>, vote: any) => {
+            acc[vote.poll_id] = vote.option_id;
+            return acc;
+        }, {});
+    }
+
+    return polls.map((poll: any) => {
+        const options = (poll.options || []).map((option: any) => ({
+            id: option.id,
+            text: option.text,
+            votes: option.votes?.[0]?.count || 0,
+        }));
+        const totalVotes = options.reduce((acc: number, option: any) => acc + option.votes, 0);
+        const winner = options.reduce((best: any | null, option: any) => {
+            if (!best || option.votes > best.votes) return option;
+            return best;
+        }, null);
+
+        return {
+            id: poll.id,
+            question: poll.question,
+            isOpen: false,
+            endedAt: poll.ended_at || poll.created_at,
+            options,
+            userVoteId: myVotes[poll.id] || null,
+            totalVotes,
+            winner,
+        };
+    });
 }
 
 export async function votePoll(pollId: string, optionId: string) {
@@ -429,7 +638,7 @@ export async function votePoll(pollId: string, optionId: string) {
     }
 }
 
-export async function closePoll(pollId: string) { // This is "Dismiss/Delete" from UI
+export async function closePoll(pollId: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -456,15 +665,17 @@ export async function closePoll(pollId: string) { // This is "Dismiss/Delete" fr
         return { error: "No tienes permisos para cerrar la votación." };
     }
 
-    // 3. Update is_active = false
+    const endedAt = new Date().toISOString();
+
+    // 3. Close the poll while keeping it visible in history.
     const { data: updated, error } = await supabase
         .from('polls')
-        .update({ is_active: false })
+        .update({ is_open: false, ended_at: endedAt })
         .eq('id', pollId)
         .select();
 
     if (error || !updated || updated.length === 0) {
-        return { error: "Error al eliminar la votación." };
+        return { error: "Error al cerrar la votación." };
     }
 
     revalidatePath(`/app/clubs/${poll.club_id}`);
@@ -491,10 +702,12 @@ export async function endPoll(pollId: string) { // This is "End Vote" (stop voti
         return { error: "No tienes permisos." };
     }
 
+    const endedAt = new Date().toISOString();
+
     // Update is_open = false
     const { data: updated, error } = await supabase
         .from('polls')
-        .update({ is_open: false })
+        .update({ is_open: false, ended_at: endedAt })
         .eq('id', pollId)
         .select();
 
@@ -833,6 +1046,187 @@ export async function updateClubSettings(
     return { success: true };
 }
 
+export async function reportClubProblem(clubId: string, reason: string, details: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Debes iniciar sesión para enviar un reporte' };
+
+    const cleanReason = reason.trim();
+    const cleanDetails = details.trim();
+
+    if (!clubId) return { error: 'Club no válido' };
+    if (!cleanReason) return { error: 'Elige un motivo para el reporte' };
+    if (cleanDetails.length < 10) return { error: 'Añade un poco más de contexto para poder revisarlo' };
+
+    const { data: membership } = await supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('user_id', user.id)
+        .neq('role', 'pending')
+        .maybeSingle();
+
+    if (!membership) {
+        return { error: 'Solo los miembros del club pueden enviar reportes' };
+    }
+
+    const { error } = await supabase
+        .from('club_reports')
+        .insert({
+            club_id: clubId,
+            reporter_id: user.id,
+            reason: cleanReason,
+            details: cleanDetails,
+            status: 'open',
+        });
+
+    if (error) {
+        console.error('[reportClubProblem] error:', error);
+        return { error: 'No se pudo enviar el reporte. Inténtalo de nuevo.' };
+    }
+
+    return { success: true };
+}
+
+export async function getClubReports(clubId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return [];
+
+    try {
+        await assertAdminOrMod(supabase, clubId, user.id);
+
+        const { data, error } = await supabase
+            .from('club_reports')
+            .select(`
+                id,
+                club_id,
+                reporter_id,
+                reason,
+                details,
+                status,
+                created_at,
+                resolved_at,
+                reporter:profiles!reporter_id(full_name, username, avatar_url),
+                events:club_report_events(
+                    id,
+                    status,
+                    note,
+                    created_at,
+                    actor:profiles!actor_id(full_name, username, avatar_url)
+                )
+            `)
+            .eq('club_id', clubId)
+            .order('created_at', { ascending: false })
+            .order('created_at', { referencedTable: 'club_report_events', ascending: true });
+
+        if (error) {
+            console.error('[getClubReports] error:', error);
+            return [];
+        }
+
+        return data || [];
+    } catch (e) {
+        console.error('[getClubReports] permission error:', e);
+        return [];
+    }
+}
+
+export async function getMyClubReports(clubId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return [];
+
+    const { data, error } = await supabase
+        .from('club_reports')
+        .select(`
+            id,
+            reason,
+            details,
+            status,
+            created_at,
+            resolved_at,
+            events:club_report_events(
+                id,
+                status,
+                note,
+                created_at,
+                actor:profiles!actor_id(full_name, username, avatar_url)
+            )
+        `)
+        .eq('club_id', clubId)
+        .eq('reporter_id', user.id)
+        .order('created_at', { ascending: false })
+        .order('created_at', { referencedTable: 'club_report_events', ascending: true });
+
+    if (error) {
+        console.error('[getMyClubReports] error:', error);
+        return [];
+    }
+
+    return data || [];
+}
+
+export async function updateClubReportStatus(
+    clubId: string,
+    reportId: string,
+    status: 'open' | 'reviewing' | 'resolved' | 'dismissed',
+    note?: string
+) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'No autenticado' };
+
+    try {
+        await assertAdminOrMod(supabase, clubId, user.id);
+
+        const cleanNote = note?.trim() || null;
+        if ((status === 'resolved' || status === 'dismissed') && !cleanNote) {
+            return { error: 'Añade un motivo para cerrar el reporte' };
+        }
+
+        const isClosed = status === 'resolved' || status === 'dismissed';
+        const { error } = await supabase
+            .from('club_reports')
+            .update({
+                status,
+                resolved_at: isClosed ? new Date().toISOString() : null,
+                resolved_by: isClosed ? user.id : null,
+            })
+            .eq('id', reportId)
+            .eq('club_id', clubId);
+
+        if (error) {
+            console.error('[updateClubReportStatus] error:', error);
+            return { error: 'No se pudo actualizar el reporte' };
+        }
+
+        const { error: eventError } = await supabase
+            .from('club_report_events')
+            .insert({
+                report_id: reportId,
+                club_id: clubId,
+                actor_id: user.id,
+                status,
+                note: cleanNote,
+            });
+
+        if (eventError) {
+            console.error('[updateClubReportStatus] event error:', eventError);
+            return { error: 'El estado cambió, pero no se pudo guardar el seguimiento' };
+        }
+
+        revalidatePath(`/app/clubs/${clubId}`);
+        return { success: true };
+    } catch (e: any) {
+        return { error: e.message || 'Sin permisos' };
+    }
+}
+
 // ─── Member Management ───────────────────────────────────────────────────────
 
 export async function getClubMembers(clubId: string) {
@@ -979,11 +1373,19 @@ export async function inviteMemberByUsername(clubId: string, usernameOrEmail: st
 
         if (existing) return { error: 'Este usuario ya es miembro del club' };
 
-        const { error } = await supabase
+        const writeClient = getAdminClient() || supabase;
+        const { error } = await writeClient
             .from('club_members')
             .insert({ club_id: clubId, user_id: profile.id, role: 'member', joined_at: new Date().toISOString() });
 
-        if (error) return { error: error.message };
+        if (error) {
+            const isRlsError = error.message.toLowerCase().includes('row-level security');
+            return {
+                error: isRlsError
+                    ? 'No se ha podido invitar por permisos de base de datos. Revisa que esté aplicada la política RLS de invitaciones.'
+                    : error.message
+            };
+        }
         revalidatePath(`/app/clubs/${clubId}`);
         return { success: true, profile };
     } catch (e: any) { return { error: e.message }; }

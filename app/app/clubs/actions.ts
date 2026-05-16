@@ -138,3 +138,87 @@ export async function getExploreClubs(search?: string, tags?: string[]) {
 
     return clubs;
 }
+
+export async function joinClubByCode(rawCode: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "Debes iniciar sesión para unirte a un club." };
+
+    const code = rawCode.trim().toUpperCase();
+    if (!code) return { error: "Introduce un código de acceso." };
+
+    const { data: club, error: clubError } = await supabase
+        .from('clubs')
+        .select('id, name, visibility, is_archived')
+        .eq('join_code', code)
+        .maybeSingle();
+
+    if (clubError) {
+        console.error("Error finding club by code:", clubError);
+        return { error: "No se ha podido validar el código. Inténtalo de nuevo." };
+    }
+
+    if (!club) return { error: "No encontramos ningún club con ese código." };
+    if (club.is_archived) return { error: "Este club está archivado y no acepta nuevas solicitudes." };
+
+    const { data: existing } = await supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', club.id)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+    if (existing?.role === 'pending') {
+        return {
+            success: true,
+            status: 'pending',
+            clubId: club.id,
+            clubName: club.name,
+            message: `Tu solicitud para ${club.name} ya está pendiente de aprobación.`,
+        };
+    }
+
+    if (existing) {
+        return {
+            success: true,
+            status: 'member',
+            clubId: club.id,
+            clubName: club.name,
+            message: `Ya formas parte de ${club.name}.`,
+        };
+    }
+
+    const shouldRequestApproval = club.visibility === 'private' || club.visibility === 'secret';
+    const role = shouldRequestApproval ? 'pending' : 'member';
+
+    const { error } = await supabase
+        .from('club_members')
+        .insert({
+            club_id: club.id,
+            user_id: user.id,
+            role,
+            joined_at: new Date().toISOString(),
+        });
+
+    if (error) {
+        console.error("Error joining club by code:", error);
+        if (error.code === '23505') {
+            return { error: "Ya existe una solicitud o membresía para este club." };
+        }
+        return { error: "No se ha podido enviar la solicitud. Inténtalo de nuevo." };
+    }
+
+    revalidatePath('/app/clubs');
+    revalidatePath(`/app/clubs/${club.id}`);
+
+    return {
+        success: true,
+        status: role,
+        clubId: club.id,
+        clubName: club.name,
+        message: shouldRequestApproval
+            ? `Solicitud enviada a ${club.name}. Un administrador debe aprobarla.`
+            : `Te has unido a ${club.name}.`,
+    };
+}

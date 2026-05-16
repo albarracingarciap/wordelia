@@ -16,6 +16,11 @@ export async function searchBooks(query: string): Promise<BookSearchResult[]> {
     }
 }
 
+function generateJoinCode() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase() +
+        Math.random().toString(36).substring(2, 6).toUpperCase();
+}
+
 export async function createClub(data: any) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -42,6 +47,13 @@ export async function createClub(data: any) {
     let clubId = "";
 
     try {
+        const visibility = ['public', 'private', 'secret'].includes(data.privacy)
+            ? data.privacy
+            : 'public';
+        const joinCode = visibility === 'private' || visibility === 'secret'
+            ? generateJoinCode()
+            : null;
+
         // 1. Create Club
         const { data: club, error: clubError } = await supabase
             .from('clubs')
@@ -49,7 +61,7 @@ export async function createClub(data: any) {
                 name,
                 slug,
                 description: data.description,
-                visibility: data.privacy === 'private' ? 'private' : 'public',
+                visibility,
                 owner_id: user.id,
                 price: price,
                 currency: 'EUR',
@@ -57,6 +69,7 @@ export async function createClub(data: any) {
                 is_official: false,
                 is_archived: false,
                 rules: data.rules || [],
+                join_code: joinCode,
             })
             .select()
             .single();
