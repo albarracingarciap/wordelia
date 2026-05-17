@@ -9,6 +9,7 @@ import { TabsContext } from "@/components/ui/Tabs";
 import { ClubSummary } from "@/components/club/ClubSummary";
 import { ClubCollectiveReview } from "@/components/club/ClubCollectiveReview";
 import { ClubWeeklyDigest } from "@/components/club/ClubWeeklyDigest";
+import { EmotionPulseCard } from "@/components/club/ClubEmotionMap";
 
 interface Checkpoint {
     id: string;
@@ -209,6 +210,20 @@ export function ClubReadingRoom({ club }: ClubReadingRoomProps) {
                             </Button>
                         </div>
                     </Card>
+
+                    {active && currentBook?.id && book.id && (
+                        <EmotionPulseCard
+                            context={{
+                                clubBookId: currentBook.id,
+                                bookId: book.id,
+                                bookTitle: book.title,
+                                bookAuthor: author,
+                                checkpoint: active.checkpoint,
+                                checkpointIndex: active.index + 1,
+                                checkpoints,
+                            }}
+                        />
+                    )}
                 </div>
             </section>
 

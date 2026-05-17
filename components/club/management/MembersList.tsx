@@ -13,16 +13,49 @@ import {
     rejectMember,
     removeMember,
     updateMemberRole,
+    updateMemberResponsibilities,
     inviteMemberByUsername,
     regenerateJoinCode,
 } from "@/app/app/clubs/[id]/actions";
-import { Copy, RefreshCw, UserPlus, Check, ChevronDown, ShieldCheck, Shield, UserX, X } from "lucide-react";
+import { BookOpen, CalendarDays, Copy, MessageSquareText, RefreshCw, Sparkles, UserPlus, Check, ChevronDown, ShieldCheck, Shield, UserX, X } from "lucide-react";
+
+type Responsibility =
+    | "session_host"
+    | "question_curator"
+    | "calendar_keeper"
+    | "conversation_spark"
+    | "spoiler_guardian"
+    | "librarian";
+
+const RESPONSIBILITIES: Array<{
+    id: Responsibility;
+    label: string;
+    shortLabel: string;
+    description: string;
+    icon: React.ReactNode;
+}> = [
+    { id: "session_host", label: "Anfitrion de sesion", shortLabel: "Anfitrion", description: "Conduce encuentros, sesiones silenciosas o cierres de lectura.", icon: <UserPlus size={15} /> },
+    { id: "question_curator", label: "Curador de preguntas", shortLabel: "Preguntas", description: "Prepara preguntas guia para activar conversacion por checkpoint.", icon: <MessageSquareText size={15} /> },
+    { id: "calendar_keeper", label: "Responsable de calendario", shortLabel: "Calendario", description: "Cuida fechas, eventos y avisos del club.", icon: <CalendarDays size={15} /> },
+    { id: "conversation_spark", label: "Dinamizador", shortLabel: "Dinamizador", description: "Anima la conversacion cuando el club baja el ritmo.", icon: <Sparkles size={15} /> },
+    { id: "spoiler_guardian", label: "Guardian anti-spoiler", shortLabel: "Anti-spoiler", description: "Ayuda a mantener los debates ligados al progreso.", icon: <Shield size={15} /> },
+    { id: "librarian", label: "Bibliotecario", shortLabel: "Bibliotecario", description: "Propone lecturas y cuida la memoria bibliografica del club.", icon: <BookOpen size={15} /> },
+];
+
+const RESPONSIBILITY_BY_ID = Object.fromEntries(RESPONSIBILITIES.map((item) => [item.id, item])) as Record<Responsibility, typeof RESPONSIBILITIES[number]>;
 
 interface Member {
     user_id: string;
     role: string;
     joined_at: string | null;
     profile: { full_name: string; avatar_url: string | null; username: string | null } | null;
+    responsibilities?: Responsibility[];
+}
+
+interface MembersListClub {
+    join_code?: string | null;
+    visibility?: string | null;
+    userRole?: string | null;
 }
 
 function RoleBadge({ role }: { role: string }) {
@@ -35,6 +68,125 @@ function formatDate(dateStr: string | null) {
     if (!dateStr) return "Recientemente";
     const d = new Date(dateStr);
     return d.toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function ResponsibilityBadges({ responsibilities = [] }: { responsibilities?: Responsibility[] }) {
+    if (!responsibilities.length) return null;
+
+    return (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+            {responsibilities.map((responsibility) => {
+                const item = RESPONSIBILITY_BY_ID[responsibility];
+                if (!item) return null;
+
+                return (
+                    <Badge key={responsibility} variant="teal" size="sm" className="gap-1">
+                        {item.icon}
+                        {item.shortLabel}
+                    </Badge>
+                );
+            })}
+        </div>
+    );
+}
+
+function ResponsibilitiesModal({
+    member,
+    onClose,
+    onSave,
+}: {
+    member: Member;
+    onClose: () => void;
+    onSave: (responsibilities: Responsibility[]) => Promise<void>;
+}) {
+    const name = member.profile?.full_name || "Usuario";
+    const [selected, setSelected] = React.useState<Responsibility[]>(member.responsibilities || []);
+    const [loading, setLoading] = React.useState(false);
+    const [error, setError] = React.useState<string | null>(null);
+
+    const toggle = (responsibility: Responsibility) => {
+        setSelected((current) => current.includes(responsibility)
+            ? current.filter((item) => item !== responsibility)
+            : [...current, responsibility]
+        );
+    };
+
+    const handleSave = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+            await onSave(selected);
+            onClose();
+        } catch (e: unknown) {
+            setError(e instanceof Error ? e.message : "No se pudieron guardar las responsabilidades.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    return (
+        <div className="fixed inset-0 z-[500] flex items-end justify-center bg-black/50 p-0 pb-20 backdrop-blur-sm sm:items-center sm:p-4">
+            <div className="flex max-h-[calc(100dvh-9.5rem)] w-full flex-col overflow-hidden rounded-t-3xl bg-white shadow-2xl sm:max-h-[calc(100dvh-2rem)] sm:max-w-lg sm:rounded-2xl">
+                <div className="flex items-start justify-between gap-4 px-6 pt-6">
+                    <div>
+                        <h3 className="text-xl font-bold text-teal-dark">Responsabilidades</h3>
+                        <p className="mt-1 text-sm text-grey/60">{name}</p>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={onClose}
+                        className="flex h-10 w-10 items-center justify-center rounded-full text-grey/40 transition-colors hover:bg-grey/5 hover:text-coral"
+                        aria-label="Cerrar"
+                    >
+                        <X size={20} />
+                    </button>
+                </div>
+
+                <p className="mt-4 px-6 text-sm leading-6 text-grey/65">
+                    Estas etiquetas reparten tareas dentro del club, pero no cambian permisos de administracion.
+                </p>
+
+                <div className="mt-5 min-h-0 flex-1 space-y-2 overflow-y-auto px-6 pr-5">
+                    {RESPONSIBILITIES.map((item) => {
+                        const checked = selected.includes(item.id);
+                        return (
+                            <button
+                                key={item.id}
+                                type="button"
+                                onClick={() => toggle(item.id)}
+                                className={`flex w-full items-start gap-3 rounded-2xl border p-3 text-left transition ${checked
+                                    ? "border-teal bg-teal/5"
+                                    : "border-grey/10 bg-white hover:border-teal/20"
+                                    }`}
+                            >
+                                <span className={`mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${checked ? "bg-teal text-white" : "bg-grey/5 text-grey/45"}`}>
+                                    {item.icon}
+                                </span>
+                                <span className="min-w-0 flex-1">
+                                    <span className="block text-sm font-bold text-teal-dark">{item.label}</span>
+                                    <span className="mt-1 block text-xs leading-5 text-grey/60">{item.description}</span>
+                                </span>
+                                <span className={`mt-1 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border ${checked ? "border-teal bg-teal text-white" : "border-grey/20"}`}>
+                                    {checked && <Check size={13} />}
+                                </span>
+                            </button>
+                        );
+                    })}
+                </div>
+
+                {error && <p className="mx-6 mt-3 rounded-2xl bg-coral/10 px-4 py-3 text-sm font-bold text-coral">{error}</p>}
+
+                <div className="mt-4 grid grid-cols-[0.8fr_1.2fr] gap-3 border-t border-grey/10 bg-white px-6 pb-4 pt-4 sm:grid-cols-[1fr_1.4fr] sm:pb-6">
+                    <Button type="button" variant="ghost" onClick={onClose}>
+                        Cancelar
+                    </Button>
+                    <Button type="button" onClick={handleSave} isLoading={loading}>
+                        Guardar responsabilidades
+                    </Button>
+                </div>
+            </div>
+        </div>
+    );
 }
 
 interface InviteModalProps {
@@ -58,7 +210,11 @@ function InviteModal({ clubId, onClose, onSuccess }: InviteModalProps) {
         if (result?.error) {
             setError(result.error);
         } else {
-            setSuccess(`¡${(result as any).profile?.full_name || query} añadido al club!`);
+            const resultRecord = result as Record<string, unknown>;
+            const profile = resultRecord.profile && typeof resultRecord.profile === "object"
+                ? resultRecord.profile as { full_name?: string | null }
+                : null;
+            setSuccess(`¡${profile?.full_name || query} añadido al club!`);
             setTimeout(() => { onSuccess(); onClose(); }, 1500);
         }
     };
@@ -102,32 +258,34 @@ function InviteModal({ clubId, onClose, onSuccess }: InviteModalProps) {
     );
 }
 
-export function MembersList({ club }: { club?: any }) {
+export function MembersList({ club }: { club?: unknown }) {
     const params = useParams();
     const clubId = params.id as string;
+    const clubInfo = club && typeof club === "object" ? club as MembersListClub : undefined;
 
     const [members, setMembers] = React.useState<Member[]>([]);
     const [pending, setPending] = React.useState<Member[]>([]);
     const [loading, setLoading] = React.useState(true);
     const [showInviteModal, setShowInviteModal] = React.useState(false);
-    const [joinCode, setJoinCode] = React.useState<string>(club?.join_code || "");
+    const [joinCode, setJoinCode] = React.useState<string>(clubInfo?.join_code || "");
     const [copiedCode, setCopiedCode] = React.useState(false);
     const [memberActions, setMemberActions] = React.useState<Record<string, boolean>>({});
     const [openMenuId, setOpenMenuId] = React.useState<string | null>(null);
+    const [responsibilityMember, setResponsibilityMember] = React.useState<Member | null>(null);
 
-    const visibility = club?.visibility || "public";
-    const isAdmin = club?.userRole === 'admin';
-    const isAdminOrMod = isAdmin || club?.userRole === 'moderator';
+    const visibility = clubInfo?.visibility || "public";
+    const isAdmin = clubInfo?.userRole === 'admin';
+    const isAdminOrMod = isAdmin || clubInfo?.userRole === 'moderator';
 
-    const reload = async () => {
+    const reload = React.useCallback(async () => {
         setLoading(true);
         const data = await getClubMembers(clubId);
         setMembers(data.members as unknown as Member[]);
         setPending(data.pending as unknown as Member[]);
         setLoading(false);
-    };
+    }, [clubId]);
 
-    React.useEffect(() => { reload(); }, [clubId]);
+    React.useEffect(() => { reload(); }, [reload]);
 
     const copyCode = () => {
         const link = `${window.location.origin}/app/clubs?join=${encodeURIComponent(joinCode)}`;
@@ -139,8 +297,9 @@ export function MembersList({ club }: { club?: any }) {
     const handleRegenerate = async () => {
         if (!confirm("¿Regenerar el código? El anterior dejará de funcionar.")) return;
         const result = await regenerateJoinCode(clubId);
-        if (result?.success && (result as any).code) {
-            setJoinCode((result as any).code);
+        const code = result && "code" in result ? result.code : null;
+        if (result?.success && typeof code === "string") {
+            setJoinCode(code);
         }
     };
 
@@ -172,6 +331,18 @@ export function MembersList({ club }: { club?: any }) {
         const newRole = currentRole === 'moderator' ? 'member' : 'moderator';
         setActionLoading(userId, true);
         await updateMemberRole(clubId, userId, newRole as 'member' | 'moderator');
+        await reload();
+    };
+
+    const handleResponsibilitiesSave = async (userId: string, responsibilities: Responsibility[]) => {
+        setActionLoading(userId, true);
+        const result = await updateMemberResponsibilities(clubId, userId, responsibilities);
+        setActionLoading(userId, false);
+
+        if (result?.error) {
+            throw new Error(result.error);
+        }
+
         await reload();
     };
 
@@ -282,6 +453,7 @@ export function MembersList({ club }: { club?: any }) {
                                                 {member.profile?.username ? `@${member.profile.username} · ` : ""}
                                                 Se unió {formatDate(member.joined_at)}
                                             </p>
+                                            <ResponsibilityBadges responsibilities={member.responsibilities} />
                                         </div>
                                     </div>
 
@@ -308,6 +480,15 @@ export function MembersList({ club }: { club?: any }) {
                                                         </button>
                                                     )}
                                                     <button
+                                                        onClick={() => {
+                                                            setOpenMenuId(null);
+                                                            setResponsibilityMember(member);
+                                                        }}
+                                                        className="flex w-full items-center gap-2 px-3 py-2 text-sm font-bold text-grey-dark hover:bg-grey/5"
+                                                    >
+                                                        <Sparkles size={14} className="text-teal" /> Responsabilidades
+                                                    </button>
+                                                    <button
                                                         onClick={() => handleRemove(member.user_id, name)}
                                                         className="flex w-full items-center gap-2 px-3 py-2 text-sm font-bold text-coral hover:bg-coral/5"
                                                     >
@@ -329,6 +510,14 @@ export function MembersList({ club }: { club?: any }) {
                     clubId={clubId}
                     onClose={() => setShowInviteModal(false)}
                     onSuccess={reload}
+                />
+            )}
+
+            {responsibilityMember && (
+                <ResponsibilitiesModal
+                    member={responsibilityMember}
+                    onClose={() => setResponsibilityMember(null)}
+                    onSave={(responsibilities) => handleResponsibilitiesSave(responsibilityMember.user_id, responsibilities)}
                 />
             )}
         </div>

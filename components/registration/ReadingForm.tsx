@@ -1,6 +1,6 @@
 import * as React from "react";
 import Image from "next/image";
-import { AlertCircle, BookOpen, Lightbulb, MessageCircleQuestion, Puzzle, Quote } from "lucide-react";
+import { AlertCircle, BookOpen, HeartPulse, Lightbulb, MessageCircleQuestion, Puzzle, Quote } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
 import { Select } from "../ui/Select";
@@ -33,6 +33,18 @@ const NOTE_CHIPS = [
     { label: "Personaje", icon: Puzzle },
 ];
 
+const EMOTION_OPTIONS = [
+    { id: "asombro", label: "Asombro" },
+    { id: "tristeza", label: "Tristeza" },
+    { id: "enojo", label: "Enojo" },
+    { id: "miedo", label: "Miedo" },
+    { id: "alegria", label: "Alegria" },
+    { id: "disgusto", label: "Disgusto" },
+    { id: "empatia", label: "Empatia" },
+    { id: "confusion", label: "Confusion" },
+    { id: "esperanza", label: "Esperanza" },
+];
+
 export function ReadingForm({ books, initialBookId, initialDuration, onCancel, onSuccess, isModal = false }: ReadingFormProps) {
     const [selectedBookId, setSelectedBookId] = React.useState(initialBookId || (books.length > 0 ? books[0].id : ""));
     const [progressValue, setProgressValue] = React.useState("");
@@ -42,6 +54,10 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
     const [rating, setRating] = React.useState(0);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [formError, setFormError] = React.useState("");
+    const [attachEmotion, setAttachEmotion] = React.useState(false);
+    const [sessionEmotion, setSessionEmotion] = React.useState("asombro");
+    const [emotionIntensity, setEmotionIntensity] = React.useState(3);
+    const [emotionNote, setEmotionNote] = React.useState("");
 
     React.useEffect(() => {
         setDurationValue(initialDuration !== undefined ? initialDuration.toString() : "");
@@ -75,7 +91,7 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
         try {
             const duration = durationValue ? parseInt(durationValue, 10) : 0;
             const pages = progressValue ? parseInt(progressValue, 10) : null;
-            const { logReadingSession, saveNote } = await import("@/app/app/mi-lectura/actions");
+            const { logReadingSession, saveNote, saveUserBookEmotion } = await import("@/app/app/mi-lectura/actions");
 
             const result = await logReadingSession(
                 selectedBookId,
@@ -88,6 +104,21 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
             if (result.error) {
                 setFormError(result.error);
                 return;
+            }
+
+            if (attachEmotion) {
+                const emotionResult = await saveUserBookEmotion(
+                    selectedBookId,
+                    sessionEmotion,
+                    emotionIntensity,
+                    emotionNote,
+                    result.sessionId || null
+                );
+
+                if (emotionResult.error) {
+                    setFormError(`La sesión se guardó, pero no pudimos guardar la emoción: ${emotionResult.error}`);
+                    return;
+                }
             }
 
             if (note.trim()) {
@@ -212,6 +243,81 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                 />
+            </div>
+
+            <div className="rounded-2xl border border-teal/10 bg-teal/[0.03] p-3">
+                <button
+                    type="button"
+                    onClick={() => setAttachEmotion((current) => !current)}
+                    className="flex w-full items-center justify-between gap-3 text-left"
+                    aria-expanded={attachEmotion}
+                >
+                    <span className="flex min-w-0 items-center gap-3">
+                        <span className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${attachEmotion ? "bg-teal text-white" : "bg-white text-teal ring-1 ring-teal/10"}`}>
+                            <HeartPulse className="h-5 w-5" />
+                        </span>
+                        <span className="min-w-0">
+                            <span className="block text-sm font-bold text-teal-dark">Pulso de la sesión</span>
+                            <span className="block text-xs text-grey/55">Guarda cómo te ha dejado esta lectura.</span>
+                        </span>
+                    </span>
+                    <span className={`shrink-0 rounded-full px-3 py-1 text-xs font-bold ${attachEmotion ? "bg-teal/10 text-teal" : "bg-white text-grey/50 ring-1 ring-grey/10"}`}>
+                        {attachEmotion ? "Activo" : "Opcional"}
+                    </span>
+                </button>
+
+                {attachEmotion && (
+                    <div className="mt-4 space-y-4">
+                        <div className="grid grid-cols-3 gap-2">
+                            {EMOTION_OPTIONS.map((emotion) => {
+                                const selected = sessionEmotion === emotion.id;
+                                return (
+                                    <button
+                                        key={emotion.id}
+                                        type="button"
+                                        onClick={() => setSessionEmotion(emotion.id)}
+                                        className={`min-h-11 rounded-2xl border px-2 text-xs font-bold transition ${selected
+                                            ? "border-teal bg-teal text-white shadow-sm"
+                                            : "border-grey/10 bg-white text-grey/60 hover:border-teal/20 hover:text-teal"
+                                            }`}
+                                    >
+                                        {emotion.label}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        <div>
+                            <div className="flex items-center justify-between">
+                                <label className="text-xs font-bold uppercase tracking-widest text-grey/60">Intensidad</label>
+                                <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-teal ring-1 ring-teal/10">
+                                    {emotionIntensity}/5
+                                </span>
+                            </div>
+                            <input
+                                type="range"
+                                min={1}
+                                max={5}
+                                value={emotionIntensity}
+                                onChange={(event) => setEmotionIntensity(Number(event.target.value))}
+                                className="mt-2 w-full accent-teal"
+                            />
+                            <div className="mt-1 flex justify-between text-[11px] text-grey/45">
+                                <span>Leve</span>
+                                <span>Moderada</span>
+                                <span>Intensa</span>
+                            </div>
+                        </div>
+
+                        <textarea
+                            rows={2}
+                            placeholder="Nota emocional opcional..."
+                            className="w-full resize-none rounded-2xl border border-teal/10 bg-white px-4 py-3 text-sm text-teal-dark transition-all placeholder:text-grey/30 focus:border-teal/30 focus:outline-none focus:ring-2 focus:ring-teal/5"
+                            value={emotionNote}
+                            onChange={(event) => setEmotionNote(event.target.value)}
+                        />
+                    </div>
+                )}
             </div>
 
             <div className={actionsClass}>

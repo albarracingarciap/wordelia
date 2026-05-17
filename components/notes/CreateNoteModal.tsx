@@ -92,8 +92,8 @@ export function CreateNoteModal({ isOpen, onClose, books, initialBookId, initial
         setTags((currentTags) => currentTags.filter((tag) => tag !== tagToRemove));
     };
 
-    const handleSubmit = async (e: React.FormEvent) => {
-        e.preventDefault();
+    const handleSubmit = async (event: React.FormEvent) => {
+        event.preventDefault();
         setFormError("");
 
         if (!bookId) {
@@ -160,7 +160,7 @@ export function CreateNoteModal({ isOpen, onClose, books, initialBookId, initial
                         options={books.map((book) => ({ label: book.title, value: book.id }))}
                         className="h-12 w-full rounded-2xl px-5 text-base"
                         value={bookId}
-                        onChange={(e) => setBookId(e.target.value)}
+                        onChange={(event) => setBookId(event.target.value)}
                     />
                 </div>
 
@@ -170,7 +170,10 @@ export function CreateNoteModal({ isOpen, onClose, books, initialBookId, initial
                             key={label}
                             type="button"
                             onClick={() => handleTypeChipClick(label)}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-teal/5 bg-white px-3 py-2 text-xs text-grey/60 transition-colors hover:border-teal/20 hover:text-teal"
+                            className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs font-bold transition-colors ${type === label
+                                ? "border-teal bg-teal text-white"
+                                : "border-teal/5 bg-white text-grey/60 hover:border-teal/20 hover:text-teal"
+                                }`}
                         >
                             <Icon className="h-3.5 w-3.5" />
                             {label}
@@ -190,7 +193,7 @@ export function CreateNoteModal({ isOpen, onClose, books, initialBookId, initial
                     className="w-full resize-none rounded-2xl border border-teal/10 bg-cream/30 px-4 py-3 text-base text-teal-dark transition-all placeholder:text-grey/30 focus:border-teal/30 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal/5"
                     placeholder="¿Qué te movió?"
                     value={content}
-                    onChange={(e) => setContent(e.target.value)}
+                    onChange={(event) => setContent(event.target.value)}
                     autoFocus
                 />
 
@@ -202,13 +205,13 @@ export function CreateNoteModal({ isOpen, onClose, books, initialBookId, initial
                     <Input
                         placeholder="Pág/Cap"
                         value={location}
-                        onChange={(e) => setLocation(e.target.value)}
+                        onChange={(event) => setLocation(event.target.value)}
                     />
                     <div className="space-y-2">
                         <Input
                             placeholder="Etiqueta y Enter..."
                             value={tagInput}
-                            onChange={(e) => setTagInput(e.target.value)}
+                            onChange={(event) => setTagInput(event.target.value)}
                             onKeyDown={handleTagKeyDown}
                         />
                         {tags.length > 0 && (

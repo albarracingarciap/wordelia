@@ -4,8 +4,8 @@ import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { CheckpointDetailModal } from "./CheckpointDetailModal";
 import { TabsContext } from "../ui/Tabs";
-import { getClubAnnouncements, getClubStats } from "@/app/app/clubs/[id]/actions";
-import { CalendarDays, Megaphone, Users, MessageSquare, Clock, CheckCircle2 } from "lucide-react";
+import { getClubAnnouncements, getClubStats, getMyClubBookProgress, markCheckpointCompleted, markCheckpointPending } from "@/app/app/clubs/[id]/actions";
+import { Activity, AlertTriangle, CalendarDays, Clock, HeartPulse, Megaphone, MessageSquare, ShieldAlert, Users } from "lucide-react";
 
 interface Checkpoint {
     id: string;
@@ -19,8 +19,15 @@ interface Checkpoint {
 interface ClubSummaryData {
     userRole?: string | null;
     currentBook?: {
+        id?: string | null;
         pace_unit?: string | null;
         checkpoints?: Checkpoint[] | null;
+        book?: {
+            id?: string | null;
+            title?: string | null;
+            author?: { name?: string | null } | null;
+            authors?: { name?: string | null } | null;
+        } | null;
     } | null;
 }
 
@@ -35,9 +42,21 @@ interface ClubAnnouncement {
 interface ClubStats {
     memberCount: number;
     postsThisWeek: number;
+    repliesThisWeek: number;
     activeThisWeek: number;
     pendingCount: number;
     myPostsThisWeek: number;
+    openReports: number;
+    upcomingEvents: number;
+    openPolls: number;
+    emotionsThisWeek: number;
+    emotionParticipantsThisWeek: number;
+    currentCheckpointEmotionCount: number;
+    activeCheckpointIndex: number | null;
+    activeRate: number;
+    emotionCoverage: number;
+    healthScore: number;
+    alerts: string[];
 }
 
 function getActiveCheckpoint(checkpoints: Checkpoint[]): { checkpoint: Checkpoint; index: number } | null {
@@ -91,12 +110,154 @@ function StatCard({ icon, label, value, sub, color = 'teal', onClick }: {
     );
 }
 
+function HealthMetric({ icon, label, value, sub, tone = "teal", onClick }: {
+    icon: React.ReactNode;
+    label: string;
+    value: string | number;
+    sub?: string;
+    tone?: "teal" | "coral" | "amber" | "neutral";
+    onClick?: () => void;
+}) {
+    const tones = {
+        teal: "border-teal/10 bg-teal/5 text-teal",
+        coral: "border-coral/15 bg-coral/5 text-coral",
+        amber: "border-amber-200 bg-amber-50 text-amber-700",
+        neutral: "border-grey/10 bg-grey/5 text-grey-dark",
+    };
+
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            disabled={!onClick}
+            className={`rounded-2xl border p-3 text-left transition ${tones[tone]} ${onClick ? "hover:shadow-sm" : "cursor-default"}`}
+        >
+            <div className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.12em] opacity-75">
+                {icon}
+                {label}
+            </div>
+            <p className="mt-2 text-2xl font-bold leading-none">{value}</p>
+            {sub && <p className="mt-1 text-xs leading-5 opacity-70">{sub}</p>}
+        </button>
+    );
+}
+
+function ClubHealthPanel({
+    stats,
+    onManageMembers,
+    onManageReports,
+    onCalendar,
+    onFeed,
+}: {
+    stats: ClubStats;
+    onManageMembers: () => void;
+    onManageReports: () => void;
+    onCalendar: () => void;
+    onFeed: () => void;
+}) {
+    const scoreTone = stats.healthScore >= 75 ? "teal" : stats.healthScore >= 50 ? "amber" : "coral";
+    const scoreLabel = stats.healthScore >= 75 ? "Club sano" : stats.healthScore >= 50 ? "Necesita atencion" : "Riesgo de parada";
+    const totalConversation = stats.postsThisWeek + stats.repliesThisWeek;
+
+    return (
+        <Card className="space-y-4">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+                <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-grey/45">Salud del club</p>
+                    <h3 className="mt-1 text-xl font-bold text-teal-dark">{scoreLabel}</h3>
+                    <p className="mt-1 text-sm leading-6 text-grey/65">
+                        Lectura de actividad, participacion emocional, calendario y moderacion.
+                    </p>
+                </div>
+                <div className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full border text-lg font-bold ${scoreTone === "teal"
+                    ? "border-teal/20 bg-teal/10 text-teal"
+                    : scoreTone === "amber"
+                        ? "border-amber-200 bg-amber-50 text-amber-700"
+                        : "border-coral/20 bg-coral/10 text-coral"
+                    }`}
+                >
+                    {stats.healthScore}
+                </div>
+            </div>
+
+            <div className="h-2 overflow-hidden rounded-full bg-grey/10">
+                <div
+                    className={`h-full rounded-full ${scoreTone === "teal" ? "bg-teal" : scoreTone === "amber" ? "bg-amber-500" : "bg-coral"}`}
+                    style={{ width: `${stats.healthScore}%` }}
+                />
+            </div>
+
+            {stats.alerts.length > 0 && (
+                <div className="space-y-2 rounded-2xl bg-amber-50 p-3 text-amber-800">
+                    {stats.alerts.slice(0, 3).map((alert) => (
+                        <div key={alert} className="flex items-start gap-2 text-sm font-medium leading-5">
+                            <AlertTriangle size={15} className="mt-0.5 shrink-0" />
+                            <span>{alert}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+                <HealthMetric
+                    icon={<Activity size={14} />}
+                    label="Activos"
+                    value={`${stats.activeThisWeek}/${stats.memberCount}`}
+                    sub={`${stats.activeRate}% esta semana`}
+                    tone={stats.activeRate >= 50 ? "teal" : "amber"}
+                    onClick={onFeed}
+                />
+                <HealthMetric
+                    icon={<MessageSquare size={14} />}
+                    label="Conversacion"
+                    value={totalConversation}
+                    sub={`${stats.postsThisWeek} posts, ${stats.repliesThisWeek} respuestas`}
+                    tone={totalConversation > 0 ? "teal" : "amber"}
+                    onClick={onFeed}
+                />
+                <HealthMetric
+                    icon={<HeartPulse size={14} />}
+                    label="Emociones"
+                    value={`${stats.currentCheckpointEmotionCount}/${stats.memberCount}`}
+                    sub={stats.activeCheckpointIndex ? `Checkpoint ${stats.activeCheckpointIndex} - ${stats.emotionCoverage}%` : "Sin checkpoint activo"}
+                    tone={stats.emotionCoverage >= 40 ? "teal" : "neutral"}
+                />
+                <HealthMetric
+                    icon={<CalendarDays size={14} />}
+                    label="Agenda"
+                    value={stats.upcomingEvents}
+                    sub="eventos proximos"
+                    tone={stats.upcomingEvents > 0 ? "teal" : "neutral"}
+                    onClick={onCalendar}
+                />
+                <HealthMetric
+                    icon={<ShieldAlert size={14} />}
+                    label="Reportes"
+                    value={stats.openReports}
+                    sub="abiertos o en revision"
+                    tone={stats.openReports > 0 ? "coral" : "teal"}
+                    onClick={stats.openReports > 0 ? onManageReports : undefined}
+                />
+                <HealthMetric
+                    icon={<Users size={14} />}
+                    label="Solicitudes"
+                    value={stats.pendingCount}
+                    sub={stats.openPolls > 0 ? `${stats.openPolls} votacion activa` : "miembros pendientes"}
+                    tone={stats.pendingCount > 0 || stats.openPolls > 0 ? "amber" : "teal"}
+                    onClick={stats.pendingCount > 0 ? onManageMembers : undefined}
+                />
+            </div>
+        </Card>
+    );
+}
+
 export function ClubSummary({ club }: { club?: ClubSummaryData }) {
     const params = useParams();
     const clubId = params.id as string;
     const [isCheckpointModalOpen, setIsCheckpointModalOpen] = React.useState(false);
     const [nextAnnouncement, setNextAnnouncement] = React.useState<ClubAnnouncement | null>(null);
     const [stats, setStats] = React.useState<ClubStats | null>(null);
+    const [currentPage, setCurrentPage] = React.useState(0);
     const [now] = React.useState(() => Date.now());
     const tabsContext = React.useContext(TabsContext);
     const isAdminOrMod = club?.userRole === 'admin' || club?.userRole === 'moderator';
@@ -120,6 +281,8 @@ export function ClubSummary({ club }: { club?: ClubSummaryData }) {
     // Compute active checkpoint from real data
     const checkpoints: Checkpoint[] = club?.currentBook?.checkpoints || [];
     const unitLabel = club?.currentBook?.pace_unit || "p.";
+    const book = club?.currentBook?.book;
+    const bookAuthor = book?.author?.name || book?.authors?.name || null;
     const activeResult = getActiveCheckpoint(checkpoints);
     const activeCheckpoint = activeResult?.checkpoint || null;
     const activeIndex = activeResult?.index ?? 0;
@@ -133,6 +296,27 @@ export function ClubSummary({ club }: { club?: ClubSummaryData }) {
         : 50;
 
     const hasCheckpoints = checkpoints.length > 0;
+
+    React.useEffect(() => {
+        if (!book?.id) {
+            setCurrentPage(0);
+            return;
+        }
+
+        let mounted = true;
+        getMyClubBookProgress(book.id).then((progress) => {
+            if (mounted) setCurrentPage(progress?.currentPage || 0);
+        });
+
+        return () => {
+            mounted = false;
+        };
+    }, [book?.id]);
+
+    const activeCheckpointEnd = Number.parseInt(String(activeCheckpoint?.end || ""), 10) || 0;
+    const previousCheckpointEnd = activeIndex > 0
+        ? Number.parseInt(String(checkpoints[activeIndex - 1]?.end || ""), 10) || 0
+        : Math.max(0, (Number.parseInt(String(activeCheckpoint?.start || ""), 10) || 1) - 1);
 
     return (
         <div className="space-y-6">
@@ -191,6 +375,19 @@ export function ClubSummary({ club }: { club?: ClubSummaryData }) {
                     isOpen={isCheckpointModalOpen}
                     onClose={() => setIsCheckpointModalOpen(false)}
                     onGoToConversation={() => tabsContext?.onChange("feed")}
+                    isCompleted={activeCheckpointEnd > 0 && currentPage >= activeCheckpointEnd}
+                    onComplete={async () => {
+                        if (!book?.id || !activeCheckpointEnd) return { error: "No se ha encontrado la lectura activa." };
+                        const result = await markCheckpointCompleted(clubId, book.id, activeCheckpointEnd);
+                        if (result.success && typeof result.currentPage === "number") setCurrentPage(result.currentPage);
+                        return result;
+                    }}
+                    onRevert={async () => {
+                        if (!book?.id) return { error: "No se ha encontrado la lectura activa." };
+                        const result = await markCheckpointPending(clubId, book.id, previousCheckpointEnd);
+                        if (result.success && typeof result.currentPage === "number") setCurrentPage(result.currentPage);
+                        return result;
+                    }}
                     checkpoint={{
                         title: `Checkpoint ${activeIndex + 1}: ${activeCheckpoint.title}`,
                         range: `${unitLabel} ${progressStart} - ${progressEnd}`,
@@ -199,6 +396,15 @@ export function ClubSummary({ club }: { club?: ClubSummaryData }) {
                             : undefined,
                         questions: activeCheckpoint.questions || []
                     }}
+                    emotionContext={club?.currentBook?.id && book?.id ? {
+                        clubBookId: club.currentBook.id,
+                        bookId: book.id,
+                        bookTitle: book.title,
+                        bookAuthor,
+                        checkpoint: activeCheckpoint,
+                        checkpointIndex: activeIndex + 1,
+                        checkpoints,
+                    } : undefined}
                 />
             )}
 
@@ -209,27 +415,13 @@ export function ClubSummary({ club }: { club?: ClubSummaryData }) {
                         {isAdminOrMod ? 'Salud del club' : 'Tu actividad'}
                     </p>
                     {isAdminOrMod ? (
-                        // Admin view: club health
-                        <div className="grid grid-cols-2 gap-3">
-                            <StatCard icon={<Users size={15} />} label="Miembros" value={stats.memberCount} color="teal" />
-                            <StatCard icon={<MessageSquare size={15} />} label="Posts esta semana" value={stats.postsThisWeek} color="teal" />
-                            <StatCard
-                                icon={<CheckCircle2 size={15} />}
-                                label="Activos esta semana"
-                                value={`${stats.activeThisWeek} / ${stats.memberCount}`}
-                                sub={stats.memberCount > 0 ? `${Math.round((stats.activeThisWeek / stats.memberCount) * 100)}%` : '-'}
-                                color="teal"
-                            />
-                            {stats.pendingCount > 0 && (
-                                <StatCard
-                                    icon={<Clock size={15} />}
-                                    label="Solicitudes pendientes"
-                                    value={stats.pendingCount}
-                                    color="amber"
-                                    onClick={() => tabsContext?.onChange('manage')}
-                                />
-                            )}
-                        </div>
+                        <ClubHealthPanel
+                            stats={stats}
+                            onManageMembers={() => tabsContext?.onChange('manage')}
+                            onManageReports={() => tabsContext?.onChange('manage')}
+                            onCalendar={() => tabsContext?.onChange('announcements')}
+                            onFeed={() => tabsContext?.onChange('feed')}
+                        />
                     ) : (
                         // Member view: personal stats
                         <div className="grid grid-cols-2 gap-3">

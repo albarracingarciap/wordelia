@@ -32,6 +32,7 @@ interface ClubDashboardClub {
     rules?: string[] | null;
     userRole?: "admin" | "moderator" | "member" | string | null;
     currentBook?: {
+        id?: string | null;
         pace_unit?: string | null;
         checkpoints?: Array<{
             id: string;

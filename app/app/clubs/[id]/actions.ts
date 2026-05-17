@@ -831,6 +831,131 @@ export async function getMyClubBookProgress(bookId?: string | null) {
     };
 }
 
+export async function markCheckpointCompleted(clubId: string, bookId: string, checkpointEnd: number) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "Debes iniciar sesión" };
+    if (!clubId || !bookId) return { error: "No se ha encontrado la lectura del club." };
+
+    const targetPage = Math.max(0, Math.round(Number(checkpointEnd) || 0));
+    if (targetPage <= 0) return { error: "No se ha podido calcular el final del checkpoint." };
+
+    const { data: membership } = await supabase
+        .from("club_members")
+        .select("role")
+        .eq("club_id", clubId)
+        .eq("user_id", user.id)
+        .neq("role", "pending")
+        .maybeSingle();
+
+    if (!membership) return { error: "No puedes actualizar el progreso de este club." };
+
+    const { data: currentBook, error: currentBookError } = await supabase
+        .from("user_books")
+        .select("id, current_page, status")
+        .eq("user_id", user.id)
+        .eq("book_id", bookId)
+        .maybeSingle();
+
+    if (currentBookError) {
+        console.error("Error fetching user book progress:", currentBookError);
+        return { error: "No hemos podido leer tu progreso actual." };
+    }
+
+    const nextPage = Math.max(currentBook?.current_page || 0, targetPage);
+
+    if (currentBook?.id) {
+        const { error } = await supabase
+            .from("user_books")
+            .update({
+                current_page: nextPage,
+                status: currentBook.status || "READING",
+                updated_at: new Date().toISOString(),
+            })
+            .eq("id", currentBook.id)
+            .eq("user_id", user.id);
+
+        if (error) {
+            console.error("Error updating checkpoint progress:", error);
+            return { error: "No hemos podido guardar este checkpoint." };
+        }
+    } else {
+        const { error } = await supabase
+            .from("user_books")
+            .insert({
+                user_id: user.id,
+                book_id: bookId,
+                current_page: nextPage,
+                status: "READING",
+                updated_at: new Date().toISOString(),
+            });
+
+        if (error) {
+            console.error("Error creating checkpoint progress:", error);
+            return { error: "No hemos podido guardar este checkpoint." };
+        }
+    }
+
+    revalidatePath(`/app/clubs/${clubId}`);
+    return { success: true, currentPage: nextPage };
+}
+
+export async function markCheckpointPending(clubId: string, bookId: string, rollbackPage: number) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "Debes iniciar sesión" };
+    if (!clubId || !bookId) return { error: "No se ha encontrado la lectura del club." };
+
+    const targetPage = Math.max(0, Math.round(Number(rollbackPage) || 0));
+
+    const { data: membership } = await supabase
+        .from("club_members")
+        .select("role")
+        .eq("club_id", clubId)
+        .eq("user_id", user.id)
+        .neq("role", "pending")
+        .maybeSingle();
+
+    if (!membership) return { error: "No puedes actualizar el progreso de este club." };
+
+    const { data: currentBook, error: currentBookError } = await supabase
+        .from("user_books")
+        .select("id, current_page, status")
+        .eq("user_id", user.id)
+        .eq("book_id", bookId)
+        .maybeSingle();
+
+    if (currentBookError) {
+        console.error("Error fetching user book progress:", currentBookError);
+        return { error: "No hemos podido leer tu progreso actual." };
+    }
+
+    if (!currentBook?.id) {
+        revalidatePath(`/app/clubs/${clubId}`);
+        return { success: true, currentPage: targetPage };
+    }
+
+    const { error } = await supabase
+        .from("user_books")
+        .update({
+            current_page: targetPage,
+            status: currentBook.status || "READING",
+            updated_at: new Date().toISOString(),
+        })
+        .eq("id", currentBook.id)
+        .eq("user_id", user.id);
+
+    if (error) {
+        console.error("Error reverting checkpoint progress:", error);
+        return { error: "No hemos podido marcar este checkpoint como pendiente." };
+    }
+
+    revalidatePath(`/app/clubs/${clubId}`);
+    return { success: true, currentPage: targetPage };
+}
+
 export async function createReply(clubId: string, parentPostId: string, content: string, isSpoiler: boolean = false) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -1179,6 +1304,276 @@ export async function saveClubBookCollectiveReview(
     if (error) {
         console.error("Error saving club collective review:", error);
         return { error: "No se pudo guardar tu cierre." };
+    }
+
+    revalidatePath(`/app/clubs/${clubId}`);
+    return { success: true };
+}
+
+const CLUB_EMOTIONS = [
+    "asombro",
+    "tristeza",
+    "enojo",
+    "miedo",
+    "alegria",
+    "disgusto",
+    "empatia",
+    "confusion",
+    "esperanza",
+] as const;
+
+type ClubEmotionValue = typeof CLUB_EMOTIONS[number];
+
+const CLUB_RESPONSIBILITIES = [
+    "session_host",
+    "question_curator",
+    "calendar_keeper",
+    "conversation_spark",
+    "spoiler_guardian",
+    "librarian",
+] as const;
+
+type ClubResponsibility = typeof CLUB_RESPONSIBILITIES[number];
+
+type ClubMemberWithProfile = {
+    user_id: string;
+    role: string;
+    joined_at: string | null;
+    profile?: unknown;
+};
+
+type ActiveUserRow = { user_id: string };
+type EmotionStatsRow = { user_id: string; checkpoint_index: number | null; created_at: string | null };
+type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+
+type ClubEmotionProfile = {
+    full_name?: string | null;
+    username?: string | null;
+    avatar_url?: string | null;
+};
+
+type ClubEmotionRow = {
+    id: string;
+    checkpoint_index: number;
+    emotion: ClubEmotionValue;
+    intensity: number;
+    note?: string | null;
+    is_note_public?: boolean | null;
+    user_id: string;
+    created_at?: string | null;
+    updated_at?: string | null;
+    profiles?: ClubEmotionProfile | ClubEmotionProfile[] | null;
+};
+
+function normalizeEmotionProfile(profile: ClubEmotionProfile | ClubEmotionProfile[] | null | undefined) {
+    return Array.isArray(profile) ? profile[0] : profile;
+}
+
+export async function getClubCheckpointEmotionMap(clubId: string, clubBookId?: string | null) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user || !clubBookId) {
+        return { byCheckpoint: {}, myEmotions: {} };
+    }
+
+    const { data, error } = await supabase
+        .from("club_checkpoint_emotions")
+        .select(`
+            id,
+            checkpoint_index,
+            emotion,
+            intensity,
+            note,
+            is_note_public,
+            user_id,
+            created_at,
+            updated_at,
+            profiles:profiles!user_id(full_name, username, avatar_url)
+        `)
+        .eq("club_id", clubId)
+        .eq("club_book_id", clubBookId)
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        if (error.code !== "42P01" && error.code !== "PGRST205") {
+            console.error("Error fetching checkpoint emotions:", error);
+        }
+        return { byCheckpoint: {}, myEmotions: {} };
+    }
+
+    const byCheckpoint: Record<number, {
+        checkpointIndex: number;
+        total: number;
+        averageIntensity: number;
+        dominantEmotion: ClubEmotionValue | null;
+        distribution: Array<{
+            emotion: ClubEmotionValue;
+            count: number;
+            percentage: number;
+            averageIntensity: number;
+        }>;
+        records: Array<{
+            id: string;
+            emotion: ClubEmotionValue;
+            intensity: number;
+            note: string | null;
+            isMine: boolean;
+            createdAt: string | null;
+            user: {
+                name: string;
+                username: string | null;
+                avatarUrl: string | null;
+            };
+        }>;
+    }> = {};
+    const myEmotions: Record<number, {
+        id: string;
+        emotion: ClubEmotionValue;
+        intensity: number;
+        note: string;
+        isNotePublic: boolean;
+    }> = {};
+
+    for (const row of (data || []) as ClubEmotionRow[]) {
+        const checkpointIndex = Number(row.checkpoint_index);
+        if (!byCheckpoint[checkpointIndex]) {
+            byCheckpoint[checkpointIndex] = {
+                checkpointIndex,
+                total: 0,
+                averageIntensity: 0,
+                dominantEmotion: null,
+                distribution: [],
+                records: [],
+            };
+        }
+
+        const profile = normalizeEmotionProfile(row.profiles);
+        const isMine = row.user_id === user.id;
+        const note = row.is_note_public || isMine ? row.note?.trim() || null : null;
+
+        byCheckpoint[checkpointIndex].records.push({
+            id: row.id,
+            emotion: row.emotion,
+            intensity: row.intensity,
+            note,
+            isMine,
+            createdAt: row.created_at || null,
+            user: {
+                name: profile?.full_name || profile?.username || "Lector",
+                username: profile?.username || null,
+                avatarUrl: profile?.avatar_url || null,
+            },
+        });
+
+        if (isMine) {
+            myEmotions[checkpointIndex] = {
+                id: row.id,
+                emotion: row.emotion,
+                intensity: row.intensity,
+                note: row.note || "",
+                isNotePublic: row.is_note_public !== false,
+            };
+        }
+    }
+
+    for (const checkpoint of Object.values(byCheckpoint)) {
+        const counts = new Map<ClubEmotionValue, { count: number; intensity: number }>();
+        let intensityTotal = 0;
+
+        for (const record of checkpoint.records) {
+            const current = counts.get(record.emotion) || { count: 0, intensity: 0 };
+            current.count += 1;
+            current.intensity += record.intensity;
+            counts.set(record.emotion, current);
+            intensityTotal += record.intensity;
+        }
+
+        checkpoint.total = checkpoint.records.length;
+        checkpoint.averageIntensity = checkpoint.total > 0
+            ? Math.round((intensityTotal / checkpoint.total) * 10) / 10
+            : 0;
+        checkpoint.distribution = CLUB_EMOTIONS
+            .map((emotion) => {
+                const emotionData = counts.get(emotion);
+                const count = emotionData?.count || 0;
+
+                return {
+                    emotion,
+                    count,
+                    percentage: checkpoint.total > 0 ? Math.round((count / checkpoint.total) * 100) : 0,
+                    averageIntensity: count > 0 && emotionData
+                        ? Math.round((emotionData.intensity / count) * 10) / 10
+                        : 0,
+                };
+            })
+            .filter((emotion) => emotion.count > 0)
+            .sort((a, b) => b.count - a.count || b.averageIntensity - a.averageIntensity);
+        checkpoint.dominantEmotion = checkpoint.distribution[0]?.emotion || null;
+    }
+
+    return { byCheckpoint, myEmotions };
+}
+
+export async function saveCheckpointEmotion(
+    clubId: string,
+    payload: {
+        clubBookId?: string | null;
+        bookId?: string | null;
+        checkpointIndex: number;
+        emotion: string;
+        intensity: number;
+        note?: string;
+        isNotePublic?: boolean;
+    }
+) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "Debes iniciar sesion" };
+    if (!payload.clubBookId || !payload.bookId) return { error: "No se ha encontrado la lectura activa." };
+
+    const emotion = payload.emotion as ClubEmotionValue;
+    if (!CLUB_EMOTIONS.includes(emotion)) return { error: "Elige una emocion valida." };
+
+    const checkpointIndex = Number(payload.checkpointIndex);
+    if (!Number.isInteger(checkpointIndex) || checkpointIndex < 1) {
+        return { error: "Checkpoint no valido." };
+    }
+
+    const intensity = Math.max(1, Math.min(5, Math.round(Number(payload.intensity) || 3)));
+
+    const { data: membership } = await supabase
+        .from("club_members")
+        .select("role")
+        .eq("club_id", clubId)
+        .eq("user_id", user.id)
+        .neq("role", "pending")
+        .maybeSingle();
+
+    if (!membership) return { error: "No puedes registrar emociones en este club." };
+
+    const { error } = await supabase
+        .from("club_checkpoint_emotions")
+        .upsert({
+            club_id: clubId,
+            club_book_id: payload.clubBookId,
+            book_id: payload.bookId,
+            user_id: user.id,
+            checkpoint_index: checkpointIndex,
+            emotion,
+            intensity,
+            note: payload.note?.trim() || null,
+            is_note_public: payload.isNotePublic !== false,
+            updated_at: new Date().toISOString(),
+        }, { onConflict: "club_book_id,user_id,checkpoint_index" });
+
+    if (error) {
+        if (error.code === "42P01" || error.code === "PGRST205") {
+            return { error: "Aplica la migracion del mapa emocional antes de guardar." };
+        }
+        console.error("Error saving checkpoint emotion:", error);
+        return { error: "No se pudo guardar tu emocion." };
     }
 
     revalidatePath(`/app/clubs/${clubId}`);
@@ -1822,13 +2217,94 @@ export async function getClubMembers(clubId: string) {
 
     if (error || !data) return { members: [], pending: [] };
 
-    const members = data.filter((m: any) => m.role !== 'pending');
-    const pending = data.filter((m: any) => m.role === 'pending');
+    const { data: responsibilities } = await supabase
+        .from('club_member_responsibilities')
+        .select('user_id, responsibility')
+        .eq('club_id', clubId);
+
+    const responsibilitiesByUser = ((responsibilities || []) as Array<{ user_id: string; responsibility: ClubResponsibility }>)
+        .reduce((acc: Record<string, ClubResponsibility[]>, item) => {
+            if (!acc[item.user_id]) acc[item.user_id] = [];
+            acc[item.user_id].push(item.responsibility);
+            return acc;
+        }, {});
+
+    const withResponsibilities = (data as ClubMemberWithProfile[]).map((member) => ({
+        ...member,
+        responsibilities: responsibilitiesByUser[member.user_id] || [],
+    }));
+
+    const members = withResponsibilities.filter((member) => member.role !== 'pending');
+    const pending = withResponsibilities.filter((member) => member.role === 'pending');
 
     return { members, pending };
 }
 
-async function assertAdminOrMod(supabase: any, clubId: string, userId: string) {
+export async function updateMemberResponsibilities(
+    clubId: string,
+    targetUserId: string,
+    responsibilities: string[]
+) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autenticado' };
+
+    try {
+        await assertAdminOrMod(supabase, clubId, user.id);
+
+        const cleanResponsibilities = Array.from(new Set(responsibilities))
+            .filter((responsibility): responsibility is ClubResponsibility =>
+                CLUB_RESPONSIBILITIES.includes(responsibility as ClubResponsibility)
+            );
+
+        const { data: targetMember } = await supabase
+            .from('club_members')
+            .select('user_id')
+            .eq('club_id', clubId)
+            .eq('user_id', targetUserId)
+            .neq('role', 'pending')
+            .maybeSingle();
+
+        if (!targetMember) {
+            return { error: 'Este usuario no es miembro activo del club' };
+        }
+
+        const { error: deleteError } = await supabase
+            .from('club_member_responsibilities')
+            .delete()
+            .eq('club_id', clubId)
+            .eq('user_id', targetUserId);
+
+        if (deleteError) {
+            if (deleteError.code === '42P01' || deleteError.code === 'PGRST205') {
+                return { error: 'Aplica la migracion de responsabilidades antes de asignarlas.' };
+            }
+            return { error: 'No se pudieron actualizar las responsabilidades' };
+        }
+
+        if (cleanResponsibilities.length > 0) {
+            const { error: insertError } = await supabase
+                .from('club_member_responsibilities')
+                .insert(cleanResponsibilities.map((responsibility) => ({
+                    club_id: clubId,
+                    user_id: targetUserId,
+                    responsibility,
+                    assigned_by: user.id,
+                })));
+
+            if (insertError) {
+                return { error: 'No se pudieron guardar las responsabilidades' };
+            }
+        }
+
+        revalidatePath(`/app/clubs/${clubId}`);
+        return { success: true };
+    } catch (e: unknown) {
+        return { error: e instanceof Error ? e.message : 'Sin permisos' };
+    }
+}
+
+async function assertAdminOrMod(supabase: SupabaseServerClient, clubId: string, userId: string) {
     const { data } = await supabase
         .from('club_members')
         .select('role')
@@ -1995,34 +2471,129 @@ export async function getClubStats(clubId: string) {
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
     const weekAgoIso = weekAgo.toISOString();
+    const nowIso = new Date().toISOString();
+
+    const { data: currentBook } = await supabase
+        .from('club_books')
+        .select('id, checkpoints')
+        .eq('club_id', clubId)
+        .eq('status', 'current')
+        .maybeSingle();
+
+    const checkpoints = Array.isArray(currentBook?.checkpoints)
+        ? currentBook.checkpoints as Array<{ date?: string }>
+        : [];
+    const activeCheckpointIndex = (() => {
+        if (!checkpoints.length) return null;
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        for (let index = 0; index < checkpoints.length; index++) {
+            const checkpoint = checkpoints[index];
+            if (!checkpoint.date) return index + 1;
+            const deadline = new Date(checkpoint.date);
+            deadline.setHours(23, 59, 59, 999);
+            if (deadline >= today) return index + 1;
+        }
+
+        return checkpoints.length;
+    })();
+
+    const currentBookId = currentBook?.id || null;
 
     const [
         { count: memberCount },
         { count: postsThisWeek },
+        { count: repliesThisWeek },
         { data: activeUsersData },
         { count: pendingCount },
         { count: myPostsThisWeek },
+        { count: openReports },
+        { count: upcomingEvents },
+        { count: openPolls },
+        { data: emotionRows },
+        { data: responsibilityRows },
     ] = await Promise.all([
         supabase.from('club_members').select('*', { count: 'exact', head: true })
             .eq('club_id', clubId).neq('role', 'pending'),
         supabase.from('club_posts').select('*', { count: 'exact', head: true })
             .eq('club_id', clubId).gte('created_at', weekAgoIso).is('parent_id', null),
+        supabase.from('club_posts').select('*', { count: 'exact', head: true })
+            .eq('club_id', clubId).gte('created_at', weekAgoIso).not('parent_id', 'is', null),
         supabase.from('club_posts').select('user_id')
-            .eq('club_id', clubId).gte('created_at', weekAgoIso).is('parent_id', null),
+            .eq('club_id', clubId).gte('created_at', weekAgoIso),
         supabase.from('club_members').select('*', { count: 'exact', head: true })
             .eq('club_id', clubId).eq('role', 'pending'),
         supabase.from('club_posts').select('*', { count: 'exact', head: true })
             .eq('club_id', clubId).eq('user_id', user.id).gte('created_at', weekAgoIso),
+        supabase.from('club_reports').select('*', { count: 'exact', head: true })
+            .eq('club_id', clubId).in('status', ['open', 'reviewing']),
+        supabase.from('club_calendar_events').select('*', { count: 'exact', head: true })
+            .eq('club_id', clubId).gte('starts_at', nowIso),
+        supabase.from('polls').select('*', { count: 'exact', head: true })
+            .eq('club_id', clubId).eq('is_active', true).eq('is_open', true),
+        currentBookId
+            ? supabase.from('club_checkpoint_emotions').select('user_id, checkpoint_index, created_at')
+                .eq('club_id', clubId).eq('club_book_id', currentBookId)
+            : Promise.resolve({ data: [] }),
+        supabase.from('club_member_responsibilities').select('responsibility').eq('club_id', clubId),
     ]);
 
-    const activeThisWeek = new Set((activeUsersData || []).map((r: any) => r.user_id)).size;
+    const activeThisWeek = new Set(((activeUsersData || []) as ActiveUserRow[]).map((row) => row.user_id)).size;
+    const emotionStatsRows = (emotionRows || []) as EmotionStatsRow[];
+    const emotionsThisWeek = emotionStatsRows.filter((row) => row.created_at && row.created_at >= weekAgoIso);
+    const emotionParticipantsThisWeek = new Set(emotionsThisWeek.map((row) => row.user_id)).size;
+    const currentCheckpointEmotionCount = activeCheckpointIndex
+        ? new Set(emotionStatsRows
+            .filter((row) => row.checkpoint_index === activeCheckpointIndex)
+            .map((row) => row.user_id)).size
+        : 0;
+    const activeRate = memberCount ? Math.round((activeThisWeek / memberCount) * 100) : 0;
+    const emotionCoverage = memberCount ? Math.round((currentCheckpointEmotionCount / memberCount) * 100) : 0;
+    const reportPressure = openReports || 0;
+    const responsibilitiesSet = new Set(((responsibilityRows || []) as Array<{ responsibility: ClubResponsibility }>).map((row) => row.responsibility));
+    const responsibilityCoverage = Math.round((responsibilitiesSet.size / CLUB_RESPONSIBILITIES.length) * 100);
+    const healthScore = Math.max(0, Math.min(100,
+        45
+        + Math.min(25, Math.round(activeRate * 0.25))
+        + Math.min(15, Math.round(emotionCoverage * 0.15))
+        + Math.min(10, (postsThisWeek || 0) + (repliesThisWeek || 0))
+        + (upcomingEvents ? 5 : 0)
+        + Math.min(8, Math.round(responsibilityCoverage * 0.08))
+        - Math.min(25, reportPressure * 8)
+        - Math.min(15, (pendingCount || 0) * 4)
+    ));
+
+    const alerts = [
+        pendingCount ? `${pendingCount} solicitud${pendingCount === 1 ? '' : 'es'} pendiente${pendingCount === 1 ? '' : 's'}` : null,
+        openReports ? `${openReports} reporte${openReports === 1 ? '' : 's'} abierto${openReports === 1 ? '' : 's'}` : null,
+        activeThisWeek === 0 && memberCount ? 'Sin actividad esta semana' : null,
+        activeCheckpointIndex && currentCheckpointEmotionCount === 0 ? 'Sin emociones en el checkpoint actual' : null,
+        !responsibilitiesSet.has('calendar_keeper') ? 'Sin responsable de calendario' : null,
+        !responsibilitiesSet.has('question_curator') ? 'Sin curador de preguntas' : null,
+        openPolls ? `${openPolls} votacion${openPolls === 1 ? '' : 'es'} abierta${openPolls === 1 ? '' : 's'}` : null,
+    ].filter((alert): alert is string => Boolean(alert));
 
     return {
         memberCount: memberCount || 0,
         postsThisWeek: postsThisWeek || 0,
+        repliesThisWeek: repliesThisWeek || 0,
         activeThisWeek,
         pendingCount: pendingCount || 0,
         myPostsThisWeek: myPostsThisWeek || 0,
+        openReports: openReports || 0,
+        upcomingEvents: upcomingEvents || 0,
+        openPolls: openPolls || 0,
+        emotionsThisWeek: emotionsThisWeek.length,
+        emotionParticipantsThisWeek,
+        currentCheckpointEmotionCount,
+        activeCheckpointIndex,
+        activeRate,
+        emotionCoverage,
+        responsibilityCoverage,
+        assignedResponsibilities: responsibilitiesSet.size,
+        healthScore,
+        alerts,
     };
 }
 

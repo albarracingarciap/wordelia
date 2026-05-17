@@ -27,6 +27,22 @@ export interface CurrentBook {
     lastSession: string | null; // Date string
     club: { name: string; href: string } | null;
     shelves?: string[]; // IDs of custom lists this book belongs to
+    emotionSummary?: {
+        lastEmotion: string | null;
+        lastIntensity: number | null;
+        lastNote: string | null;
+        count: number;
+        dominantEmotion: string | null;
+        timeline: Array<{
+            id: string;
+            emotion: string;
+            intensity: number;
+            note: string | null;
+            currentPage: number | null;
+            readingSessionId: string | null;
+            createdAt: string;
+        }>;
+    };
 }
 
 export interface Note {
@@ -73,6 +89,32 @@ export interface Shelf {
     name: string;
     count: number;
 }
+
+export interface EmotionBookGroup {
+    emotion: string;
+    count: number;
+    books: Array<{
+        id: string;
+        title: string;
+        author: string;
+        coverUrl: string | null;
+        intensity: number;
+    }>;
+}
+
+const USER_BOOK_EMOTIONS = [
+    "asombro",
+    "tristeza",
+    "enojo",
+    "miedo",
+    "alegria",
+    "disgusto",
+    "empatia",
+    "confusion",
+    "esperanza",
+] as const;
+
+type UserBookEmotion = typeof USER_BOOK_EMOTIONS[number];
 
 // --- EXISTING DASHBOARD ACTIONS ---
 
@@ -149,10 +191,19 @@ export async function getReadingStats(): Promise<ReadingStats> {
     const totalSeconds = allSessions?.reduce((sum, s) => sum + (s.duration_seconds || 0), 0) || 0;
     const totalMinutes = Math.round(totalSeconds / 60);
 
+    // 4. Active Clubs
+    const { count: activeClubsCount, error: activeClubsError } = await supabase
+        .from("club_members")
+        .select("club_id", { count: "exact", head: true })
+        .eq("user_id", user.id)
+        .neq("role", "pending");
+
+    if (activeClubsError) console.error("Error fetching active clubs:", activeClubsError);
+
     return {
         streak,
         weeklyPages,
-        activeClubs: 0,
+        activeClubs: activeClubsCount || 0,
         totalSessions,
         totalTime: totalMinutes
     };
@@ -240,6 +291,56 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
     }
     if (!userBooks) return [];
 
+    const bookIds = userBooks.map((ub: any) => ub.book_id).filter(Boolean);
+    const emotionSummaries: Record<string, CurrentBook["emotionSummary"]> = {};
+
+    if (bookIds.length > 0) {
+        const { data: emotions, error: emotionsError } = await supabase
+            .from("user_book_emotions")
+            .select("id, book_id, emotion, intensity, note, current_page, reading_session_id, created_at")
+            .eq("user_id", user.id)
+            .in("book_id", bookIds)
+            .order("created_at", { ascending: false });
+
+        if (emotionsError) {
+            if (emotionsError.code !== "42P01" && emotionsError.code !== "PGRST205") {
+                console.error("Error fetching book emotions:", emotionsError);
+            }
+        } else {
+            for (const emotion of emotions || []) {
+                const bookId = emotion.book_id as string;
+                const current = emotionSummaries[bookId];
+                const nextTimeline = [
+                    ...(current?.timeline || []),
+                    {
+                        id: emotion.id,
+                        emotion: emotion.emotion,
+                        intensity: emotion.intensity,
+                        note: emotion.note || null,
+                        currentPage: emotion.current_page || null,
+                        readingSessionId: emotion.reading_session_id || null,
+                        createdAt: emotion.created_at,
+                    },
+                ];
+                const emotionCounts = nextTimeline.reduce((acc: Record<string, number>, item) => {
+                    acc[item.emotion] = (acc[item.emotion] || 0) + 1;
+                    return acc;
+                }, {});
+                const dominantEmotion = Object.entries(emotionCounts)
+                    .sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+
+                emotionSummaries[bookId] = {
+                    lastEmotion: current?.lastEmotion || emotion.emotion,
+                    lastIntensity: current?.lastIntensity || emotion.intensity,
+                    lastNote: current?.lastNote || emotion.note || null,
+                    count: (current?.count || 0) + 1,
+                    dominantEmotion,
+                    timeline: nextTimeline.slice(0, 8),
+                };
+            }
+        }
+    }
+
     // Client-side filtering for Search (Title/Author) 
     // Ideally we do this in DB with text search, but for <1000 books client/server filter is fine
     let filteredResults = userBooks;
@@ -283,7 +384,15 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
             },
             lastSession: ub.updated_at ? new Date(ub.updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : null,
             club: null,
-            shelves: myShelves?.map((s: any) => s.list_id) || []
+            shelves: myShelves?.map((s: any) => s.list_id) || [],
+            emotionSummary: emotionSummaries[ub.book_id] || {
+                lastEmotion: null,
+                lastIntensity: null,
+                lastNote: null,
+                count: 0,
+                dominantEmotion: null,
+                timeline: [],
+            }
         };
     }));
 
@@ -358,6 +467,153 @@ export async function addBookToShelf(bookId: string, shelfId: string) {
     return { success: true };
 }
 
+export async function saveUserBookEmotion(
+    bookId: string,
+    emotion: string,
+    intensity: number,
+    note?: string,
+    readingSessionId?: string | null
+) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "Debes iniciar sesión" };
+
+    const cleanEmotion = USER_BOOK_EMOTIONS.includes(emotion as UserBookEmotion)
+        ? emotion as UserBookEmotion
+        : null;
+
+    if (!bookId || !cleanEmotion) {
+        return { error: "Selecciona una emoción válida." };
+    }
+
+    const safeIntensity = Math.max(1, Math.min(5, Math.round(Number(intensity) || 3)));
+
+    const { data: userBook } = await supabase
+        .from("user_books")
+        .select("id, current_page")
+        .eq("user_id", user.id)
+        .eq("book_id", bookId)
+        .maybeSingle();
+
+    const { error } = await supabase
+        .from("user_book_emotions")
+        .insert({
+            user_id: user.id,
+            book_id: bookId,
+            user_book_id: userBook?.id || null,
+            emotion: cleanEmotion,
+            intensity: safeIntensity,
+            note: note?.trim() || null,
+            current_page: userBook?.current_page || null,
+            reading_session_id: readingSessionId || null,
+        });
+
+    if (error) {
+        if (error.code === "42P01" || error.code === "PGRST205") {
+            return { error: "Aplica la migración de emociones personales antes de registrar emociones." };
+        }
+        console.error("Error saving user book emotion:", error);
+        return { error: "No hemos podido guardar la emoción." };
+    }
+
+    revalidatePath("/app/mi-lectura");
+    return { success: true };
+}
+
+export async function convertBookEmotionToNote(emotionId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "Debes iniciar sesión" };
+
+    const { data: emotion, error } = await supabase
+        .from("user_book_emotions")
+        .select("id, book_id, emotion, intensity, note, current_page")
+        .eq("id", emotionId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+
+    if (error || !emotion) {
+        return { error: "No hemos encontrado esa emoción." };
+    }
+
+    const label = emotion.emotion
+        ? emotion.emotion.charAt(0).toUpperCase() + emotion.emotion.slice(1)
+        : "Emoción";
+    const content = emotion.note?.trim()
+        ? `Me hizo sentir ${label.toLowerCase()} (${emotion.intensity}/5).\n\n${emotion.note.trim()}`
+        : `Me hizo sentir ${label.toLowerCase()} con intensidad ${emotion.intensity}/5.`;
+
+    return saveNote(
+        emotion.book_id,
+        content,
+        `Emoción: ${label}`,
+        emotion.current_page ? String(emotion.current_page) : undefined
+    );
+}
+
+export async function getEmotionBookGroups(): Promise<EmotionBookGroup[]> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return [];
+
+    const { data, error } = await supabase
+        .from("user_book_emotions")
+        .select(`
+            book_id,
+            emotion,
+            intensity,
+            created_at,
+            books (
+                title,
+                cover_url,
+                authors (name)
+            )
+        `)
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(80);
+
+    if (error) {
+        if (error.code !== "42P01" && error.code !== "PGRST205") {
+            console.error("Error fetching emotion book groups:", error);
+        }
+        return [];
+    }
+
+    const groups: Record<string, EmotionBookGroup> = {};
+    const seen = new Set<string>();
+
+    for (const row of (data || []) as any[]) {
+        const key = `${row.emotion}-${row.book_id}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+
+        if (!groups[row.emotion]) {
+            groups[row.emotion] = {
+                emotion: row.emotion,
+                count: 0,
+                books: [],
+            };
+        }
+
+        groups[row.emotion].count += 1;
+        groups[row.emotion].books.push({
+            id: row.book_id,
+            title: row.books?.title || "Libro",
+            author: row.books?.authors?.name || "Autor desconocido",
+            coverUrl: row.books?.cover_url || null,
+            intensity: row.intensity || 3,
+        });
+    }
+
+    return Object.values(groups)
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 4);
+}
+
 // --- OTHER EXISTING ACTIONS (Unchanged mostly) ---
 
 export async function getRecentNotes(): Promise<Note[]> {
@@ -410,6 +666,8 @@ export async function getAllNotes(): Promise<Note[]> {
             created_at,
             book_id,
             is_private,
+            is_highlighted,
+            resolved_at,
             books (title, authors(name))
         `)
         .eq("user_id", user.id)
@@ -449,6 +707,8 @@ export async function getAllNotes(): Promise<Note[]> {
             location: n.page_number ? `p. ${n.page_number}` : (n.chapter || undefined),
             date: new Date(n.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }),
             isPrivate: n.is_private,
+            isHighlighted: n.is_highlighted || false,
+            resolvedAt: n.resolved_at || null,
             tags: tags,
             // Legacy fields for backward compatibility
             bookId: n.book_id,
@@ -589,7 +849,7 @@ export async function logReadingSession(
 
     try {
         // 1. Insert Session
-        const { error: sessionError } = await supabase
+        const { data: sessionData, error: sessionError } = await supabase
             .from("reading_sessions")
             .insert({
                 user_id: user.id,
@@ -598,7 +858,9 @@ export async function logReadingSession(
                 end_time: new Date().toISOString(),
                 duration_seconds: durationMinutes * 60,
                 pages_read: pagesRead
-            });
+            })
+            .select("id")
+            .single();
 
         if (sessionError) throw sessionError;
 
@@ -636,7 +898,7 @@ export async function logReadingSession(
 
         revalidatePath("/app/search"); // Dashboard
         revalidatePath("/app/mi-lectura");
-        return { success: true };
+        return { success: true, sessionId: sessionData?.id || null };
 
     } catch (e: any) {
         console.error("logReadingSession Error:", e);
@@ -760,6 +1022,73 @@ export async function updateNote(
 
     } catch (e: any) {
         console.error("updateNote Error:", e);
+        return { error: e.message };
+    }
+}
+
+export async function deleteNote(noteId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "User not authenticated" };
+
+    try {
+        const { error } = await supabase
+            .from("book_notes")
+            .delete()
+            .eq("id", noteId)
+            .eq("user_id", user.id);
+
+        if (error) throw error;
+
+        revalidatePath("/app/mi-lectura");
+        revalidatePath("/app/mi-lectura/notas");
+        return { success: true };
+    } catch (e: any) {
+        console.error("deleteNote Error:", e);
+        return { error: e.message };
+    }
+}
+
+export async function setNoteHighlighted(noteId: string, highlighted: boolean) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "User not authenticated" };
+
+    try {
+        const { error } = await supabase
+            .from("book_notes")
+            .update({ is_highlighted: highlighted })
+            .eq("id", noteId)
+            .eq("user_id", user.id);
+
+        if (error) throw error;
+
+        revalidatePath("/app/mi-lectura/notas");
+        return { success: true };
+    } catch (e: any) {
+        console.error("setNoteHighlighted Error:", e);
+        return { error: e.message };
+    }
+}
+
+export async function setQuestionResolved(noteId: string, resolved: boolean) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "User not authenticated" };
+
+    try {
+        const { error } = await supabase
+            .from("book_notes")
+            .update({ resolved_at: resolved ? new Date().toISOString() : null })
+            .eq("id", noteId)
+            .eq("user_id", user.id);
+
+        if (error) throw error;
+
+        revalidatePath("/app/mi-lectura/notas");
+        return { success: true };
+    } catch (e: any) {
+        console.error("setQuestionResolved Error:", e);
         return { error: e.message };
     }
 }

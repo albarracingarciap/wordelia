@@ -1,24 +1,81 @@
 import * as React from "react";
 import { Button } from "@/components/ui/Button";
+import { CheckpointEmotionActions } from "./ClubEmotionMap";
 
 interface CheckpointDetailModalProps {
     isOpen: boolean;
     onClose: () => void;
     onGoToConversation?: () => void;
+    isCompleted?: boolean;
+    onComplete?: () => Promise<{ error?: string } | void> | { error?: string } | void;
+    onRevert?: () => Promise<{ error?: string } | void> | { error?: string } | void;
     checkpoint: {
         title: string;
         range: string;
         deadline?: string;
         questions?: string[];
     };
+    emotionContext?: React.ComponentProps<typeof CheckpointEmotionActions>["context"];
 }
 
-export function CheckpointDetailModal({ isOpen, onClose, onGoToConversation, checkpoint }: CheckpointDetailModalProps) {
+export function CheckpointDetailModal({ isOpen, onClose, onGoToConversation, isCompleted = false, onComplete, onRevert, checkpoint, emotionContext }: CheckpointDetailModalProps) {
     const [statusMessage, setStatusMessage] = React.useState<string | null>(null);
+    const [completed, setCompleted] = React.useState(isCompleted);
+    const [isSaving, setIsSaving] = React.useState(false);
 
     React.useEffect(() => {
-        if (isOpen) setStatusMessage(null);
-    }, [isOpen, checkpoint.title]);
+        if (isOpen) {
+            setCompleted(isCompleted);
+            setStatusMessage(isCompleted ? "Este tramo ya está marcado como completado." : null);
+        }
+    }, [isOpen, checkpoint.title, isCompleted]);
+
+    const handleComplete = async () => {
+        setIsSaving(true);
+        setStatusMessage(null);
+
+        try {
+            const result = await onComplete?.();
+            if (result?.error) {
+                setStatusMessage(result.error);
+                return;
+            }
+
+            setCompleted(true);
+            setStatusMessage("Perfecto, dejamos este tramo como completado para seguir avanzando.");
+        } catch (error) {
+            console.error("Error completing checkpoint:", error);
+            setStatusMessage("No hemos podido guardar este checkpoint.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleRevert = async () => {
+        if (!completed) {
+            setStatusMessage("Sin prisa. Este tramo seguirá esperándote cuando llegues.");
+            return;
+        }
+
+        setIsSaving(true);
+        setStatusMessage(null);
+
+        try {
+            const result = await onRevert?.();
+            if (result?.error) {
+                setStatusMessage(result.error);
+                return;
+            }
+
+            setCompleted(false);
+            setStatusMessage("Listo, dejamos este tramo como pendiente.");
+        } catch (error) {
+            console.error("Error reverting checkpoint:", error);
+            setStatusMessage("No hemos podido marcar este checkpoint como pendiente.");
+        } finally {
+            setIsSaving(false);
+        }
+    };
 
     if (!isOpen) return null;
 
@@ -42,11 +99,11 @@ export function CheckpointDetailModal({ isOpen, onClose, onGoToConversation, che
                     <div className="bg-[#FAF9F6] rounded-xl p-4 border border-black/5">
                         <h3 className="font-bold text-sm text-grey-dark mb-3">Has llegado a este punto?</h3>
                         <div className="grid gap-2 sm:grid-cols-2">
-                            <Button variant="primary" onClick={() => setStatusMessage("Perfecto, dejamos este tramo como completado para seguir avanzando.")}>
-                                Si, completado
+                            <Button variant="primary" onClick={handleComplete} disabled={completed || isSaving}>
+                                {completed ? "Completado" : isSaving ? "Guardando..." : "Sí, completado"}
                             </Button>
-                            <Button variant="outline" onClick={() => setStatusMessage("Sin prisa. Este tramo seguira esperandote cuando llegues.")}>
-                                Aun no
+                            <Button variant="outline" onClick={handleRevert} disabled={isSaving}>
+                                {completed ? "Marcar como pendiente" : "Aún no"}
                             </Button>
                         </div>
                         {statusMessage && (
@@ -68,10 +125,12 @@ export function CheckpointDetailModal({ isOpen, onClose, onGoToConversation, che
                             </div>
                         ) : (
                             <p className="p-3 bg-white border border-grey/10 rounded-lg text-sm text-grey/50">
-                                Aun no hay preguntas para este tramo.
+                                Aún no hay preguntas para este tramo.
                             </p>
                         )}
                     </div>
+
+                    {emotionContext && <CheckpointEmotionActions context={emotionContext} />}
 
                     <div className="pt-2">
                         <Button

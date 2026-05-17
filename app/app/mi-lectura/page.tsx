@@ -8,13 +8,14 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { RegisterReadingModal } from "@/components/dashboard/RegisterReadingModal";
 import { ReadingTimerModal } from "@/components/dashboard/ReadingTimerModal";
+import { ReadingEmotionModal } from "@/components/dashboard/ReadingEmotionModal";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CreateNoteModal } from "@/components/notes/CreateNoteModal";
 import { ReviewModal } from "@/components/reviews/ReviewModal";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
-import { getCurrentBooks, getReadingStats, getRecentNotes, CurrentBook, ReadingStats, Note, deleteBook, getRecommendedBook, RecommendedBook, startReadingBook } from "@/app/app/mi-lectura/actions";
+import { getCurrentBooks, getReadingStats, getRecentNotes, CurrentBook, ReadingStats, Note, deleteBook, getRecommendedBook, RecommendedBook, startReadingBook, convertBookEmotionToNote, getEmotionBookGroups, EmotionBookGroup } from "@/app/app/mi-lectura/actions";
 import { getUpcomingMilestones } from "@/app/app/clubs/[id]/actions";
 import { Search, BookOpen, CalendarDays, AlertCircle, Plus, Timer, Library, Users, StickyNote } from "lucide-react";
 
@@ -34,6 +35,15 @@ function InlineError({ message }: { message: string }) {
     return (
         <div className="flex items-start gap-3 rounded-xl border border-coral/25 bg-coral/10 px-4 py-3 text-sm text-coral">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <p>{message}</p>
+        </div>
+    );
+}
+
+function InlineSuccess({ message }: { message: string }) {
+    return (
+        <div className="flex items-start gap-3 rounded-xl border border-teal/20 bg-teal/10 px-4 py-3 text-sm font-bold text-teal-dark">
+            <StickyNote className="mt-0.5 h-4 w-4 shrink-0" />
             <p>{message}</p>
         </div>
     );
@@ -93,19 +103,28 @@ export default function MiLecturaPage() {
     const [stats, setStats] = React.useState<ReadingStats | null>(null);
     const [notes, setNotes] = React.useState<Note[]>([]);
     const [recommendedBook, setRecommendedBook] = React.useState<RecommendedBook | null>(null);
+    const [emotionGroups, setEmotionGroups] = React.useState<EmotionBookGroup[]>([]);
     const [milestones, setMilestones] = React.useState<Milestone[]>([]);
     const [isLoading, setIsLoading] = React.useState(true);
     const [loadError, setLoadError] = React.useState("");
     const [actionError, setActionError] = React.useState("");
+    const [actionSuccess, setActionSuccess] = React.useState("");
     const [pendingDeleteBookId, setPendingDeleteBookId] = React.useState<string | null>(null);
     const [pendingAction, setPendingAction] = React.useState<string | null>(null);
     const [launcherQuery, setLauncherQuery] = React.useState("");
     const [registerBookId, setRegisterBookId] = React.useState<string | undefined>(undefined);
     const [noteTargetBookId, setNoteTargetBookId] = React.useState<string | undefined>(undefined);
+    const [emotionTargetBookId, setEmotionTargetBookId] = React.useState<string | undefined>(undefined);
+    const [isEmotionModalOpen, setIsEmotionModalOpen] = React.useState(false);
 
     const handleOpenNoteModal = (bookId?: string) => {
         setNoteTargetBookId(bookId);
         setIsNoteModalOpen(true);
+    };
+
+    const handleOpenEmotionModal = (bookId: string) => {
+        setEmotionTargetBookId(bookId);
+        setIsEmotionModalOpen(true);
     };
 
     const [isReviewModalOpen, setIsReviewModalOpen] = React.useState(false);
@@ -120,12 +139,13 @@ export default function MiLecturaPage() {
         if (showSkeleton) setIsLoading(true);
         setLoadError("");
 
-        const [booksResult, statsResult, notesResult, recommendationResult, milestonesResult] = await Promise.allSettled([
+        const [booksResult, statsResult, notesResult, recommendationResult, milestonesResult, emotionGroupsResult] = await Promise.allSettled([
             getCurrentBooks(),
             getReadingStats(),
             getRecentNotes(),
             getRecommendedBook(),
-            getUpcomingMilestones()
+            getUpcomingMilestones(),
+            getEmotionBookGroups()
         ]);
 
         let hasError = false;
@@ -143,6 +163,9 @@ export default function MiLecturaPage() {
         else hasError = true;
 
         if (milestonesResult.status === "fulfilled") setMilestones(milestonesResult.value as Milestone[]);
+        else hasError = true;
+
+        if (emotionGroupsResult.status === "fulfilled") setEmotionGroups(emotionGroupsResult.value);
         else hasError = true;
 
         if (hasError) {
@@ -177,6 +200,7 @@ export default function MiLecturaPage() {
 
     const requestDeleteBook = (bookId: string) => {
         setActionError("");
+        setActionSuccess("");
         setPendingDeleteBookId(bookId);
     };
 
@@ -211,6 +235,7 @@ export default function MiLecturaPage() {
 
     const handleStartReading = async (bookId: string) => {
         setActionError("");
+        setActionSuccess("");
         setPendingAction(`start-${bookId}`);
 
         try {
@@ -224,6 +249,29 @@ export default function MiLecturaPage() {
         } catch (error) {
             console.error("Error starting reading:", error);
             setActionError("No hemos podido empezar esta lectura.");
+        } finally {
+            setPendingAction(null);
+        }
+    };
+
+    const handleConvertEmotionToNote = async (emotionId: string) => {
+        setActionError("");
+        setActionSuccess("");
+        setPendingAction(`emotion-note-${emotionId}`);
+
+        try {
+            const result = await convertBookEmotionToNote(emotionId);
+            if (result?.error) {
+                setActionError(result.error);
+                return;
+            }
+
+            await loadDashboardData();
+            setActionSuccess("Emoción convertida en nota.");
+            window.setTimeout(() => setActionSuccess(""), 3500);
+        } catch (error) {
+            console.error("Error converting emotion to note:", error);
+            setActionError("No hemos podido convertir la emoción en nota.");
         } finally {
             setPendingAction(null);
         }
@@ -245,6 +293,7 @@ export default function MiLecturaPage() {
 
             {loadError && <InlineError message={loadError} />}
             {actionError && <InlineError message={actionError} />}
+            {actionSuccess && <InlineSuccess message={actionSuccess} />}
 
             <div className="-mb-3 pb-1">
                 <StatsRow
@@ -311,6 +360,8 @@ export default function MiLecturaPage() {
                                         onActionClick={handleNewSession}
                                         onDelete={() => requestDeleteBook(book.id)}
                                         onNotesClick={() => handleOpenNoteModal(book.id)}
+                                        onEmotionClick={() => handleOpenEmotionModal(book.id)}
+                                        onEmotionToNoteClick={handleConvertEmotionToNote}
                                         onReviewClick={() => handleFirstImpressions(book.id)}
                                         reviewLabel="Primeras impresiones"
                                     />
@@ -506,8 +557,37 @@ export default function MiLecturaPage() {
                         <ActivityFeed />
                     </section>
 
+                    {emotionGroups.length > 0 && (
+                        <section className="order-2 lg:order-3">
+                            <h2 className={`${sectionTitleClass} mb-3`}>Lecturas que te hicieron sentir</h2>
+                            <Card className="space-y-4">
+                                {emotionGroups.map((group) => (
+                                    <div key={group.emotion} className="border-b border-grey/10 pb-3 last:border-0 last:pb-0">
+                                        <div className="mb-2 flex items-center justify-between gap-2">
+                                            <p className="text-sm font-bold text-teal-dark capitalize">{group.emotion}</p>
+                                            <span className="rounded-full bg-teal/5 px-2 py-1 text-[10px] font-bold text-teal">
+                                                {group.count} {group.count === 1 ? "libro" : "libros"}
+                                            </span>
+                                        </div>
+                                        <div className="space-y-2">
+                                            {group.books.slice(0, 2).map((book) => (
+                                                <div key={`${group.emotion}-${book.id}`} className="flex items-center justify-between gap-3 text-xs">
+                                                    <div className="min-w-0">
+                                                        <p className="truncate font-bold text-grey-dark">{book.title}</p>
+                                                        <p className="truncate text-grey/45">{book.author}</p>
+                                                    </div>
+                                                    <span className="shrink-0 text-teal/70">{book.intensity}/5</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </Card>
+                        </section>
+                    )}
+
                     {/* Section 5: Recommended */}
-                    <section className="order-2 lg:order-3">
+                    <section className="order-2 lg:order-4">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className={sectionTitleClass}>Recomendado hoy</h2>
                             {/* Filter hidden as requested */}
@@ -597,6 +677,13 @@ export default function MiLecturaPage() {
                 onClose={() => setIsNoteModalOpen(false)}
                 books={books}
                 initialBookId={noteTargetBookId}
+            />
+
+            <ReadingEmotionModal
+                isOpen={isEmotionModalOpen}
+                onClose={() => setIsEmotionModalOpen(false)}
+                onSaved={() => loadDashboardData()}
+                book={books.find((book) => book.id === emotionTargetBookId) || null}
             />
 
             {/* Review Modal for First Impressions */}

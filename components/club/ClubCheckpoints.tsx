@@ -3,6 +3,7 @@
 import * as React from "react";
 import { CheckpointDetailModal } from "./CheckpointDetailModal";
 import { TabsContext } from "../ui/Tabs";
+import { getMyClubBookProgress, markCheckpointCompleted, markCheckpointPending } from "@/app/app/clubs/[id]/actions";
 
 interface Checkpoint {
     id: string;
@@ -14,12 +15,17 @@ interface Checkpoint {
 }
 
 interface ClubCheckpointsData {
+    id?: string | null;
     userRole?: string | null;
     currentBook?: {
+        id?: string | null;
         pace_unit?: string | null;
         checkpoints?: Checkpoint[] | null;
         book?: {
+            id?: string | null;
             title?: string | null;
+            author?: { name?: string | null } | null;
+            authors?: { name?: string | null } | null;
         } | null;
     } | null;
 }
@@ -66,10 +72,29 @@ export function ClubCheckpoints({
 }) {
     const tabsContext = React.useContext(TabsContext);
     const [selectedCheckpoint, setSelectedCheckpoint] = React.useState<{ checkpoint: Checkpoint; index: number } | null>(null);
+    const [currentPage, setCurrentPage] = React.useState<number>(0);
 
     const checkpoints = club?.currentBook?.checkpoints || [];
     const unitLabel = club?.currentBook?.pace_unit || "p.";
     const bookTitle = club?.currentBook?.book?.title;
+    const bookAuthor = club?.currentBook?.book?.author?.name || club?.currentBook?.book?.authors?.name || null;
+    const bookId = club?.currentBook?.book?.id || null;
+
+    React.useEffect(() => {
+        if (!bookId) {
+            setCurrentPage(0);
+            return;
+        }
+
+        let mounted = true;
+        getMyClubBookProgress(bookId).then((progress) => {
+            if (mounted) setCurrentPage(progress?.currentPage || 0);
+        });
+
+        return () => {
+            mounted = false;
+        };
+    }, [bookId]);
 
     if (!club) {
         return (
@@ -98,7 +123,19 @@ export function ClubCheckpoints({
         );
     }
 
-    const statuses = checkpoints.map((checkpoint, index) => getCheckpointStatus(checkpoint, index, checkpoints));
+    const getCheckpointEnd = (checkpoint: Checkpoint) => Number.parseInt(String(checkpoint.end), 10) || 0;
+    const getCheckpointRollbackPage = (index: number) => {
+        const previousCheckpoint = checkpoints[index - 1];
+        if (previousCheckpoint) return getCheckpointEnd(previousCheckpoint);
+
+        const currentStart = Number.parseInt(String(checkpoints[index]?.start || ""), 10) || 1;
+        return Math.max(0, currentStart - 1);
+    };
+    const statuses = checkpoints.map((checkpoint, index) => {
+        const checkpointEnd = getCheckpointEnd(checkpoint);
+        if (checkpointEnd > 0 && currentPage >= checkpointEnd) return "completed";
+        return getCheckpointStatus(checkpoint, index, checkpoints);
+    });
     const completedCount = statuses.filter((status) => status === "completed").length;
 
     return (
@@ -221,6 +258,19 @@ export function ClubCheckpoints({
 
                         tabsContext?.onChange("feed");
                     }}
+                    isCompleted={currentPage >= getCheckpointEnd(selectedCheckpoint.checkpoint)}
+                    onComplete={async () => {
+                        if (!club?.currentBook?.book?.id) return { error: "No se ha encontrado la lectura activa." };
+                        const result = await markCheckpointCompleted(club?.id || "", club.currentBook.book.id, getCheckpointEnd(selectedCheckpoint.checkpoint));
+                        if (result.success && typeof result.currentPage === "number") setCurrentPage(result.currentPage);
+                        return result;
+                    }}
+                    onRevert={async () => {
+                        if (!club?.currentBook?.book?.id) return { error: "No se ha encontrado la lectura activa." };
+                        const result = await markCheckpointPending(club?.id || "", club.currentBook.book.id, getCheckpointRollbackPage(selectedCheckpoint.index));
+                        if (result.success && typeof result.currentPage === "number") setCurrentPage(result.currentPage);
+                        return result;
+                    }}
                     checkpoint={{
                         title: `Checkpoint ${selectedCheckpoint.index + 1}: ${selectedCheckpoint.checkpoint.title}`,
                         range: `${unitLabel} ${selectedCheckpoint.checkpoint.start} - ${selectedCheckpoint.checkpoint.end}`,
@@ -233,6 +283,15 @@ export function ClubCheckpoints({
                             : undefined,
                         questions: selectedCheckpoint.checkpoint.questions || [],
                     }}
+                    emotionContext={club?.currentBook?.id && club.currentBook.book?.id ? {
+                        clubBookId: club.currentBook.id,
+                        bookId: club.currentBook.book.id,
+                        bookTitle,
+                        bookAuthor,
+                        checkpoint: selectedCheckpoint.checkpoint,
+                        checkpointIndex: selectedCheckpoint.index + 1,
+                        checkpoints,
+                    } : undefined}
                 />
             )}
         </div>

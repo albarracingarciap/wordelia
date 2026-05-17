@@ -1,5 +1,5 @@
+import { BookOpen, HelpCircle, NotebookPen } from "lucide-react";
 import { Card } from "../ui/Card";
-import { Button } from "../ui/Button";
 
 interface NotesStatsProps {
     notesThisMonth: number;
@@ -9,43 +9,39 @@ interface NotesStatsProps {
 
 export function NotesStats({ notesThisMonth, booksWithNotes, questionsCount }: NotesStatsProps) {
     return (
-        <div className="space-y-6">
-            <Card className="bg-[#D8E2DC]/30 border-none">
-                <h3 className="font-serif text-teal mb-4">Tu diario</h3>
-                <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
-                        <span className="text-grey/60">Notas este mes</span>
+        <div className="space-y-4">
+            <Card className="border border-teal/5 bg-white/90 shadow-sm">
+                <h3 className="mb-4 text-sm font-bold uppercase tracking-[0.16em] text-grey/45">Tu diario</h3>
+                <div className="grid grid-cols-1 gap-3">
+                    <div className="flex items-center justify-between rounded-2xl bg-cream/40 px-3 py-3 text-sm">
+                        <span className="inline-flex items-center gap-2 text-grey/60">
+                            <NotebookPen className="h-4 w-4 text-teal/70" />
+                            Notas
+                        </span>
                         <span className="font-bold text-teal-dark">{notesThisMonth}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-grey/60">Libros con notas</span>
+                    <div className="flex items-center justify-between rounded-2xl bg-cream/40 px-3 py-3 text-sm">
+                        <span className="inline-flex items-center gap-2 text-grey/60">
+                            <BookOpen className="h-4 w-4 text-teal/70" />
+                            Libros
+                        </span>
                         <span className="font-bold text-teal-dark">{booksWithNotes}</span>
                     </div>
-                    <div className="flex justify-between text-sm">
-                        <span className="text-grey/60">Preguntas abiertas</span>
+                    <div className="flex items-center justify-between rounded-2xl bg-cream/40 px-3 py-3 text-sm">
+                        <span className="inline-flex items-center gap-2 text-grey/60">
+                            <HelpCircle className="h-4 w-4 text-teal/70" />
+                            Preguntas
+                        </span>
                         <span className="font-bold text-teal-dark">{questionsCount}</span>
                     </div>
                 </div>
-                <div className="mt-4 pt-3 border-t border-teal/5">
-                    <Button variant="ghost" size="sm" fullWidth className="text-xs text-teal/60 hover:text-teal">
-                        Ver estadísticas detalladas →
-                    </Button>
-                </div>
             </Card>
 
-            <Card className="bg-white border border-teal/10">
-                <div className="flex items-start gap-3">
-                    <span className="text-xl">💡</span>
-                    <div>
-                        <p className="text-sm text-grey mb-2 font-medium">Sugerencia</p>
-                        <p className="text-xs text-grey/60 leading-relaxed mb-3">
-                            ¿Te apetece una pregunta para el próximo club? Guarda 2–3 ideas y Wordelia te propone una guía.
-                        </p>
-                        <Button variant="secondary" size="sm" className="text-xs h-8">
-                            Probar guía
-                        </Button>
-                    </div>
-                </div>
+            <Card className="border border-teal/10 bg-[#D8E2DC]/25 shadow-sm">
+                <p className="mb-2 text-sm font-bold text-teal-dark">Sugerencia</p>
+                <p className="text-xs leading-relaxed text-grey/60">
+                    Usa etiquetas como #personaje, #idea o #final para encontrar tus notas más rápido.
+                </p>
             </Card>
         </div>
     );

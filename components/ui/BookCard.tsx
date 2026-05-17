@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "./Button";
 import { Badge } from "./Badge";
-import { Trash2 } from "lucide-react";
+import { HeartPulse, Trash2 } from "lucide-react";
 
 export interface BookCardProps {
     title: string;
@@ -19,6 +19,21 @@ export interface BookCardProps {
         name: string;
         href: string;
     } | null;
+    emotionSummary?: {
+        lastEmotion: string | null;
+        lastIntensity: number | null;
+        lastNote: string | null;
+        count: number;
+        dominantEmotion: string | null;
+        timeline: Array<{
+            id: string;
+            emotion: string;
+            intensity: number;
+            note: string | null;
+            currentPage: number | null;
+            createdAt: string;
+        }>;
+    };
     compact?: boolean; // For sidebar or recommendations
     onRegisterClick?: () => void;
     actionLabel?: string;
@@ -26,12 +41,38 @@ export interface BookCardProps {
     tag?: string; // Generic tag for recommendations (e.g. "98% Affinity", "Sci-Fi")
     onDelete?: () => void;
     onNotesClick?: () => void;
+    onEmotionClick?: () => void;
+    onEmotionToNoteClick?: (emotionId: string) => void;
     onReviewClick?: () => void;
     reviewLabel?: string;
     status?: string;
 }
 
-export function BookCard({ title, author, coverUrl, progress, lastSession, club, compact, onRegisterClick, actionLabel, onActionClick, tag, onDelete, onNotesClick, onReviewClick, reviewLabel, status }: BookCardProps) {
+const emotionLabels: Record<string, string> = {
+    asombro: "Asombro",
+    tristeza: "Tristeza",
+    enojo: "Enojo",
+    miedo: "Miedo",
+    alegria: "Alegría",
+    disgusto: "Disgusto",
+    empatia: "Empatía",
+    confusion: "Confusión",
+    esperanza: "Esperanza",
+};
+
+const emotionColors: Record<string, string> = {
+    asombro: "bg-purple-400",
+    tristeza: "bg-blue-400",
+    enojo: "bg-red-400",
+    miedo: "bg-slate-500",
+    alegria: "bg-amber-400",
+    disgusto: "bg-lime-500",
+    empatia: "bg-pink-400",
+    confusion: "bg-teal",
+    esperanza: "bg-emerald-400",
+};
+
+export function BookCard({ title, author, coverUrl, progress, lastSession, club, emotionSummary, compact, onRegisterClick, actionLabel, onActionClick, tag, onDelete, onNotesClick, onEmotionClick, onEmotionToNoteClick, onReviewClick, reviewLabel, status }: BookCardProps) {
     // Calculate percentage for progress bar
     const percentage = progress
         ? progress.unit === "PERCENT"
@@ -78,6 +119,44 @@ export function BookCard({ title, author, coverUrl, progress, lastSession, club,
                     </div>
                 )}
 
+                {emotionSummary && emotionSummary.count > 0 && !compact && (
+                    <div className="mb-4 rounded-2xl border border-teal/10 bg-teal/5 px-3 py-2 text-xs text-grey/70">
+                        <div className="flex items-start gap-2">
+                        <HeartPulse className="mt-0.5 h-4 w-4 shrink-0 text-teal" />
+                        <div className="min-w-0">
+                            <p className="font-bold text-teal-dark">
+                                Última emoción: {emotionSummary.lastEmotion ? emotionLabels[emotionSummary.lastEmotion] || emotionSummary.lastEmotion : "Registrada"}
+                                {emotionSummary.lastIntensity ? ` · ${emotionSummary.lastIntensity}/5` : ""}
+                            </p>
+                            {emotionSummary.lastNote && (
+                                <p className="mt-0.5 truncate text-grey/55">{emotionSummary.lastNote}</p>
+                            )}
+                        </div>
+                        </div>
+                        {emotionSummary.timeline.length > 0 && (
+                            <div className="mt-2 flex items-center gap-1.5">
+                                {emotionSummary.timeline.slice().reverse().map((item) => (
+                                    <span
+                                        key={item.id}
+                                        title={`${emotionLabels[item.emotion] || item.emotion} · ${item.intensity}/5`}
+                                        className={`h-2 rounded-full ${emotionColors[item.emotion] || "bg-grey/30"}`}
+                                        style={{ width: `${Math.max(10, item.intensity * 7)}px` }}
+                                    />
+                                ))}
+                            </div>
+                        )}
+                        {emotionSummary.timeline[0]?.note && onEmotionToNoteClick && (
+                            <button
+                                type="button"
+                                onClick={() => onEmotionToNoteClick(emotionSummary.timeline[0].id)}
+                                className="mt-2 text-xs font-bold text-teal hover:underline"
+                            >
+                                Convertir en nota
+                            </button>
+                        )}
+                    </div>
+                )}
+
                 {/* Compact specific info */}
                 {compact && (club || tag) && (
                     <div className="mt-1">
@@ -113,6 +192,7 @@ export function BookCard({ title, author, coverUrl, progress, lastSession, club,
                                 <Button size="sm" className="h-9 px-4" onClick={onActionClick}>{actionLabel || "Nueva sesión"}</Button>
                                 <Button variant="ghost" size="sm" className="h-9 px-3 text-grey hover:text-teal" onClick={onRegisterClick}>Registrar</Button>
                                 <button onClick={onNotesClick} className="text-sm text-grey/60 hover:text-teal px-2 transition-colors">Notas</button>
+                                <button onClick={onEmotionClick} className="text-sm text-grey/60 hover:text-teal px-2 transition-colors">Emoción</button>
                                 {onReviewClick && (
                                     <button onClick={onReviewClick} className="text-sm text-grey/60 hover:text-teal px-2 transition-colors">{reviewLabel || "Reseñar"}</button>
                                 )}
