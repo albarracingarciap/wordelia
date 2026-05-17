@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { TabsContext } from "@/components/ui/Tabs";
 import { ClubSummary } from "@/components/club/ClubSummary";
+import { ClubCollectiveReview } from "@/components/club/ClubCollectiveReview";
+import { ClubWeeklyDigest } from "@/components/club/ClubWeeklyDigest";
 
 interface Checkpoint {
     id: string;
@@ -14,6 +16,7 @@ interface Checkpoint {
     start: string;
     end: string;
     date?: string;
+    questions?: string[];
 }
 
 interface ClubReadingRoomProps {
@@ -21,9 +24,11 @@ interface ClubReadingRoomProps {
         name?: string;
         userRole?: string | null;
         currentBook?: {
+            id?: string | null;
             pace_unit?: string | null;
             checkpoints?: Checkpoint[] | null;
             book?: {
+                id?: string | null;
                 title?: string | null;
                 cover_url?: string | null;
                 page_count?: number | null;
@@ -200,14 +205,22 @@ export function ClubReadingRoom({ club }: ClubReadingRoomProps) {
                                 onClick={() => tabsContext?.onChange("announcements")}
                                 className="justify-start px-0 text-teal"
                             >
-                                Ver próximos avisos
+                                Ver calendario
                             </Button>
                         </div>
                     </Card>
                 </div>
             </section>
 
+            <ClubWeeklyDigest currentBook={currentBook} />
+
             <ClubSummary club={club} />
+
+            <ClubCollectiveReview
+                clubBookId={currentBook?.id}
+                bookId={book.id}
+                bookTitle={book.title}
+            />
         </div>
     );
 }

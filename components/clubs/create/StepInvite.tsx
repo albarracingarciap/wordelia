@@ -6,6 +6,7 @@ import { Check, Lock, Globe2, Mail } from "lucide-react";
 interface StepInviteProps {
     data: CreateClubFormData;
     onUpdate: (field: keyof CreateClubFormData, value: CreateClubFormData[keyof CreateClubFormData]) => void;
+    selectedTemplateTitle?: string;
 }
 
 const privacyLabel: Record<string, string> = {
@@ -20,7 +21,7 @@ const spoilerLabel: Record<string, string> = {
     free: "Spoilers libres",
 };
 
-export function StepInvite({ data }: StepInviteProps) {
+export function StepInvite({ data, selectedTemplateTitle }: StepInviteProps) {
     const visibleRules = data.rules.filter(rule => rule.trim()).slice(0, 3);
     const privacy = privacyLabel[data.privacy] || "Privado";
     const spoiler = spoilerLabel[data.spoilerPolicy] || "Spoilers por niveles";
@@ -41,6 +42,13 @@ export function StepInvite({ data }: StepInviteProps) {
                 </div>
 
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {selectedTemplateTitle && (
+                        <div className="rounded-2xl border border-teal/10 bg-teal/5 p-4 sm:col-span-3">
+                            <Check className="mb-3 h-5 w-5 text-teal" />
+                            <p className="text-[10px] font-bold uppercase tracking-widest text-grey/40">Plantilla</p>
+                            <p className="mt-1 text-sm font-bold text-teal-dark">{selectedTemplateTitle}</p>
+                        </div>
+                    )}
                     <div className="rounded-2xl border border-teal/10 bg-teal/5 p-4">
                         <Globe2 className="mb-3 h-5 w-5 text-teal" />
                         <p className="text-[10px] font-bold uppercase tracking-widest text-grey/40">Visibilidad</p>

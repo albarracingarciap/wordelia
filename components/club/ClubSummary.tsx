@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useParams } from "next/navigation";
 import * as React from "react";
 import { Card } from "../ui/Card";
@@ -14,6 +13,31 @@ interface Checkpoint {
     start: string;
     end: string;
     date?: string; // deadline ISO string e.g. "2026-02-23"
+    questions?: string[];
+}
+
+interface ClubSummaryData {
+    userRole?: string | null;
+    currentBook?: {
+        pace_unit?: string | null;
+        checkpoints?: Checkpoint[] | null;
+    } | null;
+}
+
+interface ClubAnnouncement {
+    content: string;
+    event_date?: string | null;
+    event_duration_minutes?: number | null;
+    event_format?: "online" | "presencial" | string | null;
+    event_location?: string | null;
+}
+
+interface ClubStats {
+    memberCount: number;
+    postsThisWeek: number;
+    activeThisWeek: number;
+    pendingCount: number;
+    myPostsThisWeek: number;
 }
 
 function getActiveCheckpoint(checkpoints: Checkpoint[]): { checkpoint: Checkpoint; index: number } | null {
@@ -67,12 +91,13 @@ function StatCard({ icon, label, value, sub, color = 'teal', onClick }: {
     );
 }
 
-export function ClubSummary({ club }: { club?: any }) {
+export function ClubSummary({ club }: { club?: ClubSummaryData }) {
     const params = useParams();
     const clubId = params.id as string;
     const [isCheckpointModalOpen, setIsCheckpointModalOpen] = React.useState(false);
-    const [nextAnnouncement, setNextAnnouncement] = React.useState<any | null>(null);
-    const [stats, setStats] = React.useState<any | null>(null);
+    const [nextAnnouncement, setNextAnnouncement] = React.useState<ClubAnnouncement | null>(null);
+    const [stats, setStats] = React.useState<ClubStats | null>(null);
+    const [now] = React.useState(() => Date.now());
     const tabsContext = React.useContext(TabsContext);
     const isAdminOrMod = club?.userRole === 'admin' || club?.userRole === 'moderator';
 
@@ -82,11 +107,11 @@ export function ClubSummary({ club }: { club?: any }) {
 
     React.useEffect(() => {
         if (!clubId) return;
-        getClubAnnouncements(clubId).then((all: any[]) => {
+        getClubAnnouncements(clubId).then((all) => {
             const now = new Date();
             const upcoming = all
-                .filter((a: any) => a.event_date && new Date(a.event_date) >= now)
-                .sort((a: any, b: any) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime());
+                .filter((announcement) => announcement.event_date && new Date(announcement.event_date) >= now)
+                .sort((a, b) => new Date(a.event_date || "").getTime() - new Date(b.event_date || "").getTime());
             setNextAnnouncement(upcoming[0] || null);
         });
         getClubStats(clubId).then(setStats);
@@ -165,12 +190,14 @@ export function ClubSummary({ club }: { club?: any }) {
                 <CheckpointDetailModal
                     isOpen={isCheckpointModalOpen}
                     onClose={() => setIsCheckpointModalOpen(false)}
+                    onGoToConversation={() => tabsContext?.onChange("feed")}
                     checkpoint={{
                         title: `Checkpoint ${activeIndex + 1}: ${activeCheckpoint.title}`,
                         range: `${unitLabel} ${progressStart} - ${progressEnd}`,
                         deadline: activeCheckpoint.date
                             ? new Date(activeCheckpoint.date).toLocaleDateString('es-ES', { weekday: 'long', day: 'numeric', month: 'long' })
-                            : undefined
+                            : undefined,
+                        questions: activeCheckpoint.questions || []
                     }}
                 />
             )}
@@ -208,7 +235,7 @@ export function ClubSummary({ club }: { club?: any }) {
                         <div className="grid grid-cols-2 gap-3">
                             <StatCard icon={<MessageSquare size={15} />} label="Mis posts esta semana" value={stats.myPostsThisWeek} color="teal" />
                             {activeCheckpoint?.date && (() => {
-                                const days = Math.ceil((new Date(activeCheckpoint.date).getTime() - Date.now()) / 86400000);
+                                const days = Math.ceil((new Date(activeCheckpoint.date).getTime() - now) / 86400000);
                                 const onTrack = stats.myPostsThisWeek > 0;
                                 return (
                                     <StatCard
@@ -225,7 +252,7 @@ export function ClubSummary({ club }: { club?: any }) {
                 </div>
             )}
 
-            {nextAnnouncement ? (
+            {nextAnnouncement?.event_date ? (
                 <Card>
                     <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-orange-100/50 text-orange-800 flex flex-col items-center justify-center border border-orange-200 shrink-0">
@@ -267,7 +294,7 @@ export function ClubSummary({ club }: { club?: any }) {
                         </div>
                         <button
                             onClick={() => {
-                                const iso = nextAnnouncement.event_date.replace(/[-:]/g, '').split('.')[0] + 'Z';
+                                const iso = nextAnnouncement.event_date!.replace(/[-:]/g, '').split('.')[0] + 'Z';
                                 const title = encodeURIComponent(nextAnnouncement.content.slice(0, 60));
                                 const loc = nextAnnouncement.event_location ? `&location=${encodeURIComponent(nextAnnouncement.event_location)}` : '';
                                 window.open(`https://calendar.google.com/calendar/r/eventedit?text=${title}&dates=${iso}/${iso}${loc}`, '_blank');

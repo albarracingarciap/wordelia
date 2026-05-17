@@ -13,7 +13,8 @@ import { ClubFeed } from "@/components/club/ClubFeed";
 import { ClubSidebar } from "@/components/club/ClubSidebar";
 import { ClubManagement } from "@/components/club/management/ClubManagement";
 import { ClubCheckpoints } from "@/components/club/ClubCheckpoints";
-import { ClubAnnouncements } from "@/components/club/ClubAnnouncements";
+import { ClubCalendar } from "@/components/club/ClubCalendar";
+import { ClubLibrary } from "@/components/club/ClubLibrary";
 import { startReading, createPoll } from "@/app/app/clubs/[id]/actions";
 
 import { SearchBookModal } from "@/components/club/management/SearchBookModal";
@@ -38,8 +39,10 @@ interface ClubDashboardClub {
             start: string;
             end: string;
             date?: string;
+            questions?: string[];
         }> | null;
         book?: {
+            id?: string;
             title?: string;
             cover_url?: string | null;
             page_count?: number | null;
@@ -48,6 +51,20 @@ interface ClubDashboardClub {
             authors?: { name?: string | null } | null;
         };
     } | null;
+    libraryBooks?: Array<{
+        id: string;
+        status?: string | null;
+        start_date?: string | null;
+        target_date?: string | null;
+        created_at?: string | null;
+        book?: {
+            id?: string | null;
+            title?: string | null;
+            cover_url?: string | null;
+            author?: { name?: string | null } | null;
+            authors?: { name?: string | null } | null;
+        } | null;
+    }>;
 }
 
 interface ClubDashboardProps {
@@ -131,6 +148,7 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
     const [isCreatePollModalOpen, setIsCreatePollModalOpen] = React.useState(false);
     const [selectedBook, setSelectedBook] = React.useState<BookSearchResult | null>(null);
     const [bookSearchQuery, setBookSearchQuery] = React.useState("");
+    const [conversationCheckpointNumber, setConversationCheckpointNumber] = React.useState<number | null>(null);
 
     // No data = club is private/secret and user is not a member
     if (!club) {
@@ -157,6 +175,11 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
     const handleChooseBook = () => {
         setBookSearchQuery(latestPollWinner?.text || "");
         setIsSearchModalOpen(true);
+    };
+
+    const openConversationCheckpoint = (checkpointNumber: number) => {
+        setConversationCheckpointNumber(checkpointNumber);
+        setActiveTab("feed");
     };
 
     const handleStartReading = async (config: Record<string, unknown>) => {
@@ -336,11 +359,12 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                 {/* Main Content */}
                 <div className="lg:col-span-8">
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
-                        <TabsList className="mb-6 sticky top-[64px] z-20 bg-cream/95 backdrop-blur shadow-sm -mx-4 px-4 md:mx-0 md:px-0 md:shadow-none md:bg-transparent md:static">
+                        <TabsList className="sticky top-[64px] z-20 mb-5 grid grid-cols-3 gap-0.5 overflow-x-visible rounded-xl border-b-0 bg-white/90 p-1 shadow-sm backdrop-blur md:static md:flex md:gap-6 md:overflow-x-auto md:rounded-none md:border-b md:border-teal/10 md:bg-transparent md:p-0 md:shadow-none [&_button]:py-2 [&_button]:text-xs md:[&_button]:py-3 md:[&_button]:text-sm">
                             <TabsTrigger value="summary">Sala</TabsTrigger>
                             <TabsTrigger value="feed">Conversación</TabsTrigger>
                             <TabsTrigger value="checkpoints">Checkpoints</TabsTrigger>
-                            <TabsTrigger value="announcements">Anuncios</TabsTrigger>
+                            <TabsTrigger value="library">Biblioteca</TabsTrigger>
+                            <TabsTrigger value="announcements">Calendario</TabsTrigger>
                             {isAdmin && (
                                 <TabsTrigger value="manage" className="text-teal-dark font-bold">Gestionar</TabsTrigger>
                             )}
@@ -359,15 +383,33 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                         </TabsContent>
 
                         <TabsContent value="feed">
-                            <ClubFeed isAdminOrMod={isAdmin} />
+                            <ClubFeed
+                                isAdminOrMod={isAdmin}
+                                checkpoints={club.currentBook?.checkpoints || []}
+                                currentBookId={club.currentBook?.book?.id}
+                                targetCheckpointNumber={conversationCheckpointNumber}
+                            />
                         </TabsContent>
 
                         <TabsContent value="checkpoints">
-                            <ClubCheckpoints club={club} />
+                            <ClubCheckpoints
+                                club={club}
+                                onOpenConversationCheckpoint={openConversationCheckpoint}
+                            />
+                        </TabsContent>
+
+                        <TabsContent value="library">
+                            <ClubLibrary
+                                books={club.libraryBooks || []}
+                                activePoll={activePoll || null}
+                                pollHistory={pollHistory}
+                                canCreatePoll={isAdmin}
+                                onCreatePoll={handleCreatePoll}
+                            />
                         </TabsContent>
 
                         <TabsContent value="announcements">
-                            <ClubAnnouncements club={club} />
+                            <ClubCalendar canManage={isAdmin} />
                         </TabsContent>
 
                         {isAdmin && (

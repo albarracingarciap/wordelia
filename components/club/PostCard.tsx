@@ -1,7 +1,7 @@
 import * as React from "react";
 import { SpoilerGuard } from "./SpoilerGuard";
 import { Trash2, Heart, MessageCircle, X } from "lucide-react";
-import { createReply, toggleLike, deletePost } from "@/app/app/clubs/[id]/actions";
+import { createReply, deletePost } from "@/app/app/clubs/[id]/actions";
 import { useParams, useRouter } from "next/navigation";
 
 interface ReplyData {
@@ -38,7 +38,6 @@ export function PostCard({
     date,
     content,
     spoilerLevel = "none",
-    repliesCount = 0,
     replies = [],
     likesCount = 0,
     isLiked = false,
@@ -76,6 +75,7 @@ export function PostCard({
                 likesCount: 0,
                 isLiked: false,
                 isAuthor: true,
+                spoilerLevel,
             }]);
             setReplyContent("");
             setShowReplyForm(false);
@@ -103,6 +103,7 @@ export function PostCard({
                 <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full bg-cream-dark overflow-hidden relative shrink-0">
                         {author.avatar ? (
+                            // eslint-disable-next-line @next/next/no-img-element
                             <img src={author.avatar} alt={author.name} className="object-cover w-full h-full" />
                         ) : (
                             <div className="w-full h-full flex items-center justify-center text-xs font-bold text-grey/40 uppercase">{author.name[0]}</div>
@@ -133,7 +134,7 @@ export function PostCard({
 
             {/* Content */}
             <div className="pl-10">
-                <SpoilerGuard level={effectiveSpoilerLevel as any} className="text-sm text-grey leading-relaxed">
+                <SpoilerGuard level={effectiveSpoilerLevel} className="text-sm text-grey leading-relaxed">
                     <p>{content}</p>
                 </SpoilerGuard>
 
@@ -204,6 +205,7 @@ export function PostCard({
                                     <div className="flex items-center gap-1.5 mb-1">
                                         <div className="w-5 h-5 rounded-full bg-cream-dark overflow-hidden shrink-0">
                                             {reply.author.avatar ? (
+                                                // eslint-disable-next-line @next/next/no-img-element
                                                 <img src={reply.author.avatar} alt={reply.author.name} className="object-cover w-full h-full" />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center text-[8px] font-bold text-grey/40 uppercase">{reply.author.name[0]}</div>
@@ -218,7 +220,7 @@ export function PostCard({
                                         </button>
                                     )}
                                 </div>
-                                <SpoilerGuard level={(globalShowSpoilers ? "none" : reply.spoilerLevel) as any} className="text-grey/80 leading-relaxed pl-6">
+                                <SpoilerGuard level={globalShowSpoilers ? "none" : (reply.spoilerLevel || "none")} className="text-grey/80 leading-relaxed pl-6">
                                     <p>{reply.content}</p>
                                 </SpoilerGuard>
                             </div>

@@ -58,9 +58,8 @@ export async function getClubDetails(clubId: string) {
     }
 
     // 4. Transform Data for UI
-    const currentBook = Array.isArray(club.current_book)
-        ? club.current_book.find((b: any) => b.status === 'current')
-        : null;
+    const clubBooks = Array.isArray(club.current_book) ? club.current_book : [];
+    const currentBook = clubBooks.find((b: any) => b.status === 'current') || null;
 
     return {
         ...club,
@@ -69,6 +68,10 @@ export async function getClubDetails(clubId: string) {
             ...currentBook,
             book: currentBook.book
         } : null,
+        libraryBooks: clubBooks.map((clubBook: any) => ({
+            ...clubBook,
+            book: clubBook.book,
+        })),
         userRole: membership?.role || null, // 'admin', 'moderator', 'member' or null
         isMember: !!membership,
     };
@@ -804,6 +807,30 @@ export async function getClubPosts(clubId: string, limit = 20) {
     }));
 }
 
+export async function getMyClubBookProgress(bookId?: string | null) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user || !bookId) return null;
+
+    const { data, error } = await supabase
+        .from('user_books')
+        .select('current_page, status')
+        .eq('user_id', user.id)
+        .eq('book_id', bookId)
+        .maybeSingle();
+
+    if (error) {
+        console.error("Error fetching club book progress:", error);
+        return null;
+    }
+
+    return {
+        currentPage: data?.current_page || 0,
+        status: data?.status || null,
+    };
+}
+
 export async function createReply(clubId: string, parentPostId: string, content: string, isSpoiler: boolean = false) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -811,13 +838,21 @@ export async function createReply(clubId: string, parentPostId: string, content:
     if (!user) return { error: "Debes iniciar sesión" };
 
     try {
+        const { data: parentPost } = await supabase
+            .from('club_posts')
+            .select('checkpoint_index, is_spoiler')
+            .eq('id', parentPostId)
+            .eq('club_id', clubId)
+            .single();
+
         const { error } = await supabase
             .from('club_posts')
             .insert({
                 club_id: clubId,
                 user_id: user.id,
                 content,
-                is_spoiler: isSpoiler,
+                is_spoiler: isSpoiler || !!parentPost?.is_spoiler,
+                checkpoint_index: parentPost?.checkpoint_index ?? null,
                 parent_id: parentPostId,
             });
 
@@ -975,10 +1010,10 @@ export async function getClubCheckpoints(clubId: string) {
     const checkpoints = clubBook.checkpoints;
     if (!Array.isArray(checkpoints)) return [];
 
-    return checkpoints as Array<{ id: string; title: string; start: string; end: string; date?: string }>;
+    return checkpoints as Array<{ id: string; title: string; start: string; end: string; date?: string; questions?: string[] }>;
 }
 
-export async function saveCheckpoints(clubId: string, checkpoints: Array<{ id: string; title: string; start: string; end: string; date?: string }>) {
+export async function saveCheckpoints(clubId: string, checkpoints: Array<{ id: string; title: string; start: string; end: string; date?: string; questions?: string[] }>) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
 
@@ -1001,6 +1036,11 @@ export async function saveCheckpoints(clubId: string, checkpoints: Array<{ id: s
         .update({ checkpoints })
         .eq('club_id', clubId)
         .eq('status', 'current');
+
+    if (error) {
+        console.error("Error saving checkpoints:", error);
+        return { error: error.message };
+    }
 
     revalidatePath(`/app/clubs/${clubId}`);
     return { success: true };
@@ -1044,6 +1084,541 @@ export async function updateClubSettings(
 
     revalidatePath(`/app/clubs/${clubId}`);
     return { success: true };
+}
+
+export async function getClubBookCollectiveReview(clubId: string, clubBookId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { reviews: [], myReview: null, averageRating: 0, totalReviews: 0 };
+    }
+
+    const { data: reviews, error } = await supabase
+        .from("club_book_reviews")
+        .select(`
+            id,
+            rating,
+            conclusion,
+            highlight,
+            created_at,
+            user_id,
+            profiles(full_name, username, avatar_url)
+        `)
+        .eq("club_id", clubId)
+        .eq("club_book_id", clubBookId)
+        .order("created_at", { ascending: false });
+
+    if (error) {
+        console.error("Error fetching club collective review:", error);
+        return { reviews: [], myReview: null, averageRating: 0, totalReviews: 0 };
+    }
+
+    const formatted = (reviews || []).map((review: any) => ({
+        id: review.id,
+        rating: review.rating,
+        conclusion: review.conclusion,
+        highlight: review.highlight,
+        createdAt: review.created_at,
+        isMine: review.user_id === user.id,
+        user: {
+            name: review.profiles?.full_name || review.profiles?.username || "Lector",
+            avatarUrl: review.profiles?.avatar_url || null,
+        },
+    }));
+
+    const totalReviews = formatted.length;
+    const averageRating = totalReviews > 0
+        ? Math.round((formatted.reduce((sum, review) => sum + review.rating, 0) / totalReviews) * 10) / 10
+        : 0;
+
+    return {
+        reviews: formatted,
+        myReview: formatted.find((review) => review.isMine) || null,
+        averageRating,
+        totalReviews,
+    };
+}
+
+export async function saveClubBookCollectiveReview(
+    clubId: string,
+    clubBookId: string,
+    bookId: string,
+    payload: { rating: number; conclusion: string; highlight?: string }
+) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "Debes iniciar sesión" };
+
+    const rating = Number(payload.rating);
+    const conclusion = payload.conclusion.trim();
+    const highlight = payload.highlight?.trim() || "";
+
+    if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+        return { error: "Elige una valoración entre 1 y 5." };
+    }
+
+    if (conclusion.length < 10) {
+        return { error: "Añade una conclusión un poco más completa." };
+    }
+
+    const { error } = await supabase
+        .from("club_book_reviews")
+        .upsert({
+            club_id: clubId,
+            club_book_id: clubBookId,
+            book_id: bookId,
+            user_id: user.id,
+            rating,
+            conclusion,
+            highlight,
+            updated_at: new Date().toISOString(),
+        }, { onConflict: "club_book_id,user_id" });
+
+    if (error) {
+        console.error("Error saving club collective review:", error);
+        return { error: "No se pudo guardar tu cierre." };
+    }
+
+    revalidatePath(`/app/clubs/${clubId}`);
+    return { success: true };
+}
+
+type WeeklyDigestProfile = {
+    full_name?: string | null;
+    username?: string | null;
+    avatar_url?: string | null;
+};
+
+type WeeklyPostRow = {
+    id: string;
+    content: string;
+    user_id: string;
+    parent_id?: string | null;
+    is_announcement?: boolean | null;
+    checkpoint_index?: number | null;
+    created_at: string;
+    author?: WeeklyDigestProfile | WeeklyDigestProfile[] | null;
+};
+
+type WeeklyAnnouncementRow = {
+    id: string;
+    content: string;
+    event_date?: string | null;
+    event_format?: string | null;
+    event_location?: string | null;
+};
+
+type WeeklyPollOptionRow = {
+    id: string;
+    text: string;
+    votes?: Array<{ count?: number | null }> | null;
+};
+
+type WeeklyPollRow = {
+    id: string;
+    question: string;
+    ended_at?: string | null;
+    created_at: string;
+    options?: WeeklyPollOptionRow[] | null;
+};
+
+type WeeklyReviewRow = {
+    id: string;
+    rating: number;
+    conclusion: string;
+    highlight: string;
+    created_at: string;
+    profiles?: WeeklyDigestProfile | WeeklyDigestProfile[] | null;
+};
+
+type RecommendationBookRow = {
+    id: string;
+    title: string;
+    cover_url?: string | null;
+    description?: string | null;
+    page_count?: number | null;
+    published_date?: string | null;
+    created_at?: string | null;
+    author?: { name?: string | null } | { name?: string | null }[] | null;
+};
+
+type RecommendationClubBookRow = {
+    id: string;
+    status?: string | null;
+    book?: RecommendationBookRow | RecommendationBookRow[] | null;
+};
+
+type RecommendationPollRow = {
+    question: string;
+    options?: Array<{
+        text: string;
+        votes?: Array<{ count?: number | null }> | null;
+    }> | null;
+};
+
+export async function getClubWeeklyDigest(clubId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return null;
+
+    const now = new Date();
+    const weekAgo = new Date(now);
+    weekAgo.setDate(weekAgo.getDate() - 7);
+    const nextWeek = new Date(now);
+    nextWeek.setDate(nextWeek.getDate() + 7);
+
+    const weekAgoIso = weekAgo.toISOString();
+    const nowIso = now.toISOString();
+    const nextWeekIso = nextWeek.toISOString();
+
+    const [
+        { data: posts, error: postsError },
+        { data: upcomingAnnouncements, error: announcementsError },
+        { data: reviews, error: reviewsError },
+        { data: closedPolls, error: pollsError },
+        { count: memberCount },
+    ] = await Promise.all([
+        supabase
+            .from("club_posts")
+            .select(`
+                id,
+                content,
+                user_id,
+                parent_id,
+                is_announcement,
+                checkpoint_index,
+                created_at,
+                author:profiles!user_id(full_name, username, avatar_url)
+            `)
+            .eq("club_id", clubId)
+            .gte("created_at", weekAgoIso)
+            .order("created_at", { ascending: false }),
+        supabase
+            .from("club_posts")
+            .select("id, content, event_date, event_format, event_location")
+            .eq("club_id", clubId)
+            .eq("is_announcement", true)
+            .is("parent_id", null)
+            .not("event_date", "is", null)
+            .gte("event_date", nowIso)
+            .lte("event_date", nextWeekIso)
+            .order("event_date", { ascending: true })
+            .limit(3),
+        supabase
+            .from("club_book_reviews")
+            .select(`
+                id,
+                rating,
+                conclusion,
+                highlight,
+                created_at,
+                user_id,
+                profiles(full_name, username, avatar_url)
+            `)
+            .eq("club_id", clubId)
+            .gte("created_at", weekAgoIso)
+            .order("created_at", { ascending: false })
+            .limit(4),
+        supabase
+            .from("polls")
+            .select(`
+                id,
+                question,
+                ended_at,
+                created_at,
+                options:poll_options(
+                    id,
+                    text,
+                    votes:poll_votes(count)
+                )
+            `)
+            .eq("club_id", clubId)
+            .eq("is_active", true)
+            .eq("is_open", false)
+            .gte("ended_at", weekAgoIso)
+            .order("ended_at", { ascending: false, nullsFirst: false })
+            .limit(3),
+        supabase
+            .from("club_members")
+            .select("*", { count: "exact", head: true })
+            .eq("club_id", clubId)
+            .neq("role", "pending"),
+    ]);
+
+    if (postsError) console.error("Error fetching weekly posts:", postsError);
+    if (announcementsError) console.error("Error fetching weekly announcements:", announcementsError);
+    if (reviewsError) console.error("Error fetching weekly reviews:", reviewsError);
+    if (pollsError) console.error("Error fetching weekly polls:", pollsError);
+
+    const getProfile = (profile: WeeklyDigestProfile | WeeklyDigestProfile[] | null | undefined) =>
+        Array.isArray(profile) ? profile[0] : profile;
+    const weeklyPosts = (posts || []) as WeeklyPostRow[];
+    const topLevelPosts = weeklyPosts.filter((post) => !post.parent_id && !post.is_announcement);
+    const replies = weeklyPosts.filter((post) => !!post.parent_id);
+    const announcements = weeklyPosts.filter((post) => post.is_announcement);
+    const activeMembers = new Set(weeklyPosts.map((post) => post.user_id).filter(Boolean));
+
+    const contributors = new Map<string, {
+        userId: string;
+        name: string;
+        avatarUrl: string | null;
+        contributions: number;
+    }>();
+
+    for (const post of weeklyPosts) {
+        const current = contributors.get(post.user_id);
+        const author = getProfile(post.author);
+        const name = author?.full_name || author?.username || "Lector";
+        contributors.set(post.user_id, {
+            userId: post.user_id,
+            name,
+            avatarUrl: author?.avatar_url || null,
+            contributions: (current?.contributions || 0) + 1,
+        });
+    }
+
+    const formattedPolls = ((closedPolls || []) as WeeklyPollRow[]).map((poll) => {
+        const options = (poll.options || []).map((option) => ({
+            id: option.id,
+            text: option.text,
+            votes: option.votes?.[0]?.count || 0,
+        }));
+        const totalVotes = options.reduce((sum, option) => sum + option.votes, 0);
+        const winner = options.reduce<typeof options[number] | null>((best, option) => {
+            if (!best || option.votes > best.votes) return option;
+            return best;
+        }, null);
+
+        return {
+            id: poll.id,
+            question: poll.question,
+            endedAt: poll.ended_at || poll.created_at,
+            totalVotes,
+            winner: winner ? { text: winner.text, votes: winner.votes } : null,
+        };
+    });
+
+    return {
+        range: {
+            from: weekAgoIso,
+            to: nowIso,
+        },
+        stats: {
+            posts: topLevelPosts.length,
+            replies: replies.length,
+            announcements: announcements.length,
+            activeMembers: activeMembers.size,
+            memberCount: memberCount || 0,
+            reviews: reviews?.length || 0,
+            closedPolls: formattedPolls.length,
+        },
+        topContributors: Array.from(contributors.values())
+            .sort((a, b) => b.contributions - a.contributions)
+            .slice(0, 3),
+        recentPosts: topLevelPosts.slice(0, 3).map((post) => {
+            const author = getProfile(post.author);
+            return {
+                id: post.id,
+                content: post.content,
+                checkpointIndex: post.checkpoint_index,
+                createdAt: post.created_at,
+                author: {
+                    name: author?.full_name || author?.username || "Lector",
+                    avatarUrl: author?.avatar_url || null,
+                },
+            };
+        }),
+        upcomingAnnouncements: ((upcomingAnnouncements || []) as WeeklyAnnouncementRow[]).map((announcement) => ({
+            id: announcement.id,
+            content: announcement.content,
+            eventDate: announcement.event_date,
+            format: announcement.event_format,
+            location: announcement.event_location,
+        })),
+        closedPolls: formattedPolls,
+        recentReviews: ((reviews || []) as WeeklyReviewRow[]).map((review) => {
+            const author = getProfile(review.profiles);
+            return {
+                id: review.id,
+                rating: review.rating,
+                conclusion: review.conclusion,
+                highlight: review.highlight,
+                createdAt: review.created_at,
+                author: {
+                    name: author?.full_name || author?.username || "Lector",
+                    avatarUrl: author?.avatar_url || null,
+                },
+            };
+        }),
+    };
+}
+
+function normalizeRecommendationText(value?: string | null) {
+    return (value || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9\s]+/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function getRecommendationAuthor(author?: RecommendationBookRow["author"]) {
+    const profile = Array.isArray(author) ? author[0] : author;
+    return profile?.name || "Autor desconocido";
+}
+
+function getRecommendationBook(book?: RecommendationClubBookRow["book"]) {
+    return Array.isArray(book) ? book[0] : book;
+}
+
+export async function getClubNextReadingRecommendations(clubId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return [];
+
+    const [{ data: club }, { data: clubBooks }, { data: books }, { data: polls }] = await Promise.all([
+        supabase
+            .from("clubs")
+            .select("id, name, description, tags")
+            .eq("id", clubId)
+            .single(),
+        supabase
+            .from("club_books")
+            .select(`
+                id,
+                status,
+                book:books(
+                    id,
+                    title,
+                    cover_url,
+                    description,
+                    page_count,
+                    published_date,
+                    author:authors(name)
+                )
+            `)
+            .eq("club_id", clubId),
+        supabase
+            .from("books")
+            .select(`
+                id,
+                title,
+                cover_url,
+                description,
+                page_count,
+                published_date,
+                created_at,
+                author:authors(name)
+            `)
+            .order("created_at", { ascending: false })
+            .limit(240),
+        supabase
+            .from("polls")
+            .select(`
+                question,
+                options:poll_options(
+                    text,
+                    votes:poll_votes(count)
+                )
+            `)
+            .eq("club_id", clubId)
+            .eq("is_active", true)
+            .eq("is_open", false)
+            .order("ended_at", { ascending: false, nullsFirst: false })
+            .limit(8),
+    ]);
+
+    const clubTags = Array.isArray(club?.tags) ? club.tags.map((tag: string) => normalizeRecommendationText(tag)) : [];
+    const history = ((clubBooks || []) as RecommendationClubBookRow[])
+        .map((item) => ({ ...item, book: getRecommendationBook(item.book) }))
+        .filter((item) => item.book?.title);
+
+    const usedBookIds = new Set(history.map((item) => item.book?.id).filter(Boolean));
+    const usedTitles = new Set(history.map((item) => normalizeRecommendationText(item.book?.title)));
+
+    const historicalText = [
+        club?.name,
+        club?.description,
+        ...clubTags,
+        ...history.flatMap((item) => [
+            item.book?.title,
+            item.book?.description,
+            getRecommendationAuthor(item.book?.author),
+        ]),
+        ...((polls || []) as RecommendationPollRow[]).flatMap((poll) => [
+            poll.question,
+            ...(poll.options || []).map((option) => option.text),
+        ]),
+    ]
+        .filter(Boolean)
+        .map((value) => normalizeRecommendationText(String(value)))
+        .join(" ");
+
+    const stopWords = new Set([
+        "club", "lectura", "leer", "libro", "libros", "con", "para", "los", "las", "una", "uno", "del", "que", "por", "sin",
+        "este", "esta", "sobre", "desde", "clasicos", "novela", "debate",
+    ]);
+
+    const interestTerms = Array.from(new Set(historicalText.split(" ").filter((term) => term.length > 4 && !stopWords.has(term)))).slice(0, 24);
+    const readPageCounts = history
+        .map((item) => item.book?.page_count)
+        .filter((pageCount): pageCount is number => typeof pageCount === "number" && pageCount > 0);
+    const averagePages = readPageCounts.length
+        ? Math.round(readPageCounts.reduce((sum, pageCount) => sum + pageCount, 0) / readPageCounts.length)
+        : 360;
+
+    const pollMomentum = new Map<string, number>();
+    for (const poll of (polls || []) as RecommendationPollRow[]) {
+        for (const option of poll.options || []) {
+            const votes = option.votes?.[0]?.count || 0;
+            pollMomentum.set(normalizeRecommendationText(option.text), Math.max(pollMomentum.get(normalizeRecommendationText(option.text)) || 0, votes));
+        }
+    }
+
+    const recommendations = ((books || []) as RecommendationBookRow[])
+        .filter((book) => book.title && !usedBookIds.has(book.id) && !usedTitles.has(normalizeRecommendationText(book.title)))
+        .map((book) => {
+            const title = normalizeRecommendationText(book.title);
+            const author = getRecommendationAuthor(book.author);
+            const searchable = normalizeRecommendationText(`${book.title} ${author} ${book.description || ""}`);
+            const matchingTerms = interestTerms.filter((term) => searchable.includes(term)).slice(0, 4);
+            const pageCount = book.page_count || null;
+            const pageFit = pageCount
+                ? Math.max(0, 24 - Math.round(Math.abs(pageCount - averagePages) / 18))
+                : 8;
+            const momentumVotes = pollMomentum.get(title) || 0;
+
+            let score = 18 + pageFit + Math.min(32, matchingTerms.length * 9) + Math.min(18, momentumVotes * 4);
+            if (book.cover_url) score += 5;
+            if (book.description) score += 4;
+            if (book.published_date && Number.parseInt(book.published_date.slice(0, 4), 10) < 1980) score += clubTags.includes("clasicos") ? 8 : 0;
+
+            const reasons = [
+                matchingTerms.length ? `Conecta con ${matchingTerms.slice(0, 2).join(", ")}` : "Aporta una línea nueva al club",
+                pageCount ? `${pageCount} páginas, cerca del ritmo del club` : "Ritmo por definir",
+                momentumVotes > 0 ? `Ya tuvo ${momentumVotes} votos` : null,
+            ].filter(Boolean) as string[];
+
+            return {
+                id: book.id,
+                title: book.title,
+                author,
+                coverUrl: book.cover_url || null,
+                pageCount,
+                score: Math.min(99, Math.max(1, score)),
+                reasons,
+                tags: matchingTerms.slice(0, 3),
+            };
+        })
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 6);
+
+    return recommendations;
 }
 
 export async function reportClubProblem(clubId: string, reason: string, details: string) {
@@ -1598,6 +2173,257 @@ export async function deleteClubPost(postId: string, clubId: string) {
 }
 
 // ─── Upcoming Milestones (for mi-lectura) ────────────────────────────────────
+
+// Calendar
+
+type ClubCalendarEventType =
+    | "checkpoint"
+    | "discussion"
+    | "vote_deadline"
+    | "silent_session"
+    | "final_meeting"
+    | "announcement"
+    | "other";
+
+type ClubCalendarFormat = "online" | "presencial" | "mixto";
+
+interface CalendarEventRow {
+    id: string;
+    title: string;
+    description?: string | null;
+    event_type: ClubCalendarEventType;
+    starts_at: string;
+    ends_at?: string | null;
+    format?: ClubCalendarFormat | null;
+    location?: string | null;
+    checkpoint_index?: number | null;
+    book_id?: string | null;
+    created_at?: string | null;
+}
+
+interface AnnouncementEventRow {
+    id: string;
+    content: string;
+    event_date?: string | null;
+    event_duration_minutes?: number | null;
+    event_format?: string | null;
+    event_location?: string | null;
+    created_at?: string | null;
+}
+
+interface CurrentClubBookRow {
+    book_id?: string | null;
+    checkpoints?: unknown;
+    book?: {
+        title?: string | null;
+    } | null;
+}
+
+function getLocalDateTimeIso(date: string, time = "12:00") {
+    return `${date}T${time}:00`;
+}
+
+function addMinutesIso(date: string, minutes?: number | null) {
+    if (!minutes || !date) return null;
+    const end = new Date(date);
+    end.setMinutes(end.getMinutes() + minutes);
+    return end.toISOString();
+}
+
+function getCheckpointDateIso(date?: string) {
+    if (!date) return null;
+    return getLocalDateTimeIso(date, "12:00");
+}
+
+function normalizeCalendarEvent(row: CalendarEventRow) {
+    return {
+        id: row.id,
+        source: "calendar" as const,
+        title: row.title,
+        description: row.description || null,
+        type: row.event_type,
+        startsAt: row.starts_at,
+        endsAt: row.ends_at || null,
+        format: row.format || null,
+        location: row.location || null,
+        checkpointIndex: row.checkpoint_index ?? null,
+        bookId: row.book_id || null,
+        createdAt: row.created_at || null,
+        canDelete: true,
+    };
+}
+
+export async function getClubCalendarEvents(clubId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return [];
+
+    const [{ data: calendarEvents, error: calendarError }, { data: announcements }, { data: currentBook }] = await Promise.all([
+        supabase
+            .from("club_calendar_events")
+            .select("id, title, description, event_type, starts_at, ends_at, format, location, checkpoint_index, book_id, created_at")
+            .eq("club_id", clubId)
+            .order("starts_at", { ascending: true }),
+        supabase
+            .from("club_posts")
+            .select("id, content, event_date, event_duration_minutes, event_format, event_location, created_at")
+            .eq("club_id", clubId)
+            .eq("is_announcement", true)
+            .is("parent_id", null),
+        supabase
+            .from("club_books")
+            .select("book_id, checkpoints, book:books(title)")
+            .eq("club_id", clubId)
+            .eq("status", "current")
+            .maybeSingle(),
+    ]);
+
+    if (calendarError && calendarError.code !== "42P01" && calendarError.code !== "PGRST205") {
+        console.error("Error fetching club calendar events:", calendarError);
+    }
+
+    const normalizedCalendarEvents = calendarError
+        ? []
+        : ((calendarEvents || []) as CalendarEventRow[]).map(normalizeCalendarEvent);
+
+    const announcementEvents = ((announcements || []) as AnnouncementEventRow[]).map((announcement) => ({
+        id: `announcement-${announcement.id}`,
+        source: "announcement" as const,
+        title: "Aviso del club",
+        description: announcement.content,
+        type: "announcement" as ClubCalendarEventType,
+        startsAt: announcement.event_date || null,
+        endsAt: addMinutesIso(announcement.event_date || "", announcement.event_duration_minutes),
+        format: (announcement.event_format as ClubCalendarFormat | null) || null,
+        location: announcement.event_location || null,
+        checkpointIndex: null,
+        bookId: null,
+        createdAt: announcement.created_at || null,
+        canDelete: false,
+    }));
+
+    const currentBookRow = currentBook as CurrentClubBookRow | null;
+    const checkpoints = Array.isArray(currentBookRow?.checkpoints)
+        ? currentBookRow.checkpoints as Array<{ id?: string; title?: string; start?: string; end?: string; date?: string }>
+        : [];
+    const checkpointEvents = checkpoints
+        .map((checkpoint, index) => {
+            const startsAt = getCheckpointDateIso(checkpoint.date);
+            if (!startsAt) return null;
+
+            return {
+                id: `checkpoint-${checkpoint.id || index}`,
+                source: "checkpoint" as const,
+                title: `Cierre de checkpoint ${index + 1}`,
+                description: checkpoint.title || currentBookRow?.book?.title || "Tramo de lectura",
+                type: "checkpoint" as ClubCalendarEventType,
+                startsAt,
+                endsAt: null,
+                format: null,
+                location: null,
+                checkpointIndex: index,
+                bookId: currentBookRow?.book_id || null,
+                createdAt: null,
+                canDelete: false,
+            };
+        })
+        .filter(Boolean);
+
+    return [...normalizedCalendarEvents, ...announcementEvents, ...checkpointEvents]
+        .sort((a, b) => {
+            if (!a!.startsAt && !b!.startsAt) return 0;
+            if (!a!.startsAt) return 1;
+            if (!b!.startsAt) return -1;
+            return new Date(a!.startsAt).getTime() - new Date(b!.startsAt).getTime();
+        });
+}
+
+export async function createClubCalendarEvent(
+    clubId: string,
+    payload: {
+        title: string;
+        description?: string;
+        type: ClubCalendarEventType;
+        startsAt: string;
+        endsAt?: string | null;
+        format?: ClubCalendarFormat | null;
+        location?: string;
+    }
+) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "Debes iniciar sesion" };
+
+    const { data: membership } = await supabase
+        .from("club_members")
+        .select("role")
+        .eq("club_id", clubId)
+        .eq("user_id", user.id)
+        .single();
+
+    if (!membership || (membership.role !== "admin" && membership.role !== "moderator")) {
+        return { error: "Sin permisos para crear eventos" };
+    }
+
+    const title = payload.title.trim();
+    if (!title) return { error: "El titulo es obligatorio" };
+    if (!payload.startsAt) return { error: "La fecha es obligatoria" };
+
+    const { error } = await supabase
+        .from("club_calendar_events")
+        .insert({
+            club_id: clubId,
+            created_by: user.id,
+            title,
+            description: payload.description?.trim() || null,
+            event_type: payload.type || "other",
+            starts_at: payload.startsAt,
+            ends_at: payload.endsAt || null,
+            format: payload.format || null,
+            location: payload.location?.trim() || null,
+        });
+
+    if (error) {
+        if (error.code === "42P01" || error.code === "PGRST205") {
+            return { error: "Aplica la migracion del calendario antes de crear eventos." };
+        }
+        return { error: error.message };
+    }
+
+    revalidatePath(`/app/clubs/${clubId}`);
+    return { success: true };
+}
+
+export async function deleteClubCalendarEvent(clubId: string, eventId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "Debes iniciar sesion" };
+
+    const { data: membership } = await supabase
+        .from("club_members")
+        .select("role")
+        .eq("club_id", clubId)
+        .eq("user_id", user.id)
+        .single();
+
+    if (!membership || (membership.role !== "admin" && membership.role !== "moderator")) {
+        return { error: "Sin permisos" };
+    }
+
+    const { error } = await supabase
+        .from("club_calendar_events")
+        .delete()
+        .eq("id", eventId)
+        .eq("club_id", clubId);
+
+    if (error) return { error: error.message };
+
+    revalidatePath(`/app/clubs/${clubId}`);
+    return { success: true };
+}
 
 export async function getUpcomingMilestones() {
     const supabase = await createClient();

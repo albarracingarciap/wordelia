@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useParams } from "next/navigation";
 import { saveCheckpoints } from "@/app/app/clubs/[id]/actions";
-import { Trash2, Pencil, GripVertical, Plus, Check, X } from "lucide-react";
+import { Trash2, Pencil, Plus, Check, X } from "lucide-react";
 
 interface Checkpoint {
     id: string;
@@ -14,6 +14,14 @@ interface Checkpoint {
     start: string;
     end: string;
     date?: string;
+    questions?: string[];
+}
+
+interface PlanEditorClub {
+    currentBook?: {
+        pace_unit?: string | null;
+        checkpoints?: Checkpoint[] | null;
+    } | null;
 }
 
 interface CheckpointFormProps {
@@ -28,15 +36,31 @@ function CheckpointForm({ initial, unitLabel, onSave, onCancel }: CheckpointForm
     const [start, setStart] = React.useState(initial?.start || "");
     const [end, setEnd] = React.useState(initial?.end || "");
     const [date, setDate] = React.useState(initial?.date || "");
+    const [questions, setQuestions] = React.useState<string[]>(initial?.questions || []);
+    const [questionDraft, setQuestionDraft] = React.useState("");
+
+    const addQuestion = () => {
+        const clean = questionDraft.trim();
+        if (!clean) return;
+        setQuestions((current) => [...current, clean]);
+        setQuestionDraft("");
+    };
+
+    const removeQuestion = (index: number) => {
+        setQuestions((current) => current.filter((_, currentIndex) => currentIndex !== index));
+    };
 
     const handleSave = () => {
         if (!title.trim() || !start || !end) return;
+        const pendingQuestion = questionDraft.trim();
+        const nextQuestions = pendingQuestion ? [...questions, pendingQuestion] : questions;
         onSave({
             id: initial?.id || Math.random().toString(36).slice(2),
             title: title.trim(),
             start,
             end,
             date: date || undefined,
+            questions: nextQuestions,
         });
     };
 
@@ -83,9 +107,50 @@ function CheckpointForm({ initial, unitLabel, onSave, onCancel }: CheckpointForm
                     className="text-sm"
                 />
             </div>
+            <div>
+                <label className="block text-xs font-bold text-grey-dark mb-1">Preguntas guia</label>
+                <div className="flex gap-2">
+                    <Input
+                        placeholder="Ej. Que cambia en este tramo?"
+                        value={questionDraft}
+                        onChange={e => setQuestionDraft(e.target.value)}
+                        onKeyDown={e => {
+                            if (e.key === "Enter") {
+                                e.preventDefault();
+                                addQuestion();
+                            }
+                        }}
+                        className="text-sm"
+                    />
+                    <Button type="button" variant="outline" size="sm" onClick={addQuestion}>
+                        <Plus size={14} />
+                    </Button>
+                </div>
+                {questions.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                        {questions.map((question, index) => (
+                            <span
+                                key={`${question}-${index}`}
+                                className="inline-flex items-center gap-2 rounded-full border border-teal/15 bg-white px-3 py-1 text-xs font-medium text-teal-dark"
+                            >
+                                {question}
+                                <button
+                                    type="button"
+                                    onClick={() => removeQuestion(index)}
+                                    className="text-grey/40 hover:text-coral"
+                                    aria-label="Eliminar pregunta"
+                                >
+                                    <X size={12} />
+                                </button>
+                            </span>
+                        ))}
+                    </div>
+                )}
+                <p className="mt-1 text-xs text-grey/45">Pulsa Enter para crear cada pregunta.</p>
+            </div>
             <div className="flex gap-2 pt-1">
                 <Button variant="primary" size="sm" onClick={handleSave} disabled={!title.trim() || !start || !end}>
-                    <Check size={14} className="mr-1" /> Guardar
+                    <Check size={14} className="mr-1" /> Guardar checkpoint
                 </Button>
                 <Button variant="ghost" size="sm" onClick={onCancel}>
                     <X size={14} className="mr-1" /> Cancelar
@@ -95,12 +160,13 @@ function CheckpointForm({ initial, unitLabel, onSave, onCancel }: CheckpointForm
     );
 }
 
-export function PlanEditor({ club }: { club?: any }) {
+export function PlanEditor({ club }: { club?: unknown }) {
     const params = useParams();
     const clubId = params.id as string;
+    const planClub = club as PlanEditorClub | undefined;
 
-    const unitLabel = club?.currentBook?.pace_unit || "p.";
-    const initialCheckpoints: Checkpoint[] = club?.currentBook?.checkpoints || [];
+    const unitLabel = planClub?.currentBook?.pace_unit || "p.";
+    const initialCheckpoints: Checkpoint[] = planClub?.currentBook?.checkpoints || [];
 
     const [checkpoints, setCheckpoints] = React.useState<Checkpoint[]>(initialCheckpoints);
     const [editingId, setEditingId] = React.useState<string | null>(null);
@@ -110,10 +176,10 @@ export function PlanEditor({ club }: { club?: any }) {
 
     // Sync if club data loads after mount
     React.useEffect(() => {
-        if (club?.currentBook?.checkpoints) {
-            setCheckpoints(club.currentBook.checkpoints);
+        if (planClub?.currentBook?.checkpoints) {
+            setCheckpoints(planClub.currentBook.checkpoints);
         }
-    }, [club]);
+    }, [planClub]);
 
     const handleAdd = (chk: Checkpoint) => {
         setCheckpoints(prev => [...prev, chk]);
@@ -181,6 +247,12 @@ export function PlanEditor({ club }: { club?: any }) {
                                         <h4 className="font-bold text-sm text-grey-dark">{chk.title}</h4>
                                         <div className="flex items-center gap-3 text-xs text-grey/60">
                                             <span>{unitLabel} {chk.start} – {chk.end}</span>
+                                            {!!chk.questions?.length && (
+                                                <>
+                                                    <span>-</span>
+                                                    <span>{chk.questions.length} preguntas</span>
+                                                </>
+                                            )}
                                             {chk.date && (
                                                 <>
                                                     <span>·</span>
@@ -222,10 +294,20 @@ export function PlanEditor({ club }: { club?: any }) {
 
                 {/* Save button */}
                 {checkpoints.length > 0 && (
-                    <div className="mt-6 pt-4 border-t border-black/5 flex items-center gap-3">
-                        <Button variant="primary" onClick={handleSave} disabled={isSaving}>
+                    <div className="mt-6 flex flex-col gap-3 border-t border-black/5 pt-4 sm:flex-row sm:items-center">
+                        <Button
+                            variant="primary"
+                            onClick={handleSave}
+                            disabled={isSaving || !!editingId || showAddForm}
+                            className="w-full whitespace-nowrap sm:w-auto"
+                        >
                             {isSaving ? "Guardando..." : "Guardar cambios"}
                         </Button>
+                        {(editingId || showAddForm) && (
+                            <span className="text-sm leading-6 text-grey/50">
+                                Guarda o cancela el checkpoint abierto antes de guardar el plan.
+                            </span>
+                        )}
                         {savedOk && (
                             <span className="text-sm text-teal flex items-center gap-1">
                                 <Check size={14} /> Cambios guardados

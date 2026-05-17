@@ -8,9 +8,10 @@ import { X } from "lucide-react";
 interface StepIdentityProps {
     data: CreateClubFormData;
     onUpdate: (field: keyof CreateClubFormData, value: CreateClubFormData[keyof CreateClubFormData]) => void;
+    selectedTemplateTitle?: string;
 }
 
-export function StepIdentity({ data, onUpdate }: StepIdentityProps) {
+export function StepIdentity({ data, onUpdate, selectedTemplateTitle }: StepIdentityProps) {
     const [tagInput, setTagInput] = React.useState("");
 
     const addTag = (rawTag: string) => {
@@ -27,7 +28,14 @@ export function StepIdentity({ data, onUpdate }: StepIdentityProps) {
 
     return (
         <Card className="animate-fade-in-up rounded-3xl">
-            <h3 className="mb-6 text-xl font-bold text-teal">Identidad del club</h3>
+            <div className="mb-6">
+                <h3 className="text-xl font-bold text-teal">Identidad del club</h3>
+                {selectedTemplateTitle && (
+                    <p className="mt-2 inline-flex rounded-full bg-teal/5 px-3 py-1 text-xs font-bold text-teal-dark">
+                        Plantilla: {selectedTemplateTitle}
+                    </p>
+                )}
+            </div>
 
             <div className="space-y-6">
                 <div>

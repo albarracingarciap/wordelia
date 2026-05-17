@@ -8,6 +8,7 @@ interface Checkpoint {
     start: string;
     end: string;
     date: string;
+    questions?: string[];
 }
 
 interface CheckpointModalProps {
@@ -23,6 +24,8 @@ export function CheckpointModal({ isOpen, onClose, onSave, initialData, unitLabe
     const [start, setStart] = React.useState(initialData?.start || "");
     const [end, setEnd] = React.useState(initialData?.end || "");
     const [date, setDate] = React.useState(initialData?.date || "");
+    const [questions, setQuestions] = React.useState<string[]>(initialData?.questions || []);
+    const [questionDraft, setQuestionDraft] = React.useState("");
 
     React.useEffect(() => {
         if (isOpen) {
@@ -30,6 +33,8 @@ export function CheckpointModal({ isOpen, onClose, onSave, initialData, unitLabe
             setStart(initialData?.start || "");
             setEnd(initialData?.end || "");
             setDate(initialData?.date || "");
+            setQuestions(initialData?.questions || []);
+            setQuestionDraft("");
         }
     }, [isOpen, initialData]);
 
@@ -42,9 +47,17 @@ export function CheckpointModal({ isOpen, onClose, onSave, initialData, unitLabe
             title,
             start,
             end,
-            date
+            date,
+            questions,
         });
         onClose();
+    };
+
+    const addQuestion = () => {
+        const clean = questionDraft.trim();
+        if (!clean) return;
+        setQuestions((current) => [...current, clean]);
+        setQuestionDraft("");
     };
 
     return (
@@ -94,6 +107,42 @@ export function CheckpointModal({ isOpen, onClose, onSave, initialData, unitLabe
                                 value={date}
                                 onChange={(e) => setDate(e.target.value)}
                             />
+                        </div>
+
+                        <div>
+                            <label className="block text-sm font-bold text-grey-dark mb-1.5">Preguntas guia</label>
+                            <div className="flex gap-2">
+                                <Input
+                                    placeholder="Ej. Que te ha sorprendido?"
+                                    value={questionDraft}
+                                    onChange={(e) => setQuestionDraft(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                            e.preventDefault();
+                                            addQuestion();
+                                        }
+                                    }}
+                                />
+                                <Button type="button" variant="outline" onClick={addQuestion}>+</Button>
+                            </div>
+                            {questions.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                    {questions.map((question, index) => (
+                                        <span key={`${question}-${index}`} className="inline-flex items-center gap-2 rounded-full border border-teal/15 bg-teal/5 px-3 py-1 text-xs font-medium text-teal-dark">
+                                            {question}
+                                            <button
+                                                type="button"
+                                                onClick={() => setQuestions((current) => current.filter((_, currentIndex) => currentIndex !== index))}
+                                                className="text-grey/40 hover:text-coral"
+                                                aria-label="Eliminar pregunta"
+                                            >
+                                                x
+                                            </button>
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                            <p className="mt-1 text-xs text-grey/45">Pulsa Enter para crear cada pregunta.</p>
                         </div>
                     </div>
 
