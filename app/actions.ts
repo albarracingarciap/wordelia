@@ -2,6 +2,20 @@
 
 import { createClient } from "@/utils/supabase/server";
 
+type OfficialClubBookRelation = {
+    status: string | null;
+    start_date: string | null;
+    book: {
+        title: string | null;
+        cover_url: string | null;
+        author: { name: string | null } | { name: string | null }[] | null;
+    } | {
+        title: string | null;
+        cover_url: string | null;
+        author: { name: string | null } | { name: string | null }[] | null;
+    }[] | null;
+};
+
 export async function getRegisteredUsersCount() {
     try {
         const supabase = await createClient();
@@ -34,6 +48,8 @@ export async function getOfficialClubs() {
                 name,
                 description,
                 tags,
+                price,
+                currency,
                 current_book: club_books(
                     status,
                     start_date,
@@ -55,8 +71,11 @@ export async function getOfficialClubs() {
         // Map the current_book relation to just the book object for consistency
         const mappedClubs = (clubs || []).map(club => {
             // Find the current book (usually the first one, or filter by status='current')
-            const currentBookRel = club.current_book?.find((cb: any) => cb.status === 'current') || club.current_book?.[0];
-            const bookData: any = currentBookRel?.book;
+            const currentBookRelations = (club.current_book || []) as unknown as OfficialClubBookRelation[];
+            const currentBookRel = currentBookRelations.find((cb) => cb.status === 'current') || currentBookRelations[0];
+            const bookData = Array.isArray(currentBookRel?.book)
+                ? currentBookRel.book[0]
+                : currentBookRel?.book;
 
             return {
                 ...club,

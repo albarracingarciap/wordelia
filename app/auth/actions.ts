@@ -30,6 +30,16 @@ function getAuthErrorMessage(message: string) {
     return message || 'No se ha podido completar la acción. Inténtalo de nuevo.';
 }
 
+function cleanOptionalValue(value: FormDataEntryValue | null, maxLength = 80) {
+    const text = String(value || '').trim().toLowerCase();
+    return text ? text.slice(0, maxLength) : null;
+}
+
+function getRequestedPlan(intent: string | null, plan: string | null) {
+    const candidate = plan || (intent?.startsWith('plan-') ? intent.replace('plan-', '') : null);
+    return candidate && ['explorador', 'voraz', 'ai'].includes(candidate) ? candidate : null;
+}
+
 export async function login(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
     const supabase = await createClient()
 
@@ -63,6 +73,12 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
     const email = String(formData.get('email') || '').trim().toLowerCase()
     const password = String(formData.get('password') || '')
     const name = String(formData.get('name') || '').trim()
+    const signupSource = cleanOptionalValue(formData.get('signup_source'))
+    const signupIntent = cleanOptionalValue(formData.get('signup_intent'))
+    const requestedPlan = getRequestedPlan(signupIntent, cleanOptionalValue(formData.get('requested_plan')))
+    const rawBillingPeriod = cleanOptionalValue(formData.get('billing_period'))
+    const billingPeriod = rawBillingPeriod === 'annual' || rawBillingPeriod === 'monthly' ? rawBillingPeriod : null
+    const newsletterOptIn = formData.get('newsletter_opt_in') === 'on'
 
     if (!name) {
         return { error: 'Introduce tu nombre completo.' }
@@ -82,6 +98,11 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
         options: {
             data: {
                 full_name: name,
+                signup_source: signupSource,
+                signup_intent: signupIntent,
+                requested_plan: requestedPlan,
+                billing_period: billingPeriod,
+                newsletter_opt_in: newsletterOptIn,
             }
         }
     })
@@ -91,7 +112,6 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
     }
 
     revalidatePath('/', 'layout')
-    // Redirect to onboarding for new users
     redirect('/app/onboarding')
 }
 

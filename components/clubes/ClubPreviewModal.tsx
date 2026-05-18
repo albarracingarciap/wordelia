@@ -14,6 +14,29 @@ interface ClubPreviewModalProps {
     onClose: () => void;
 }
 
+function formatStartDate(value?: string | null) {
+    if (!value) return "próximamente";
+
+    const [datePart] = value.split("T");
+    const [year, month, day] = datePart.split("-").map(Number);
+    if (!year || !month || !day) return "próximamente";
+
+    return new Intl.DateTimeFormat("es-ES", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+    }).format(new Date(year, month - 1, day));
+}
+
+function formatPrice(value?: number | null, currency = "EUR") {
+    const cents = typeof value === "number" ? value : 990;
+
+    return new Intl.NumberFormat("es-ES", {
+        style: "currency",
+        currency,
+    }).format(cents / 100);
+}
+
 export function ClubPreviewModal({ club, isOpen, onClose }: ClubPreviewModalProps) {
     // Prevent body scroll when modal is open
     useEffect(() => {
@@ -107,7 +130,16 @@ export function ClubPreviewModal({ club, isOpen, onClose }: ClubPreviewModalProp
                                 {/* Start Date */}
                                 <div className="flex items-center gap-2 text-sm text-grey/60 bg-teal/5 rounded-lg p-3">
                                     <Calendar className="w-5 h-5 text-teal" />
-                                    <span><strong>Fecha de inicio:</strong> 15 de marzo de 2026</span>
+                                    <span><strong>Fecha de inicio:</strong> {formatStartDate(club.start_date)}</span>
+                                </div>
+
+                                <div className="rounded-xl border border-coral/15 bg-coral/5 p-4">
+                                    <p className="text-sm font-semibold text-teal">
+                                        Inscripción del club: {formatPrice(club.price_cents, club.currency || "EUR")}
+                                    </p>
+                                    <p className="mt-1 text-sm text-grey/70">
+                                        Los lectores fundadores pueden elegir uno de los clubs oficiales de Wordelia sin coste.
+                                    </p>
                                 </div>
 
                                 {/* Blurred Content Section */}

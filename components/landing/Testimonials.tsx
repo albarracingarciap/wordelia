@@ -1,176 +1,103 @@
 "use client";
 
 import * as React from "react";
-import Image from "next/image";
 import Link from "next/link";
+import { BookOpenCheck, HeartPulse, MessageCircle, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
 import { Section } from "../ui/Section";
 import { Button } from "../ui/Button";
 
-type Tab = "Lectores" | "Clubs";
-
-interface TestimonialItem {
-    text: string;
-    author: string;
-    role: string;
-    badges: string[];
-    location?: string;
-}
+const validationAreas = [
+    {
+        title: "Lectura sin presión",
+        text: "Queremos comprobar si el seguimiento por sesiones ayuda a mantener el hábito sin convertirlo en una carrera.",
+        icon: BookOpenCheck,
+        tag: "Mi lectura",
+    },
+    {
+        title: "Notas que vuelven contigo",
+        text: "La beta nos servirá para pulir notas, etiquetas, destacados y recuerdos de lectura que realmente apetezca recuperar.",
+        icon: Sparkles,
+        tag: "Notas",
+    },
+    {
+        title: "Clubes sin spoilers",
+        text: "Validaremos conversaciones por checkpoints, guías y ritmos compartidos para que todos puedan participar a su paso.",
+        icon: MessageCircle,
+        tag: "Clubs",
+    },
+    {
+        title: "Mapa emocional",
+        text: "Buscamos lectores que nos ayuden a afinar cómo registrar y visualizar lo que cada tramo de un libro provoca.",
+        icon: HeartPulse,
+        tag: "Emociones",
+    },
+];
 
 export function Testimonials() {
     const { isLoggedIn } = useAuth();
     const router = useRouter();
-    const [activeTab, setActiveTab] = React.useState<Tab>("Lectores");
 
-    const testimonials: Record<Tab, TestimonialItem[]> = {
-        Lectores: [
-            {
-                text: "Antes me costaba mantener el hábito. Con ‘Mi lectura’ y las notas, leer volvió a sentirse mío.",
-                author: "Laura",
-                role: "Lectora",
-                badges: ["Mi lectura", "Notas"],
-            },
-            {
-                text: "Me encanta poder leer a mi ritmo sin miedo a spoilers. Las guías me ayudan a fijarme en detalles.",
-                author: "Daniel",
-                role: "Lector",
-                badges: ["Guías sin spoilers", "Análisis literario"],
-            },
-            {
-                text: "Las estadísticas son suaves, no te presionan. Solo te acompañan. Y eso cambia todo.",
-                author: "Marta",
-                role: "Lectora",
-                badges: ["Mi lectura", "Estadísticas"],
-            },
-            {
-                text: "El mapa emocional me ayudó a entender por qué ciertas partes me golpeaban más. Fue bonito.",
-                author: "Irene",
-                role: "Lectora",
-                badges: ["Mapa emocional", "Diario"],
-            },
-        ],
-        Clubs: [
-            {
-                text: "Nuestro club se quedaba en ‘me gustó/no me gustó’. Con checkpoints, la conversación ganó profundidad.",
-                author: "Sergio",
-                role: "Moderador de club",
-                location: "Club de 12 personas",
-                badges: ["Checkpoints", "Guías de discusión"],
-            },
-            {
-                text: "La guía por capítulos nos dio estructura sin hacerlo rígido. Cada sesión salió natural.",
-                author: "Paula",
-                role: "Moderadora",
-                badges: ["Guías de discusión", "Ritmo"],
-            },
-            {
-                text: "El control de spoilers es oro. Nadie se corta por miedo y nadie se arruina el libro.",
-                author: "Nuria",
-                role: "Club de lectura",
-                badges: ["Sin spoilers", "Moderación"],
-            },
-            {
-                text: "El ADN del libro nos dio temas y símbolos para debatir sin sentirnos ‘en clase’. Muy disfrutable.",
-                author: "Álex",
-                role: "Moderador",
-                badges: ["ADN del libro", "Análisis literario"],
-            },
-        ],
+    const handleBetaClick = () => {
+        router.push(isLoggedIn ? "/app/mi-lectura" : "/register?source=beta&intent=founder-feedback");
     };
 
     return (
-        <Section id="testimonios" className="bg-[#D8E2DC]">
-            <div className="text-center max-w-2xl mx-auto mb-8">
-                <h2 className="text-3xl md:text-4xl font-serif text-teal mb-3 flex flex-col items-center gap-4">
-                    <span>Lo que nuestros lectores opinan de</span>
-                    <div className="relative w-80 h-20">
-                        <Image
-                            src="/assets/images/logo_wordelia.png"
-                            alt="Wordelia"
-                            fill
-                            className="object-contain"
-                        />
-                    </div>
+        <Section id="lectores-fundadores" className="bg-[#D8E2DC] py-14 md:py-24">
+            <div className="mx-auto mb-8 max-w-3xl space-y-4 text-center md:mb-12">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">Lectores fundadores</p>
+                <h2 className="text-3xl leading-tight text-teal md:text-5xl">
+                    Antes de abrir Wordelia, queremos leer contigo
                 </h2>
-                <p className="text-sm md:text-base text-grey leading-relaxed">
-                    Historias que disfrutamos en compañía. Apreciando cada detalle
+                <p className="mx-auto max-w-2xl text-base leading-relaxed text-grey md:text-lg">
+                    La beta no va de acumular testimonios: va de escuchar a los primeros lectores y construir una
+                    experiencia que cuide el ritmo, la conversación y la memoria de cada libro.
                 </p>
             </div>
 
-            {/* Tabs */}
-            <div className="flex justify-center mb-12">
-                <div className="inline-flex bg-white rounded-full p-1 border border-black/5 shadow-sm">
-                    {(["Lectores", "Clubs"] as Tab[]).map((tab) => (
-                        <button
-                            key={tab}
-                            onClick={() => setActiveTab(tab)}
-                            className={`px-8 py-2.5 rounded-full text-sm font-medium transition-all duration-200 ${activeTab === tab
-                                ? "bg-teal/10 text-teal-dark shadow-sm"
-                                : "text-grey hover:text-teal hover:bg-cream"
-                                }`}
+            <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 px-4 md:grid-cols-2 md:gap-6">
+                {validationAreas.map((item) => {
+                    const Icon = item.icon;
+
+                    return (
+                        <article
+                            key={item.title}
+                            className="rounded-3xl border border-teal/10 bg-offwhite p-5 shadow-sm md:p-7"
                         >
-                            {tab}
-                        </button>
-                    ))}
-                </div>
+                            <div className="flex items-start gap-4">
+                                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-teal shadow-sm">
+                                    <Icon className="h-6 w-6" aria-hidden="true" />
+                                </div>
+                                <div className="min-w-0">
+                                    <span className="mb-2 inline-flex rounded-full border border-teal/10 bg-white px-3 py-1 text-xs font-bold text-teal">
+                                        {item.tag}
+                                    </span>
+                                    <h3 className="text-xl font-bold text-teal-dark">{item.title}</h3>
+                                    <p className="mt-2 text-sm leading-relaxed text-grey/80 md:text-base">{item.text}</p>
+                                </div>
+                            </div>
+                        </article>
+                    );
+                })}
             </div>
 
-            {/* Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
-                {testimonials[activeTab].map((item, idx) => (
-                    <div
-                        key={idx}
-                        className="bg-offwhite rounded-2xl p-6 md:p-8 border border-teal/5 shadow-sm hover:shadow-md transition-all duration-300 flex flex-col h-full animate-fade-in"
-                    >
-                        {/* Header */}
-                        <div className="flex items-center gap-3 mb-4">
-                            <div className="w-10 h-10 rounded-full bg-cream border border-teal/10 flex items-center justify-center text-teal font-serif font-bold text-lg">
-                                {item.author[0]}
-                            </div>
-                            <div>
-                                <p className="text-sm font-bold text-teal">{item.author}</p>
-                                <p className="text-xs text-grey">
-                                    {item.role} {item.location && `· ${item.location}`}
-                                </p>
-                            </div>
-                        </div>
-
-                        {/* Quote */}
-                        <blockquote className="text-lg text-grey leading-relaxed mb-6 flex-grow italic">
-                            "{item.text}"
-                        </blockquote>
-
-                        {/* Badges */}
-                        <div className="flex flex-wrap gap-2 mt-auto mb-3">
-                            {item.badges.map(badge => (
-                                <span key={badge} className="px-2.5 py-1 rounded-md bg-white border border-black/5 text-xs text-teal font-medium">
-                                    {badge}
-                                </span>
-                            ))}
-                        </div>
-
-                        {/* Stars */}
-                        <div className="flex gap-1">
-                            {[1, 2, 3, 4, 5].map((star) => (
-                                <span key={star} className="text-coral text-sm">★</span>
-                            ))}
-                        </div>
-                    </div>
-                ))}
-            </div>
-
-            {/* Footer CTA */}
-            <div className="text-center space-y-4">
-                <div className="flex items-center justify-center gap-4">
-                    <Button
-                        className="rounded-full px-8 shadow-coral/20"
-                        onClick={() => router.push(isLoggedIn ? "/app/mi-lectura" : "/login")}
-                    >
-                        Empezar gratis
+            <div className="mx-auto mt-8 flex max-w-3xl flex-col items-center gap-4 rounded-3xl border border-white/60 bg-white/55 p-5 text-center shadow-sm md:mt-12 md:p-8">
+                <p className="text-sm font-semibold uppercase tracking-[0.18em] text-teal-dark">200 plazas iniciales</p>
+                <h3 className="text-2xl font-bold text-teal-dark">Tu feedback puede decidir qué llega al lanzamiento</h3>
+                <p className="max-w-xl text-sm leading-relaxed text-grey/80 md:text-base">
+                    Los lectores fundadores tendrán prioridad en novedades, acceso a la beta privada y voz directa en
+                    las decisiones de producto antes del 15 de julio.
+                </p>
+                <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row">
+                    <Button className="w-full rounded-2xl px-8 sm:w-auto" onClick={handleBetaClick}>
+                        Solicitar acceso beta
                     </Button>
-                    <Link href="/clubes" className="text-teal font-medium hover:underline">
-                        Explorar clubs
+                    <Link
+                        href="/clubes"
+                        className="inline-flex h-11 items-center justify-center rounded-2xl px-6 text-base font-medium text-teal hover:bg-white"
+                    >
+                        Ver clubs públicos
                     </Link>
                 </div>
             </div>

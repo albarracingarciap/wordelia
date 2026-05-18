@@ -3,37 +3,39 @@
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Button } from "../ui/Button";
-
+import { Menu, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "../ui/Button";
 
-export function Navbar() {
+type NavbarProps = {
+    mode?: "auto" | "public";
+};
+
+export function Navbar({ mode = "auto" }: NavbarProps) {
     const [isOpen, setIsOpen] = React.useState(false);
-    const { isLoggedIn, logout } = useAuth();
+    const { isLoggedIn } = useAuth();
+    const showLoggedInActions = mode === "auto" && isLoggedIn;
     const router = useRouter();
 
     const handleNavigation = (href: string, requiresAuth: boolean = false) => {
-        if (requiresAuth) {
-            if (isLoggedIn) {
-                router.push(href);
+        if (requiresAuth && !showLoggedInActions) {
+            router.push("/login");
+            setIsOpen(false);
+            return;
+        }
+
+        if (href.startsWith("#")) {
+            const element = document.querySelector(href);
+            if (element) {
+                element.scrollIntoView({ behavior: "smooth" });
             } else {
-                router.push("/login");
+                router.push(`/${href}`);
             }
         } else {
-            // Logic for internal anchors vs external pages
-            if (href.startsWith("#")) {
-                const element = document.querySelector(href);
-                if (element) {
-                    element.scrollIntoView({ behavior: "smooth" });
-                } else if (window.location.pathname !== "/") {
-                    // If we are not on home, go to home then anchor (simple approach: just go home)
-                    router.push("/" + href);
-                }
-            } else {
-                router.push(href);
-            }
+            router.push(href);
         }
+
         setIsOpen(false);
     };
 
@@ -41,19 +43,15 @@ export function Navbar() {
         { label: "Explorar", href: "/explorar", requiresAuth: false },
         { label: "Clubes", href: "/clubes", requiresAuth: false },
         { label: "Lista de deseos", href: "/deseos", requiresAuth: false },
-        { label: "ADN literario", href: "/app/adn", requiresAuth: false },
-        { label: "Planes", href: "/planes", requiresAuth: false },
+        { label: "ADN literario", href: "/app/adn", requiresAuth: true },
+        { label: "Beta", href: "/register?source=beta", requiresAuth: false },
     ];
 
     return (
-        <nav className="fixed top-0 z-50 w-full bg-cream/90 backdrop-blur-sm border-b border-black/5">
-            <div className="mx-auto flex h-[72px] max-w-[1248px] items-center justify-between px-6 md:px-8">
-                {/* Logo */}
-                <Link href="/" className="flex items-center gap-2 h-full">
-                    {/* TRIPLED SIZE: Increased from h-8 to h-20 (approx 80px), adjusted aspect ratio */}
-                    {/* Added relative positioning to parent link to help centering if needed, but flex items-center on container should handle it. 
-                        If the image has whitespace, it might look off-center. Ensuring flex centering. */}
-                    <div className="relative h-20 w-auto aspect-[4/1] flex items-center justify-center">
+        <nav className="fixed top-0 z-50 w-full border-b border-black/5 bg-cream/95 backdrop-blur-md">
+            <div className="mx-auto flex h-[68px] max-w-[1248px] items-center justify-between px-4 sm:px-6 md:h-[72px] md:px-8">
+                <Link href="/" className="flex h-full items-center gap-2">
+                    <div className="relative flex h-12 w-[176px] items-center justify-center sm:h-14 sm:w-[220px]">
                         <Image
                             src="/assets/images/logo_wordelia.png"
                             alt="Wordelia Logo"
@@ -65,80 +63,84 @@ export function Navbar() {
                     </div>
                 </Link>
 
-                {/* Desktop Links - Centered */}
-                <div className="hidden lg:flex items-center gap-6 xl:gap-8 h-full absolute left-1/2 transform -translate-x-1/2">
+                <div className="absolute left-1/2 hidden h-full -translate-x-1/2 items-center gap-5 lg:flex xl:gap-7">
                     {links.map((link) => (
                         <button
                             key={link.label}
                             onClick={() => handleNavigation(link.href, link.requiresAuth)}
-                            className="text-sm font-medium text-grey hover:text-teal hover:underline decoration-teal/50 underline-offset-4 transition-colors"
+                            className="text-sm font-medium text-grey transition-colors hover:text-teal hover:underline hover:decoration-teal/50 hover:underline-offset-4"
                         >
                             {link.label}
                         </button>
                     ))}
                 </div>
 
-                {/* Desktop CTA */}
                 <div className="hidden lg:block">
                     <div className="flex items-center gap-4">
-                        {isLoggedIn ? (
-                            <Button variant="ghost" size="sm" onClick={logout} className="text-grey hover:text-teal">
-                                Cerrar sesión
+                        {showLoggedInActions ? (
+                            <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={() => router.push("/app/mi-lectura")}
+                                className="rounded-full px-6 shadow-coral/20"
+                            >
+                                Ir a mi lectura
                             </Button>
                         ) : (
                             <>
-                                <Button variant="ghost" size="sm" onClick={() => router.push("/register")} className="text-grey hover:text-teal">
-                                    Registrar
-                                </Button>
-                                <Button variant="primary" size="sm" className="rounded-full px-6 shadow-coral/20" onClick={() => router.push("/login")}>
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => router.push("/login")}
+                                    className="text-grey hover:text-teal"
+                                >
                                     Entrar
+                                </Button>
+                                <Button
+                                    variant="primary"
+                                    size="sm"
+                                    className="rounded-full px-6 shadow-coral/20"
+                                    onClick={() => router.push("/register?source=beta")}
+                                >
+                                    Acceso beta
                                 </Button>
                             </>
                         )}
                     </div>
                 </div>
 
-                {/* Mobile menu button */}
                 <button
-                    onClick={() => setIsOpen(!isOpen)}
-                    className="lg:hidden p-2 text-teal"
+                    onClick={() => setIsOpen((current) => !current)}
+                    className="inline-flex h-11 w-11 items-center justify-center rounded-full text-teal transition-colors hover:bg-teal/5 lg:hidden"
                 >
                     <span className="sr-only">Abrir menú</span>
-                    {isOpen ? (
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                        </svg>
-                    ) : (
-                        <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
-                        </svg>
-                    )}
+                    {isOpen ? <X className="h-6 w-6" aria-hidden="true" /> : <Menu className="h-6 w-6" aria-hidden="true" />}
                 </button>
             </div>
 
-            {/* Mobile Menu */}
             {isOpen && (
-                <div className="absolute top-[72px] left-0 w-full bg-cream/98 border-b border-black/5 py-4 px-6 lg:hidden shadow-lg flex flex-col gap-4">
+                <div className="absolute left-0 top-[68px] flex w-full flex-col gap-3 border-b border-black/5 bg-cream/98 px-5 py-4 shadow-lg md:top-[72px] lg:hidden">
                     {links.map((link) => (
                         <button
                             key={link.label}
                             onClick={() => handleNavigation(link.href, link.requiresAuth)}
-                            className="text-base font-medium text-grey hover:text-teal py-2 border-b border-black/5 last:border-0 text-left"
+                            className="border-b border-black/5 py-2 text-left text-base font-medium text-grey transition-colors last:border-0 hover:text-teal"
                         >
                             {link.label}
                         </button>
                     ))}
-                    <div className="pt-2 flex flex-col gap-2">
-                        {isLoggedIn ? (
-                            <Button fullWidth onClick={() => { logout(); setIsOpen(false); }}>
-                                Cerrar sesión
+
+                    <div className="flex flex-col gap-2 pt-2">
+                        {showLoggedInActions ? (
+                            <Button fullWidth onClick={() => router.push("/app/mi-lectura")}>
+                                Ir a mi lectura
                             </Button>
                         ) : (
                             <>
-                                <Button variant="ghost" fullWidth onClick={() => router.push("/register")}>
-                                    Registrar
+                                <Button fullWidth onClick={() => router.push("/register?source=beta")}>
+                                    Solicitar acceso anticipado
                                 </Button>
-                                <Button fullWidth onClick={() => router.push("/login")}>
+                                <Button variant="ghost" fullWidth onClick={() => router.push("/login")}>
                                     Entrar
                                 </Button>
                             </>

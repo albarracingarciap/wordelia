@@ -2,139 +2,198 @@
 
 import Link from "next/link";
 import Image from "next/image";
+import { CalendarDays, MessageCircle, Sparkles, Users } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
 import { Section } from "../ui/Section";
 import { Button } from "../ui/Button";
+import type { OfficialClub } from "@/app/clubes/actions";
 
-export function BookMonth() {
+const tags = ["Distopía", "Debate guiado", "Lectura media"];
+
+interface BookMonthProps {
+    club?: OfficialClub | null;
+}
+
+function formatStartDate(value?: string | null) {
+    if (!value) {
+        return "15 junio";
+    }
+
+    const [datePart] = value.split("T");
+    const [year, month, day] = datePart.split("-").map(Number);
+
+    if (!year || !month || !day) {
+        return "15 junio";
+    }
+
+    return new Intl.DateTimeFormat("es-ES", {
+        day: "numeric",
+        month: "long",
+    }).format(new Date(year, month - 1, day));
+}
+
+function formatPriceFromCents(value?: number | null, currency = "EUR") {
+    const cents = typeof value === "number" ? value : 990;
+
+    return new Intl.NumberFormat("es-ES", {
+        style: "currency",
+        currency,
+    }).format(cents / 100);
+}
+
+export function BookMonth({ club }: BookMonthProps) {
     const { isLoggedIn } = useAuth();
     const router = useRouter();
+    const book = club?.book_data;
+    const title = book?.title || "El cuento de la criada";
+    const author = book?.authors?.join(", ") || "Margaret Atwood";
+    const cover = book?.cover_url || "/assets/images/cuento_criada.gif";
+    const description = club?.description
+        || "Una distopía íntima y contundente sobre poder, identidad y resistencia. La leeremos con checkpoints para avanzar juntos sin adelantar revelaciones.";
+    const startDate = formatStartDate(club?.start_date);
+    const priceLabel = formatPriceFromCents(club?.price_cents, club?.currency || "EUR");
 
     const handleJoinClick = () => {
-        if (isLoggedIn) {
-            router.push("/club/el-cuento-de-la-criada");
-        } else {
-            router.push("/login");
-        }
+        router.push(isLoggedIn ? "/app/clubs" : "/register?source=beta&intent=book-month");
     };
 
     return (
-        <Section id="libro-del-mes">
-            <div className="text-center max-w-2xl mx-auto mb-12">
-                <h2 className="text-3xl md:text-4xl font-serif text-teal mb-3">
-                    Libro del mes
+        <Section id="libro-del-mes" className="bg-cream pb-8 pt-16 md:py-24">
+            <div className="mx-auto mb-10 max-w-3xl space-y-4 text-center md:mb-14">
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">Club destacado</p>
+                <h2 className="text-3xl leading-tight text-teal md:text-5xl">
+                    Una lectura común para probar Wordelia
                 </h2>
-                <p className="text-sm md:text-base text-grey leading-relaxed">
-                    Lecturas compartidas. Un club abierto para discusiones amenas, profundas y sin spoilers
+                <p className="mx-auto max-w-2xl text-base leading-relaxed text-grey md:text-lg">
+                    El club del mes será uno de los espacios de la beta: lectura por tramos, preguntas guiadas,
+                    mapa emocional y conversación sin spoilers.
                 </p>
             </div>
 
-            {/* Main Feature Panel */}
-            <div className="bg-offwhite rounded-[20px] border border-teal/10 shadow-sm p-6 md:p-10 lg:p-12 mb-12">
-                <div className="flex flex-col md:flex-row gap-12 items-start">
-
-                    {/* Left: Book Cover */}
-                    <div className="relative w-40 md:w-48 aspect-[2/3] shrink-0 rounded-lg shadow-md overflow-hidden self-center md:self-start">
-                        <Image
-                            src="/assets/images/cuento_criada.gif"
-                            alt="El Cuento de la Criada"
-                            fill
-                            className="object-cover"
-                        />
+            <div className="mx-auto mb-10 max-w-5xl overflow-hidden rounded-3xl border border-teal/10 bg-offwhite shadow-sm">
+                <div className="grid gap-0 md:grid-cols-[260px_1fr]">
+                    <div className="bg-[#D8E2DC] p-6 md:p-8">
+                        <div className="relative mx-auto aspect-[2/3] w-40 overflow-hidden rounded-2xl shadow-lg md:w-full">
+                            <Image
+                                src={cover}
+                                alt={title}
+                                fill
+                                className="object-cover"
+                                sizes="(min-width: 768px) 220px, 160px"
+                            />
+                        </div>
                     </div>
 
-                    {/* Right: Content */}
-                    <div className="flex-1 space-y-6">
-                        <div>
-                            <h3 className="text-2xl md:text-3xl font-serif text-teal leading-tight">
-                                El Cuento de la Criada
-                            </h3>
-                            <p className="text-lg text-coral font-medium mt-1">
-                                <Link href="/autores/margaret-atwood" className="hover:underline">
-                                    Margaret Atwood
-                                </Link>
+                    <div className="space-y-6 p-6 md:p-8 lg:p-10">
+                        <div className="space-y-3">
+                            <div className="flex flex-wrap gap-2">
+                                {tags.map((tag) => (
+                                    <span
+                                        key={tag}
+                                        className="rounded-full border border-black/5 bg-white px-3 py-1 text-xs font-medium text-grey"
+                                    >
+                                        {tag}
+                                    </span>
+                                ))}
+                            </div>
+
+                            <div>
+                                <h3 className="text-3xl leading-tight text-teal md:text-4xl">
+                                    {title}
+                                </h3>
+                                <p className="mt-1 text-lg font-semibold text-coral">{author}</p>
+                            </div>
+
+                            <p className="max-w-3xl text-sm leading-relaxed text-grey md:text-base">
+                                {description}
                             </p>
                         </div>
 
-                        <div className="flex flex-wrap gap-2">
-                            {["Distopía", "Debate", "Lectura media"].map(tag => (
-                                <span key={tag} className="px-3 py-1 bg-white border border-black/5 rounded-full text-xs font-medium text-grey">
-                                    {tag}
-                                </span>
-                            ))}
+                        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                            <div className="rounded-2xl bg-white/75 p-4">
+                                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-teal-dark">
+                                    <CalendarDays className="h-4 w-4" aria-hidden="true" />
+                                    Inicio
+                                </div>
+                                <p className="font-semibold text-teal-dark">{startDate}</p>
+                                <p className="text-xs text-grey/70">beta privada</p>
+                            </div>
+                            <div className="rounded-2xl bg-white/75 p-4">
+                                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-teal-dark">
+                                    <MessageCircle className="h-4 w-4" aria-hidden="true" />
+                                    Formato
+                                </div>
+                                <p className="font-semibold text-teal-dark">Sin spoilers</p>
+                                <p className="text-xs text-grey/70">por checkpoints</p>
+                            </div>
+                            <div className="rounded-2xl bg-white/75 p-4">
+                                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-teal-dark">
+                                    <Users className="h-4 w-4" aria-hidden="true" />
+                                    Plazas
+                                </div>
+                                <p className="font-semibold text-teal-dark">Limitadas</p>
+                                <p className="text-xs text-grey/70">lectores fundadores</p>
+                            </div>
+                            <div className="rounded-2xl bg-white/75 p-4">
+                                <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-teal-dark">
+                                    <Sparkles className="h-4 w-4" aria-hidden="true" />
+                                    Fundadores
+                                </div>
+                                <p className="font-semibold text-teal-dark">Valor {priceLabel}</p>
+                                <p className="text-xs text-grey/70">1 club incluido</p>
+                            </div>
                         </div>
 
-                        <p className="text-sm text-grey leading-relaxed max-w-3xl">
-                            La obra maestra de Margaret Atwood nos sumerge en un futuro distópico aterradoramente plausible, donde la degradación ambiental y un golpe teocrático han transformado Estados Unidos en un régimen totalitario que esclaviza a las mujeres en nombre de la "pureza moral".<br /><br />
-                            Con una narrativa íntima y descarnada que explora los límites de la supervivencia humana. "El cuento de la criada" trasciende el tiempo para convertirse en una advertencia urgente sobre los riesgos del extremismo y la supresión de libertades.
-                        </p>
-
-                        <div className="flex items-center gap-4 text-sm text-teal font-medium">
-                            <span className="flex items-center gap-1">📅 Próxima reunión: 28 de Febrero</span>
-                            <span className="flex items-center gap-1">👤 Moderador: Ana R.</span>
-                        </div>
-
-                        {/* DNA Card (Moved here) */}
-                        <div className="bg-white/80 rounded-xl p-6 border border-teal/10 mt-6 max-w-2xl">
-                            <h4 className="text-sm font-bold text-teal uppercase tracking-wide mb-4">
-                                ADN del libro (Vista previa)
-                            </h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <ul className="space-y-3">
+                        <div className="rounded-2xl border border-teal/10 bg-white p-5">
+                            <div className="mb-4 flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em] text-teal-dark">
+                                <Sparkles className="h-4 w-4 text-coral" aria-hidden="true" />
+                                Vista previa del ADN
+                            </div>
+                            <div className="grid gap-5 md:grid-cols-[1fr_260px]">
+                                <ul className="space-y-3 text-sm">
                                     {[
-                                        { label: "Temas", val: "Poder, Identidad, Resistencia" },
-                                        { label: "Tono", val: "Inquietante, Íntimo" },
-                                        { label: "Complejidad", val: "Accesible" }
-                                    ].map((item, i) => (
-                                        <li key={i} className="flex items-start gap-3 text-sm">
-                                            <span className="w-1.5 h-1.5 rounded-full bg-coral mt-1.5 shrink-0" />
+                                        { label: "Temas", val: "Poder, identidad, resistencia" },
+                                        { label: "Tono", val: "Inquietante, íntimo" },
+                                        { label: "Complejidad", val: "Accesible" },
+                                    ].map((item) => (
+                                        <li key={item.label} className="flex items-start gap-3">
+                                            <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-coral" />
                                             <span className="text-grey">
                                                 <strong className="text-teal-dark">{item.label}:</strong> {item.val}
                                             </span>
                                         </li>
                                     ))}
                                 </ul>
-                                {/* Reading Pace Mini Viz */}
-                                <div className="bg-cream/50 rounded-lg p-4 border border-teal/5 text-center flex flex-col justify-center">
-                                    <div className="flex justify-between text-[10px] text-teal/60 mb-1 font-medium px-1">
+                                <div className="flex flex-col justify-center rounded-xl border border-teal/5 bg-cream/50 p-4 text-center">
+                                    <div className="mb-1 flex justify-between px-1 text-[10px] font-medium text-teal/60">
                                         <span>Pausado</span>
                                         <span>Frenético</span>
                                     </div>
-                                    <div className="h-2 w-full bg-teal/10 rounded-full relative overflow-hidden">
-                                        <div className="absolute top-0 left-0 h-full bg-coral w-[70%]" />
+                                    <div className="relative h-2 w-full overflow-hidden rounded-full bg-teal/10">
+                                        <div className="absolute left-0 top-0 h-full w-[68%] bg-coral" />
                                     </div>
-                                    <span className="text-[10px] text-teal font-medium uppercase tracking-wider block mt-2">
+                                    <span className="mt-2 block text-[10px] font-medium uppercase tracking-wider text-teal">
                                         Ritmo de lectura
                                     </span>
                                 </div>
                             </div>
                         </div>
-
-                        <div className="flex items-center gap-2 pt-2">
-                            <div className="flex -space-x-2">
-                                {[1, 2, 3].map(i => (
-                                    <div key={i} className="w-8 h-8 rounded-full bg-grey/20 border-2 border-offwhite" />
-                                ))}
-                            </div>
-                            <span className="text-xs text-grey font-medium pl-1">Ya hay 248 lectores</span>
-                        </div>
                     </div>
                 </div>
             </div>
 
-            {/* Actions */}
-            <div className="flex flex-col items-center gap-6">
+            <div className="mx-auto flex max-w-xl flex-col items-center gap-4">
                 <Button
                     size="lg"
-                    className="px-10 shadow-coral/20"
+                    className="w-full px-10 shadow-coral/20 sm:w-auto"
                     onClick={handleJoinClick}
                 >
-                    Unirme al club del mes
+                    {isLoggedIn ? "Ver clubs disponibles" : "Solicitar plaza en la beta"}
                 </Button>
-                <div className="flex gap-6 text-sm font-medium text-teal">
-                    <Link href="/libros/el-cuento-de-la-criada" className="hover:underline">Ver ADN completo</Link>
-                    <Link href="/libros/el-cuento-de-la-criada/guia" className="hover:underline">Ver guía de discusión</Link>
+                <div className="flex flex-col gap-3 text-center text-sm font-medium text-teal sm:flex-row sm:gap-6">
+                    <Link href="/explorar" className="hover:underline">Explorar libros</Link>
+                    <Link href="/clubes" className="hover:underline">Ver clubs públicos</Link>
                 </div>
             </div>
         </Section>

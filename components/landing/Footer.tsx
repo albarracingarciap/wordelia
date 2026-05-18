@@ -3,130 +3,132 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { Instagram, Send, Youtube } from "lucide-react";
 import { Button } from "../ui/Button";
-import { Instagram, Twitter, Facebook, Send, Youtube } from "lucide-react";
+
+const footerGroups = [
+    {
+        title: "Explorar",
+        links: [
+            { label: "Clubs públicos", href: "/clubes" },
+            { label: "Libros", href: "/explorar" },
+            { label: "Beta", href: "/register?source=footer&intent=beta" },
+            { label: "Planes", href: "#planes" },
+        ],
+    },
+    {
+        title: "Wordelia",
+        links: [
+            { label: "Para clubs", href: "/register?source=footer&intent=create-club" },
+            { label: "Librerías", href: "/contacto?source=librerias" },
+            { label: "Educación", href: "/contacto?source=educacion" },
+            { label: "Contacto", href: "/contacto" },
+        ],
+    },
+    {
+        title: "Legal",
+        links: [
+            { label: "Privacidad", href: "/privacidad" },
+            { label: "Términos", href: "/terminos" },
+            { label: "Cookies", href: "/cookies" },
+        ],
+    },
+];
 
 export function Footer() {
     const [email, setEmail] = useState("");
     const [subscribed, setSubscribed] = useState(false);
 
-    const handleSubscribe = (e: React.FormEvent) => {
-        e.preventDefault();
-        if (email) {
-            setSubscribed(true);
-            setEmail("");
-            // Here you would normally call your backend to save the email
-        }
-    };
-    return (
-        <footer id="footer" className="relative mt-0 bg-[#FFFAEF] text-grey pt-8 pb-8">
-            <div className="max-w-[1200px] mx-auto px-6 md:px-8">
+    const handleSubscribe = (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!email.trim()) return;
 
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-10 lg:gap-8 mb-12">
-                    {/* Column 1: Brand & Info */}
-                    <div className="lg:col-span-1 space-y-6">
+        setSubscribed(true);
+        setEmail("");
+    };
+
+    return (
+        <footer id="footer" className="relative bg-[#FFFAEF] pb-8 pt-12 text-grey md:pt-16">
+            <div className="mx-auto max-w-[1200px] px-6 md:px-8">
+                <div className="grid grid-cols-1 gap-8 border-t border-teal/10 pt-8 md:grid-cols-[1.2fr_2fr_1.1fr] md:gap-10 md:pt-12">
+                    <div className="space-y-5">
                         <Link href="/" className="flex items-center gap-2">
                             <div className="relative h-12 w-48">
                                 <Image
                                     src="/assets/images/logo_wordelia.png"
-                                    alt="Wordelia Logo"
+                                    alt="Wordelia"
                                     fill
                                     className="object-contain object-left"
                                 />
                             </div>
                         </Link>
-                        <p className="text-sm text-grey/80 leading-relaxed text-balance">
-                            Wordelia es el hogar de quienes buscan profundidad en cada página. Nuestra misión es potenciar la conexión humana a través de la literatura con herramientas inteligentes que transforman la lectura en una experiencia compartida inolvidable.
+                        <p className="max-w-sm text-sm leading-relaxed text-grey/80">
+                            Wordelia nace para leer sin prisa, guardar lo que te mueve y compartir libros en clubs
+                            cuidados, sin spoilers y con ritmo propio.
                         </p>
-                        <div className="flex items-center gap-4 text-teal mt-6">
-                            <a href="https://instagram.com" target="_blank" rel="noreferrer" className="hover:text-coral transition-colors" aria-label="Instagram">
-                                <Instagram className="w-5 h-5" />
+                        <div className="flex items-center gap-4 text-teal">
+                            <a href="https://instagram.com" target="_blank" rel="noreferrer" className="transition-colors hover:text-coral" aria-label="Instagram">
+                                <Instagram className="h-5 w-5" />
                             </a>
-                            <a href="https://twitter.com" target="_blank" rel="noreferrer" className="hover:text-coral transition-colors" aria-label="X">
-                                <Twitter className="w-5 h-5" />
+                            <a href="https://telegram.org" target="_blank" rel="noreferrer" className="transition-colors hover:text-coral" aria-label="Telegram">
+                                <Send className="h-5 w-5" />
                             </a>
-                            <a href="https://facebook.com" target="_blank" rel="noreferrer" className="hover:text-coral transition-colors" aria-label="Facebook">
-                                <Facebook className="w-5 h-5" />
-                            </a>
-                            <a href="https://telegram.org" target="_blank" rel="noreferrer" className="hover:text-coral transition-colors" aria-label="Telegram">
-                                <Send className="w-5 h-5" />
-                            </a>
-                            <a href="https://youtube.com" target="_blank" rel="noreferrer" className="hover:text-coral transition-colors" aria-label="Youtube">
-                                <Youtube className="w-5 h-5" />
+                            <a href="https://youtube.com" target="_blank" rel="noreferrer" className="transition-colors hover:text-coral" aria-label="Youtube">
+                                <Youtube className="h-5 w-5" />
                             </a>
                         </div>
                     </div>
 
-                    {/* Column 2: Explorar */}
-                    <div>
-                        <h4 className="font-bold text-teal text-xs uppercase tracking-wider mb-6">EXPLORAR</h4>
-                        <ul className="space-y-4 text-sm text-grey">
-                            <li><Link href="/clubes" className="hover:text-coral transition-colors">Clubs</Link></li>
-                            <li><Link href="/explorar" className="hover:text-coral transition-colors">Libros</Link></li>
-                            <li><Link href="/deseos" className="hover:text-coral transition-colors">Deseos</Link></li>
-                            <li><Link href="/app/adn" className="hover:text-coral transition-colors">ADN</Link></li>
-                        </ul>
+                    <div className="grid grid-cols-2 gap-6 sm:grid-cols-3">
+                        {footerGroups.map((group) => (
+                            <div key={group.title}>
+                                <h4 className="mb-4 text-xs font-bold uppercase tracking-[0.18em] text-teal">
+                                    {group.title}
+                                </h4>
+                                <ul className="space-y-3 text-sm text-grey">
+                                    {group.links.map((link) => (
+                                        <li key={link.href}>
+                                            <Link href={link.href} className="transition-colors hover:text-coral">
+                                                {link.label}
+                                            </Link>
+                                        </li>
+                                    ))}
+                                </ul>
+                            </div>
+                        ))}
                     </div>
 
-                    {/* Column 3: Empresa */}
-                    <div>
-                        <h4 className="font-bold text-teal text-xs uppercase tracking-wider mb-6">EMPRESA</h4>
-                        <ul className="space-y-4 text-sm text-grey">
-                            <li><Link href="/librerias" className="hover:text-coral transition-colors">Librerías</Link></li>
-                            <li><Link href="/educacion" className="hover:text-coral transition-colors">Educación</Link></li>
-                            <li><Link href="/planes" className="hover:text-coral transition-colors">Planes</Link></li>
-                            <li><Link href="/nosotros" className="hover:text-coral transition-colors">Sobre nosotros</Link></li>
-                            <li><Link href="/contacto" className="hover:text-coral transition-colors">Contacto</Link></li>
-                            <li><Link href="/ayuda" className="hover:text-coral transition-colors">Ayuda</Link></li>
-                        </ul>
-                    </div>
-
-                    {/* Column 4: Legal */}
-                    <div>
-                        <h4 className="font-bold text-teal text-xs uppercase tracking-wider mb-6">LEGAL</h4>
-                        <ul className="space-y-4 text-sm text-grey">
-                            <li><Link href="/privacidad" className="hover:text-coral transition-colors">Privacidad</Link></li>
-                            <li><Link href="/terminos" className="hover:text-coral transition-colors">Términos y condiciones</Link></li>
-                            <li><Link href="/cockies" className="hover:text-coral transition-colors">Cockies</Link></li>
-                        </ul>
-                    </div>
-
-                    {/* Column 5: Newsletter */}
-                    <div className="lg:col-span-1">
-                        <h4 className="font-bold text-teal text-xs uppercase tracking-wider mb-6">NEWSLETTER</h4>
-                        <p className="text-sm text-grey mb-4">
-                            Recibe inspiración literaria cada semana.
+                    <div className="rounded-3xl border border-teal/10 bg-white/70 p-5 shadow-sm">
+                        <h4 className="text-xs font-bold uppercase tracking-[0.18em] text-teal">Acceso anticipado</h4>
+                        <p className="mt-3 text-sm leading-relaxed text-grey/80">
+                            Recibe novedades de la beta y aviso cuando se abran nuevas plazas fundadoras.
                         </p>
                         {subscribed ? (
-                            <div className="bg-teal/10 text-teal-dark px-4 py-3 rounded-lg text-sm font-medium border border-teal/20 text-center">
-                                ¡Gracias por suscribirte!
+                            <div className="mt-4 rounded-2xl border border-teal/20 bg-teal/10 px-4 py-3 text-center text-sm font-medium text-teal-dark">
+                                Te avisaremos cuando haya novedades.
                             </div>
                         ) : (
-                            <form onSubmit={handleSubscribe} className="space-y-3">
+                            <form onSubmit={handleSubscribe} className="mt-4 space-y-3">
                                 <input
                                     type="email"
                                     required
                                     value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    placeholder="Email"
-                                    className="w-full px-4 py-2.5 rounded-lg border border-teal/10 bg-white text-sm focus:outline-none focus:border-teal/30 focus:ring-1 focus:ring-teal/30 transition-all placeholder:text-grey/40"
+                                    onChange={(event) => setEmail(event.target.value)}
+                                    placeholder="tu@email.com"
+                                    className="w-full rounded-2xl border border-teal/10 bg-white px-4 py-3 text-sm transition-all placeholder:text-grey/40 focus:border-teal/30 focus:outline-none focus:ring-2 focus:ring-teal/10"
                                 />
-                                <Button type="submit" className="w-full justify-center bg-[#D56962] hover:bg-[#C25852] text-white shadow-none font-medium">
-                                    Suscribirme
+                                <Button type="submit" className="w-full justify-center">
+                                    Avisarme
                                 </Button>
                             </form>
                         )}
                     </div>
                 </div>
 
-                {/* Bottom Row */}
-                <div className="flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] md:text-xs text-grey/60 pt-8 border-t border-teal/10">
-                    <p>© 2025 Wordelia. Todos los derechos reservados.</p>
-                    <p className="flex items-center gap-1">
-                        Hecho con <span className="text-coral">❤</span> por lectores para lectores.
-                    </p>
+                <div className="mt-8 flex flex-col gap-3 border-t border-teal/10 pt-6 text-xs text-grey/60 md:flex-row md:items-center md:justify-between">
+                    <p>© 2026 Wordelia. Todos los derechos reservados.</p>
+                    <p>Hecho con calma por lectores para lectores.</p>
                 </div>
-
             </div>
         </footer>
     );

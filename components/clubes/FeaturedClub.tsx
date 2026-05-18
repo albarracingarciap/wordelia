@@ -12,6 +12,28 @@ interface FeaturedClubProps {
     onViewDetails: () => void;
 }
 
+function formatStartDate(value?: string | null) {
+    if (!value) return "Próximamente";
+
+    const [datePart] = value.split("T");
+    const [year, month, day] = datePart.split("-").map(Number);
+    if (!year || !month || !day) return "Próximamente";
+
+    return new Intl.DateTimeFormat("es-ES", {
+        day: "numeric",
+        month: "short",
+    }).format(new Date(year, month - 1, day));
+}
+
+function formatPrice(value?: number | null, currency = "EUR") {
+    const cents = typeof value === "number" ? value : 990;
+
+    return new Intl.NumberFormat("es-ES", {
+        style: "currency",
+        currency,
+    }).format(cents / 100);
+}
+
 export function FeaturedClub({ club, onViewDetails }: FeaturedClubProps) {
     const bookData = club.book_data;
 
@@ -71,11 +93,15 @@ export function FeaturedClub({ club, onViewDetails }: FeaturedClubProps) {
                         <div className="flex flex-wrap gap-3 mb-6">
                             <div className="flex items-center gap-2 bg-coral/10 text-coral rounded-lg px-3 py-2 border border-coral/20">
                                 <Calendar className="w-4 h-4" />
-                                <span className="text-sm font-semibold">15 marzo 2026</span>
+                                <span className="text-sm font-semibold">{formatStartDate(club.start_date)}</span>
                             </div>
                             <div className="flex items-center gap-2 bg-teal/10 text-teal rounded-lg px-3 py-2 border border-teal/20">
                                 <Users className="w-4 h-4" />
                                 <span className="text-sm font-semibold">Club Oficial</span>
+                            </div>
+                            <div className="flex items-center gap-2 bg-coral/10 text-coral rounded-lg px-3 py-2 border border-coral/20">
+                                <Sparkles className="w-4 h-4" />
+                                <span className="text-sm font-semibold">Valor {formatPrice(club.price_cents, club.currency || "EUR")}</span>
                             </div>
                         </div>
 

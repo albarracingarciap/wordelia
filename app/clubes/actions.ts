@@ -15,6 +15,8 @@ export interface OfficialClub {
     theme_icon: string;
     is_featured: boolean;
     display_order: number;
+    price_cents?: number | null;
+    currency?: string | null;
 }
 
 /**

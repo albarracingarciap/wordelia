@@ -204,12 +204,43 @@ export async function joinClub(clubId: string) {
 
     if (!user) return { error: "Debes iniciar sesión" };
 
+    const { data: club } = await supabase
+        .from('clubs')
+        .select('is_official, price, currency')
+        .eq('id', clubId)
+        .maybeSingle();
+
+    if (club?.is_official) {
+        const { error: redeemError } = await supabase.rpc('redeem_founder_free_official_club', {
+            target_club_id: clubId,
+        });
+
+        if (!redeemError) {
+            revalidatePath('/app/clubs');
+            revalidatePath(`/app/clubs/${clubId}`);
+            return { success: true };
+        }
+
+        const isFounderBenefitError = redeemError.message?.includes('fundador')
+            || redeemError.message?.includes('beneficio')
+            || redeemError.message?.includes('gratuito');
+
+        if (!isFounderBenefitError) {
+            console.error("Error redeeming founder club benefit:", redeemError);
+            return { error: redeemError.message || "No se pudo aplicar el beneficio fundador" };
+        }
+    }
+
     const { error } = await supabase
         .from('club_members')
         .insert({
             club_id: clubId,
             user_id: user.id,
-            role: 'member'
+            role: 'member',
+            join_source: club?.is_official ? 'standard_official' : 'standard',
+            price_paid_cents: club?.is_official && typeof club.price === 'number'
+                ? Math.round(club.price * 100)
+                : null,
         });
 
     if (error) {
