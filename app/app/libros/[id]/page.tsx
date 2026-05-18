@@ -13,6 +13,7 @@ import { ArrowLeft, BookOpen, Calendar, Star, Check, Plus, BookCopy, MessageSqua
 import { addBookToLibrary } from "@/app/app/search/actions";
 import { ReviewModal } from "@/components/reviews/ReviewModal";
 import { ReviewsListModal } from "@/components/reviews/ReviewsListModal";
+import { BookReviewsSection } from "@/components/reviews/BookReviewsSection";
 
 function BookHelper() {
     const params = useParams();
@@ -33,6 +34,7 @@ function BookHelper() {
     const [isAdded, setIsAdded] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
     const [isReviewOpen, setIsReviewOpen] = useState(false);
+    const [reviewsRefreshKey, setReviewsRefreshKey] = useState(0);
 
     useEffect(() => {
         async function fetchBook() {
@@ -304,18 +306,6 @@ function BookHelper() {
                             )}
                         </div>
 
-                        {/* Community Reviews Link */}
-                        {/* Show always, even if not in DB (will show empty state) */}
-                        <div className="mb-10 text-center md:text-left">
-                            <button
-                                onClick={() => setIsReviewsListOpen(true)}
-                                className="text-teal hover:text-teal-dark underline underline-offset-4 text-sm font-medium"
-                            >
-                                Ver reseñas de la comunidad
-                            </button>
-                        </div>
-
-
                         {/* Synopsis */}
                         <div className="prose prose-teal max-w-none text-left">
                             <h3 className="font-serif text-xl border-b border-teal/10 pb-2 mb-4">Sinopsis</h3>
@@ -349,6 +339,15 @@ function BookHelper() {
                             </div>
                         )}
 
+                        <BookReviewsSection
+                            bookId={dbBookId}
+                            canReview={!!canReview}
+                            reviewButtonLabel={reviewButtonLabel}
+                            refreshKey={reviewsRefreshKey}
+                            onOpenReview={() => setIsReviewOpen(true)}
+                            onOpenAll={() => setIsReviewsListOpen(true)}
+                        />
+
                     </div>
                 </div>
 
@@ -367,7 +366,7 @@ function BookHelper() {
                         bookId={dbBookId}
                         bookTitle={book.title}
                         status={userStatus || ''}
-                        onSuccess={() => { }} // Could refresh reviews list if open?
+                        onSuccess={() => setReviewsRefreshKey((current) => current + 1)}
                     />
                 )}
             </div>

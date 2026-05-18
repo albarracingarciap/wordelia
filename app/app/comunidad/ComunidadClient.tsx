@@ -1,9 +1,12 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import Image from "next/image";
 import { Card } from "@/components/ui/Card";
-import { User, MessageSquare, Star, BookOpen, Quote, Heart } from "lucide-react";
+import { MessageSquare, Star, BookOpen, Quote, Heart } from "lucide-react";
 import { getGlobalActivityFeed, toggleActivityLike, ActivityFeedItem } from "@/components/dashboard/actions";
+import { getHelpfulCommunityReviews, getRecentCommunityReviews, type ReviewWithBook } from "@/app/app/mi-lectura/actions";
+import { ReviewCard } from "@/components/reviews/ReviewCard";
 import Link from "next/link";
 
 const ICONS = {
@@ -26,18 +29,27 @@ const COLORS = {
 
 export function ComunidadClient() {
     const [feedItems, setFeedItems] = useState<ActivityFeedItem[]>([]);
+    const [recentReviews, setRecentReviews] = useState<ReviewWithBook[]>([]);
+    const [helpfulReviews, setHelpfulReviews] = useState<ReviewWithBook[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingReviews, setIsLoadingReviews] = useState(true);
 
     useEffect(() => {
         const loadFeed = async () => {
             try {
-                // Fetch more items for the dedicated page
-                const items = await getGlobalActivityFeed(30);
+                const [items, reviews, helpful] = await Promise.all([
+                    getGlobalActivityFeed(30),
+                    getRecentCommunityReviews(4),
+                    getHelpfulCommunityReviews(4),
+                ]);
                 setFeedItems(items);
+                setRecentReviews(reviews);
+                setHelpfulReviews(helpful);
             } catch (error) {
                 console.error("Failed to load activity feed:", error);
             } finally {
                 setIsLoading(false);
+                setIsLoadingReviews(false);
             }
         };
 
@@ -79,11 +91,70 @@ export function ComunidadClient() {
     };
 
     return (
-        <main className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8 animate-fade-in">
+        <main className="mx-auto max-w-5xl px-4 py-8 animate-fade-in sm:px-6 lg:px-8">
             <div className="mb-8">
                 <h1 className="text-3xl font-serif text-teal-dark mb-2 tracking-tight">Comunidad Wordelia</h1>
                 <p className="text-grey/80">Descubre qué están leyendo, opinando y guardando otros lectores.</p>
             </div>
+
+            <section className="mb-8">
+                <div className="mb-3 flex items-center justify-between gap-4">
+                    <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-grey/45">Reviews</p>
+                        <h2 className="font-serif text-2xl text-teal-dark">Opiniones recientes</h2>
+                    </div>
+                    <Link href="/app/explorar" className="text-sm font-bold text-teal transition hover:text-teal-dark">
+                        Explorar libros
+                    </Link>
+                </div>
+
+                {isLoadingReviews ? (
+                    <div className="grid gap-3 md:grid-cols-2">
+                        {[1, 2].map((item) => (
+                            <div key={item} className="h-56 animate-pulse rounded-2xl bg-white" />
+                        ))}
+                    </div>
+                ) : recentReviews.length > 0 ? (
+                    <div className="grid gap-3 md:grid-cols-2">
+                        {recentReviews.map((review) => (
+                            <ReviewCard key={review.id} review={review} showBook compact />
+                        ))}
+                    </div>
+                ) : (
+                    <Card className="border-dashed border-teal/15 bg-white/60 p-6 text-center">
+                        <Star className="mx-auto h-10 w-10 text-teal/20" />
+                        <p className="mt-3 text-sm font-medium text-grey/60">Aun no hay reviews recientes.</p>
+                    </Card>
+                )}
+            </section>
+
+            <section className="mb-8">
+                <div className="mb-3 flex items-center justify-between gap-4">
+                    <div>
+                        <p className="text-xs font-bold uppercase tracking-[0.16em] text-grey/45">Reputacion</p>
+                        <h2 className="font-serif text-2xl text-teal-dark">Reviews utiles para decidir</h2>
+                    </div>
+                </div>
+
+                {isLoadingReviews ? (
+                    <div className="grid gap-3 md:grid-cols-2">
+                        {[1, 2].map((item) => (
+                            <div key={item} className="h-56 animate-pulse rounded-2xl bg-white" />
+                        ))}
+                    </div>
+                ) : helpfulReviews.length > 0 ? (
+                    <div className="grid gap-3 md:grid-cols-2">
+                        {helpfulReviews.map((review) => (
+                            <ReviewCard key={`helpful-${review.id}`} review={review} showBook compact />
+                        ))}
+                    </div>
+                ) : (
+                    <Card className="border-dashed border-teal/15 bg-white/60 p-6 text-center">
+                        <Star className="mx-auto h-10 w-10 text-teal/20" />
+                        <p className="mt-3 text-sm font-medium text-grey/60">Marca reviews como utiles y apareceran aqui.</p>
+                    </Card>
+                )}
+            </section>
 
             <Card className="p-0 overflow-hidden shadow-sm">
                 {isLoading ? (
@@ -119,7 +190,7 @@ export function ComunidadClient() {
                                         {/* Avatar/Icon Logic */}
                                         <div className="relative shrink-0 mt-1">
                                             {item.user.avatar ? (
-                                                <img src={item.user.avatar} alt="" className="w-11 h-11 rounded-full object-cover border-2 border-white shadow-sm" />
+                                                <Image src={item.user.avatar} alt="" width={44} height={44} className="h-11 w-11 rounded-full border-2 border-white object-cover shadow-sm" />
                                             ) : (
                                                 <div className="w-11 h-11 rounded-full bg-cream flex items-center justify-center border-2 border-white shadow-sm">
                                                     <span className="text-teal-dark text-lg font-serif font-medium">

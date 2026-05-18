@@ -388,6 +388,7 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                                 isAdminOrMod={isAdmin}
                                 checkpoints={club.currentBook?.checkpoints || []}
                                 currentBookId={club.currentBook?.book?.id}
+                                currentClubBookId={club.currentBook?.id}
                                 targetCheckpointNumber={conversationCheckpointNumber}
                             />
                         </TabsContent>

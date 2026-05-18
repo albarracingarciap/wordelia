@@ -4,6 +4,18 @@ import { createClient } from '@/utils/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 
+const CLUB_VOICE_BUCKET = 'club-voice-messages';
+const CLUB_VOICE_MAX_BYTES = 20 * 1024 * 1024;
+const CLUB_VOICE_MAX_SECONDS = 5 * 60;
+const CLUB_VOICE_ALLOWED_TYPES = new Set([
+    'audio/webm',
+    'audio/mp4',
+    'audio/mpeg',
+    'audio/ogg',
+    'audio/wav',
+    'audio/x-m4a',
+]);
+
 function getAdminClient() {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -820,6 +832,7 @@ export async function getClubPosts(clubId: string, limit = 20) {
     return posts.map((post: any) => ({
         id: post.id,
         content: post.content,
+        createdAt: post.created_at,
         date: new Date(post.created_at).toLocaleDateString(),
         author: {
             name: post.author?.full_name || "Usuario",
@@ -836,6 +849,319 @@ export async function getClubPosts(clubId: string, limit = 20) {
         currentUserId: user?.id,
         isAuthor: user?.id === post.user_id
     }));
+}
+
+function getAudioExtension(mimeType: string) {
+    if (mimeType === 'audio/mpeg') return 'mp3';
+    if (mimeType === 'audio/mp4' || mimeType === 'audio/x-m4a') return 'm4a';
+    if (mimeType === 'audio/ogg') return 'ogg';
+    if (mimeType === 'audio/wav') return 'wav';
+    return 'webm';
+}
+
+async function assertClubMember(supabase: Awaited<ReturnType<typeof createClient>>, clubId: string, userId: string) {
+    const { data } = await supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('user_id', userId)
+        .neq('role', 'pending')
+        .maybeSingle();
+
+    if (!data) throw new Error('No perteneces a este club');
+    return data.role;
+}
+
+type ClubVoiceMessageRow = {
+    id: string;
+    club_id: string;
+    club_book_id?: string | null;
+    user_id: string;
+    checkpoint_index?: number | null;
+    title?: string | null;
+    audio_path?: string | null;
+    duration_seconds?: number | null;
+    mime_type: string;
+    file_size_bytes?: number | null;
+    transcript_status?: string | null;
+    is_pinned?: boolean | null;
+    created_at: string;
+    author?: {
+        full_name?: string | null;
+        avatar_url?: string | null;
+    } | null;
+};
+
+function getErrorMessage(error: unknown, fallback: string) {
+    return error instanceof Error ? error.message : fallback;
+}
+
+export async function getClubVoiceMessages(clubId: string, limit = 20) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return [];
+
+    try {
+        await assertClubMember(supabase, clubId, user.id);
+
+        const { data, error } = await supabase
+            .from('club_voice_messages')
+            .select(`
+                id,
+                club_id,
+                club_book_id,
+                user_id,
+                checkpoint_index,
+                title,
+                audio_path,
+                duration_seconds,
+                mime_type,
+                file_size_bytes,
+                transcript_status,
+                is_pinned,
+                created_at,
+                author:profiles!user_id(full_name, avatar_url)
+            `)
+            .eq('club_id', clubId)
+            .eq('upload_status', 'ready')
+            .eq('is_archived', false)
+            .order('is_pinned', { ascending: false })
+            .order('created_at', { ascending: false })
+            .limit(limit);
+
+        if (error) {
+            if (error.code === '42P01' || error.code === 'PGRST205') return [];
+            console.error('Error fetching voice messages:', error);
+            return [];
+        }
+
+        const rows = (data || []) as ClubVoiceMessageRow[];
+        const withPlaybackUrls = await Promise.all(rows.map(async (message) => {
+            let playbackUrl: string | null = null;
+
+            if (message.audio_path) {
+                const { data: signed } = await supabase
+                    .storage
+                    .from(CLUB_VOICE_BUCKET)
+                    .createSignedUrl(message.audio_path, 60 * 10);
+                playbackUrl = signed?.signedUrl || null;
+            }
+
+            return {
+                id: message.id,
+                clubId: message.club_id,
+                clubBookId: message.club_book_id,
+                userId: message.user_id,
+                checkpointIndex: message.checkpoint_index,
+                title: message.title,
+                audioPath: message.audio_path,
+                playbackUrl,
+                durationSeconds: message.duration_seconds,
+                mimeType: message.mime_type,
+                fileSizeBytes: message.file_size_bytes,
+                transcriptStatus: message.transcript_status,
+                isPinned: message.is_pinned,
+                createdAt: message.created_at,
+                date: new Date(message.created_at).toLocaleDateString(),
+                author: {
+                    name: message.author?.full_name || 'Moderador',
+                    avatar: message.author?.avatar_url,
+                },
+                isAuthor: user.id === message.user_id,
+            };
+        }));
+
+        return withPlaybackUrls;
+    } catch (error: unknown) {
+        console.error('Error loading voice messages:', error);
+        return [];
+    }
+}
+
+export async function createClubVoiceMessage(clubId: string, formData: FormData) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'Debes iniciar sesión' };
+
+    try {
+        await assertAdminOrMod(supabase, clubId, user.id);
+
+        const audio = formData.get('audio');
+        if (!(audio instanceof File)) return { error: 'Añade una grabación de audio' };
+
+        const mimeType = audio.type || 'audio/webm';
+        if (!CLUB_VOICE_ALLOWED_TYPES.has(mimeType)) {
+            return { error: 'Formato de audio no admitido' };
+        }
+
+        if (audio.size <= 0) return { error: 'El archivo de audio está vacío' };
+        if (audio.size > CLUB_VOICE_MAX_BYTES) return { error: 'El audio no puede superar 20 MB' };
+
+        const durationSecondsRaw = Number(formData.get('durationSeconds') || 0);
+        const durationSeconds = Number.isFinite(durationSecondsRaw) && durationSecondsRaw > 0
+            ? Math.round(durationSecondsRaw)
+            : null;
+
+        if (durationSeconds && durationSeconds > CLUB_VOICE_MAX_SECONDS) {
+            return { error: 'El audio no puede superar 5 minutos' };
+        }
+
+        const title = String(formData.get('title') || '').trim().slice(0, 120) || null;
+        const checkpointRaw = formData.get('checkpointIndex');
+        const checkpointIndex = checkpointRaw ? Number(checkpointRaw) : null;
+        const clubBookId = String(formData.get('clubBookId') || '').trim() || null;
+        const messageId = crypto.randomUUID();
+        const extension = getAudioExtension(mimeType);
+        const audioPath = `${clubId}/${messageId}/audio.${extension}`;
+
+        const { error: insertError } = await supabase
+            .from('club_voice_messages')
+            .insert({
+                id: messageId,
+                club_id: clubId,
+                club_book_id: clubBookId,
+                user_id: user.id,
+                checkpoint_index: Number.isFinite(checkpointIndex) ? checkpointIndex : null,
+                title,
+                mime_type: mimeType,
+                file_size_bytes: audio.size,
+                duration_seconds: durationSeconds,
+                upload_status: 'pending',
+                transcript_status: 'none',
+            });
+
+        if (insertError) throw insertError;
+
+        const { error: uploadError } = await supabase
+            .storage
+            .from(CLUB_VOICE_BUCKET)
+            .upload(audioPath, audio, {
+                contentType: mimeType,
+                upsert: false,
+            });
+
+        if (uploadError) {
+            await supabase
+                .from('club_voice_messages')
+                .update({ upload_status: 'failed', updated_at: new Date().toISOString() })
+                .eq('id', messageId)
+                .eq('club_id', clubId);
+            return { error: uploadError.message };
+        }
+
+        const { error: updateError } = await supabase
+            .from('club_voice_messages')
+            .update({
+                audio_path: audioPath,
+                upload_status: 'ready',
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', messageId)
+            .eq('club_id', clubId);
+
+        if (updateError) throw updateError;
+
+        revalidatePath(`/app/clubs/${clubId}`);
+        return { success: true, id: messageId };
+    } catch (error: unknown) {
+        console.error('Error creating club voice message:', error);
+        return { error: getErrorMessage(error, 'No se pudo publicar el audio') };
+    }
+}
+
+export async function getClubVoiceMessagePlaybackUrl(messageId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'No autenticado' };
+
+    const { data: message, error } = await supabase
+        .from('club_voice_messages')
+        .select('club_id, audio_path')
+        .eq('id', messageId)
+        .eq('upload_status', 'ready')
+        .eq('is_archived', false)
+        .maybeSingle();
+
+    if (error) return { error: error.message };
+    if (!message?.audio_path) return { error: 'Audio no encontrado' };
+
+    try {
+        await assertClubMember(supabase, message.club_id, user.id);
+
+        const { data, error: signedUrlError } = await supabase
+            .storage
+            .from(CLUB_VOICE_BUCKET)
+            .createSignedUrl(message.audio_path, 60 * 10);
+
+        if (signedUrlError) return { error: signedUrlError.message };
+        return { url: data?.signedUrl || null };
+    } catch (error: unknown) {
+        return { error: getErrorMessage(error, 'Sin permisos') };
+    }
+}
+
+export async function pinClubVoiceMessage(messageId: string, isPinned: boolean) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'No autenticado' };
+
+    const { data: message } = await supabase
+        .from('club_voice_messages')
+        .select('club_id')
+        .eq('id', messageId)
+        .maybeSingle();
+
+    if (!message) return { error: 'Audio no encontrado' };
+
+    try {
+        await assertAdminOrMod(supabase, message.club_id, user.id);
+
+        const { error } = await supabase
+            .from('club_voice_messages')
+            .update({ is_pinned: isPinned, updated_at: new Date().toISOString() })
+            .eq('id', messageId);
+
+        if (error) return { error: error.message };
+        revalidatePath(`/app/clubs/${message.club_id}`);
+        return { success: true };
+    } catch (error: unknown) {
+        return { error: getErrorMessage(error, 'Sin permisos') };
+    }
+}
+
+export async function deleteClubVoiceMessage(messageId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: 'No autenticado' };
+
+    const { data: message } = await supabase
+        .from('club_voice_messages')
+        .select('club_id, audio_path')
+        .eq('id', messageId)
+        .maybeSingle();
+
+    if (!message) return { error: 'Audio no encontrado' };
+
+    try {
+        await assertAdminOrMod(supabase, message.club_id, user.id);
+
+        const { error } = await supabase
+            .from('club_voice_messages')
+            .update({ is_archived: true, updated_at: new Date().toISOString() })
+            .eq('id', messageId);
+
+        if (error) return { error: error.message };
+
+        revalidatePath(`/app/clubs/${message.club_id}`);
+        return { success: true };
+    } catch (error: unknown) {
+        return { error: getErrorMessage(error, 'Sin permisos') };
+    }
 }
 
 export async function getMyClubBookProgress(bookId?: string | null) {
@@ -1247,7 +1573,15 @@ export async function getClubBookCollectiveReview(clubId: string, clubBookId: st
     const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
-        return { reviews: [], myReview: null, averageRating: 0, totalReviews: 0 };
+        return {
+            reviews: [],
+            myReview: null,
+            averageRating: 0,
+            totalReviews: 0,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+            consensus: null,
+            highlights: [],
+        };
     }
 
     const { data: reviews, error } = await supabase
@@ -1267,7 +1601,15 @@ export async function getClubBookCollectiveReview(clubId: string, clubBookId: st
 
     if (error) {
         console.error("Error fetching club collective review:", error);
-        return { reviews: [], myReview: null, averageRating: 0, totalReviews: 0 };
+        return {
+            reviews: [],
+            myReview: null,
+            averageRating: 0,
+            totalReviews: 0,
+            ratingDistribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+            consensus: null,
+            highlights: [],
+        };
     }
 
     const formatted = (reviews || []).map((review: any) => ({
@@ -1287,12 +1629,30 @@ export async function getClubBookCollectiveReview(clubId: string, clubBookId: st
     const averageRating = totalReviews > 0
         ? Math.round((formatted.reduce((sum, review) => sum + review.rating, 0) / totalReviews) * 10) / 10
         : 0;
+    const ratingDistribution = formatted.reduce((acc, review) => {
+        const rating = Math.max(1, Math.min(5, Math.round(review.rating))) as 1 | 2 | 3 | 4 | 5;
+        acc[rating] += 1;
+        return acc;
+    }, { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<1 | 2 | 3 | 4 | 5, number>);
+    const highlights = formatted
+        .map((review) => review.highlight)
+        .filter((highlight): highlight is string => Boolean(highlight?.trim()))
+        .slice(0, 4);
+    const consensus = formatted.length
+        ? formatted
+            .map((review) => review.conclusion)
+            .filter((conclusion): conclusion is string => Boolean(conclusion?.trim()))
+            .sort((a, b) => b.length - a.length)[0] || null
+        : null;
 
     return {
         reviews: formatted,
         myReview: formatted.find((review) => review.isMine) || null,
         averageRating,
         totalReviews,
+        ratingDistribution,
+        consensus,
+        highlights,
     };
 }
 

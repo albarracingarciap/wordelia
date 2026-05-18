@@ -74,6 +74,40 @@ export interface Review {
     type: 'STANDARD' | 'FIRST_IMPRESSIONS';
     date: string;
     isMyReview?: boolean;
+    containsSpoilers?: boolean;
+    emotionalTone?: string | null;
+    pace?: string | null;
+    recommendedFor?: string | null;
+    tags?: string[];
+    helpfulCount?: number;
+    isHelpfulByMe?: boolean;
+}
+
+export interface ReviewQualityPayload {
+    containsSpoilers?: boolean;
+    emotionalTone?: string | null;
+    pace?: string | null;
+    recommendedFor?: string | null;
+    tags?: string[];
+}
+
+export interface ReviewWithBook extends Review {
+    book: {
+        id: string;
+        title: string;
+        coverUrl: string | null;
+        author: string | null;
+    };
+}
+
+export interface BookReviewOverview {
+    averageRating: number;
+    totalReviews: number;
+    finalReviewsCount: number;
+    firstImpressionsCount: number;
+    distribution: Record<1 | 2 | 3 | 4 | 5, number>;
+    featuredReviews: Review[];
+    firstImpressions: Review[];
 }
 
 export interface RecommendedBook {
@@ -1099,7 +1133,8 @@ export async function saveReview(
     bookId: string,
     rating: number,
     content: string,
-    type: 'STANDARD' | 'FIRST_IMPRESSIONS'
+    type: 'STANDARD' | 'FIRST_IMPRESSIONS',
+    quality: ReviewQualityPayload = {}
 ) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -1113,6 +1148,14 @@ export async function saveReview(
             rating,
             content,
             type,
+            contains_spoilers: Boolean(quality.containsSpoilers),
+            emotional_tone: quality.emotionalTone || null,
+            pace: quality.pace || null,
+            recommended_for: quality.recommendedFor?.trim() || null,
+            tags: (quality.tags || [])
+                .map((tag) => tag.trim().toLowerCase())
+                .filter(Boolean)
+                .slice(0, 6),
             updated_at: new Date().toISOString()
         }, { onConflict: 'user_id, book_id' });
 
@@ -1137,7 +1180,13 @@ export async function saveReview(
             activity_type: 'review',
             content: activityContent,
             subtext: content.length > 150 ? content.substring(0, 150) + '...' : content,
-            metadata: { book_id: bookId, rating, type }
+            metadata: {
+                book_id: bookId,
+                rating,
+                type,
+                emotional_tone: quality.emotionalTone || null,
+                pace: quality.pace || null,
+            }
         });
     } catch (activityError) {
         console.error("Error inserting activity:", activityError);
@@ -1190,10 +1239,348 @@ export async function getBookReviews(bookId: string, page = 1, limit = 5): Promi
         content: r.content,
         type: r.type,
         date: new Date(r.created_at).toLocaleDateString(),
-        isMyReview: user ? r.user_id === user.id : false
+        isMyReview: user ? r.user_id === user.id : false,
+        containsSpoilers: Boolean(r.contains_spoilers),
+        emotionalTone: r.emotional_tone || null,
+        pace: r.pace || null,
+        recommendedFor: r.recommended_for || null,
+        tags: r.tags || [],
     }));
 
-    return { reviews: formattedReviews, total: count || 0 };
+    return {
+        reviews: await enrichReviewsWithHelpfulState(formattedReviews, user?.id),
+        total: count || 0,
+    };
+}
+
+type ReviewProfileRow = {
+    full_name?: string | null;
+    avatar_url?: string | null;
+    username?: string | null;
+};
+
+type ReviewBookRow = {
+    id: string;
+    title: string;
+    cover_url?: string | null;
+    authors?: { name?: string | null } | Array<{ name?: string | null }> | null;
+};
+
+type ReviewRow = {
+    id: string;
+    book_id: string;
+    user_id: string;
+    rating: number;
+    content: string | null;
+    type: 'STANDARD' | 'FIRST_IMPRESSIONS';
+    contains_spoilers?: boolean | null;
+    emotional_tone?: string | null;
+    pace?: string | null;
+    recommended_for?: string | null;
+    tags?: string[] | null;
+    created_at: string;
+    profiles?: ReviewProfileRow | ReviewProfileRow[] | null;
+    books?: ReviewBookRow | ReviewBookRow[] | null;
+};
+
+function firstRelation<T>(value: T | T[] | null | undefined): T | null {
+    if (Array.isArray(value)) return value[0] || null;
+    return value || null;
+}
+
+function formatReview(row: ReviewRow, currentUserId?: string | null): Review {
+    const profile = firstRelation(row.profiles);
+
+    return {
+        id: row.id,
+        bookId: row.book_id,
+        userId: row.user_id,
+        user: {
+            name: profile?.full_name || profile?.username || "Usuario",
+            avatarUrl: profile?.avatar_url || null,
+        },
+        rating: row.rating,
+        content: row.content || "",
+        type: row.type,
+        date: new Date(row.created_at).toLocaleDateString(),
+        isMyReview: currentUserId ? row.user_id === currentUserId : false,
+        containsSpoilers: Boolean(row.contains_spoilers),
+        emotionalTone: row.emotional_tone || null,
+        pace: row.pace || null,
+        recommendedFor: row.recommended_for || null,
+        tags: row.tags || [],
+        helpfulCount: 0,
+        isHelpfulByMe: false,
+    };
+}
+
+async function enrichReviewsWithHelpfulState(reviews: Review[], currentUserId?: string | null): Promise<Review[]> {
+    if (reviews.length === 0) return reviews;
+
+    const supabase = await createClient();
+    const reviewIds = reviews.map((review) => review.id);
+    const { data, error } = await supabase
+        .from("review_reactions")
+        .select("review_id, user_id")
+        .in("review_id", reviewIds)
+        .eq("reaction_type", "helpful");
+
+    if (error || !data) return reviews;
+
+    const counts = new Map<string, number>();
+    const mine = new Set<string>();
+
+    data.forEach((reaction) => {
+        counts.set(reaction.review_id, (counts.get(reaction.review_id) || 0) + 1);
+        if (currentUserId && reaction.user_id === currentUserId) mine.add(reaction.review_id);
+    });
+
+    return reviews.map((review) => ({
+        ...review,
+        helpfulCount: counts.get(review.id) || 0,
+        isHelpfulByMe: mine.has(review.id),
+    }));
+}
+
+export async function getBookReviewOverview(bookId: string): Promise<BookReviewOverview> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const empty: BookReviewOverview = {
+        averageRating: 0,
+        totalReviews: 0,
+        finalReviewsCount: 0,
+        firstImpressionsCount: 0,
+        distribution: { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 },
+        featuredReviews: [],
+        firstImpressions: [],
+    };
+
+    const { data, error } = await supabase
+        .from("reviews")
+        .select(`
+            id,
+            book_id,
+            user_id,
+            rating,
+            content,
+            type,
+            contains_spoilers,
+            emotional_tone,
+            pace,
+            recommended_for,
+            tags,
+            created_at,
+            profiles (full_name, avatar_url, username)
+        `)
+        .eq("book_id", bookId)
+        .order("created_at", { ascending: false })
+        .limit(60);
+
+    if (error || !data) {
+        if (error) console.error("Error fetching review overview:", error);
+        return empty;
+    }
+
+    const rows = data as ReviewRow[];
+    const distribution = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 } as Record<1 | 2 | 3 | 4 | 5, number>;
+    let ratingSum = 0;
+
+    rows.forEach((row) => {
+        if (row.rating >= 1 && row.rating <= 5) {
+            distribution[row.rating as 1 | 2 | 3 | 4 | 5] += 1;
+            ratingSum += row.rating;
+        }
+    });
+
+    const finalRows = rows.filter((row) => row.type !== "FIRST_IMPRESSIONS");
+    const firstRows = rows.filter((row) => row.type === "FIRST_IMPRESSIONS");
+    const totalReviews = rows.length;
+
+    const featuredReviews = await enrichReviewsWithHelpfulState(
+        finalRows.slice(0, 3).map((row) => formatReview(row, user?.id)),
+        user?.id
+    );
+    const firstImpressions = await enrichReviewsWithHelpfulState(
+        firstRows.slice(0, 2).map((row) => formatReview(row, user?.id)),
+        user?.id
+    );
+
+    return {
+        averageRating: totalReviews ? Math.round((ratingSum / totalReviews) * 10) / 10 : 0,
+        totalReviews,
+        finalReviewsCount: finalRows.length,
+        firstImpressionsCount: firstRows.length,
+        distribution,
+        featuredReviews,
+        firstImpressions,
+    };
+}
+
+export async function getRecentCommunityReviews(limit = 6): Promise<ReviewWithBook[]> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    const { data, error } = await supabase
+        .from("reviews")
+        .select(`
+            id,
+            book_id,
+            user_id,
+            rating,
+            content,
+            type,
+            contains_spoilers,
+            emotional_tone,
+            pace,
+            recommended_for,
+            tags,
+            created_at,
+            profiles (full_name, avatar_url, username),
+            books (
+                id,
+                title,
+                cover_url,
+                authors (name)
+            )
+        `)
+        .order("created_at", { ascending: false })
+        .limit(limit);
+
+    if (error || !data) {
+        if (error) console.error("Error fetching recent community reviews:", error);
+        return [];
+    }
+
+    const formatted = (data as unknown as ReviewRow[]).map((row) => {
+        const book = firstRelation(row.books);
+        const author = firstRelation(book?.authors);
+
+        return {
+            ...formatReview(row, user?.id),
+            book: {
+                id: book?.id || row.book_id,
+                title: book?.title || "Libro",
+                coverUrl: book?.cover_url || null,
+                author: author?.name || null,
+            },
+        };
+    });
+
+    return enrichReviewsWithHelpfulState(formatted, user?.id) as Promise<ReviewWithBook[]>;
+}
+
+export async function getHelpfulCommunityReviews(limit = 4): Promise<ReviewWithBook[]> {
+    const supabase = await createClient();
+
+    const { data: reactions, error: reactionsError } = await supabase
+        .from("review_reactions")
+        .select("review_id")
+        .eq("reaction_type", "helpful")
+        .limit(200);
+
+    if (reactionsError || !reactions?.length) {
+        return getRecentCommunityReviews(limit);
+    }
+
+    const rankedIds = Array.from(
+        reactions.reduce((counts, reaction) => {
+            counts.set(reaction.review_id, (counts.get(reaction.review_id) || 0) + 1);
+            return counts;
+        }, new Map<string, number>())
+    )
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, limit)
+        .map(([reviewId]) => reviewId);
+
+    if (!rankedIds.length) return getRecentCommunityReviews(limit);
+
+    const { data, error } = await supabase
+        .from("reviews")
+        .select(`
+            id,
+            book_id,
+            user_id,
+            rating,
+            content,
+            type,
+            contains_spoilers,
+            emotional_tone,
+            pace,
+            recommended_for,
+            tags,
+            created_at,
+            profiles (full_name, avatar_url, username),
+            books (
+                id,
+                title,
+                cover_url,
+                authors (name)
+            )
+        `)
+        .in("id", rankedIds);
+
+    if (error || !data) return getRecentCommunityReviews(limit);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    const rowsById = new Map((data as unknown as ReviewRow[]).map((row) => [row.id, row]));
+    const formatted = rankedIds
+        .map((reviewId) => rowsById.get(reviewId))
+        .filter((row): row is ReviewRow => Boolean(row))
+        .map((row) => {
+            const book = firstRelation(row.books);
+            const author = firstRelation(book?.authors);
+
+            return {
+                ...formatReview(row, user?.id),
+                book: {
+                    id: book?.id || row.book_id,
+                    title: book?.title || "Libro",
+                    coverUrl: book?.cover_url || null,
+                    author: author?.name || null,
+                },
+            };
+        });
+
+    return enrichReviewsWithHelpfulState(formatted, user?.id) as Promise<ReviewWithBook[]>;
+}
+
+export async function toggleReviewHelpful(reviewId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "Debes iniciar sesion" };
+
+    const { data: existing } = await supabase
+        .from("review_reactions")
+        .select("review_id")
+        .eq("review_id", reviewId)
+        .eq("user_id", user.id)
+        .eq("reaction_type", "helpful")
+        .maybeSingle();
+
+    if (existing) {
+        const { error } = await supabase
+            .from("review_reactions")
+            .delete()
+            .eq("review_id", reviewId)
+            .eq("user_id", user.id)
+            .eq("reaction_type", "helpful");
+
+        if (error) return { error: error.message };
+        return { helpful: false };
+    }
+
+    const { error } = await supabase
+        .from("review_reactions")
+        .insert({
+            review_id: reviewId,
+            user_id: user.id,
+            reaction_type: "helpful",
+        });
+
+    if (error) return { error: error.message };
+    return { helpful: true };
 }
 
 export async function getMyReview(bookId: string): Promise<Review | null> {
@@ -1219,6 +1606,11 @@ export async function getMyReview(bookId: string): Promise<Review | null> {
         content: review.content,
         type: review.type,
         date: new Date(review.created_at).toISOString(),
-        isMyReview: true
+        isMyReview: true,
+        containsSpoilers: Boolean(review.contains_spoilers),
+        emotionalTone: review.emotional_tone || null,
+        pace: review.pace || null,
+        recommendedFor: review.recommended_for || null,
+        tags: review.tags || [],
     };
 }

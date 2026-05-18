@@ -227,15 +227,15 @@ export function ClubReadingRoom({ club }: ClubReadingRoomProps) {
                 </div>
             </section>
 
-            <ClubWeeklyDigest currentBook={currentBook} />
-
-            <ClubSummary club={club} />
-
             <ClubCollectiveReview
                 clubBookId={currentBook?.id}
                 bookId={book.id}
                 bookTitle={book.title}
             />
+
+            <ClubWeeklyDigest currentBook={currentBook} />
+
+            <ClubSummary club={club} />
         </div>
     );
 }

@@ -24,9 +24,48 @@ const RATING_LABELS: Record<number, string> = {
     5: "Me encantó",
 };
 
+const EMOTIONAL_TONES = [
+    { value: "asombro", label: "Asombro" },
+    { value: "tristeza", label: "Tristeza" },
+    { value: "alegria", label: "Alegria" },
+    { value: "miedo", label: "Miedo" },
+    { value: "enojo", label: "Enojo" },
+    { value: "empatia", label: "Empatia" },
+    { value: "inquietud", label: "Inquietud" },
+    { value: "esperanza", label: "Esperanza" },
+    { value: "confusion", label: "Confusion" },
+    { value: "melancolia", label: "Melancolia" },
+];
+
+const PACE_OPTIONS = [
+    { value: "lento", label: "Lento" },
+    { value: "pausado", label: "Pausado" },
+    { value: "agil", label: "Agil" },
+    { value: "rapido", label: "Rapido" },
+    { value: "irregular", label: "Irregular" },
+];
+
+const TAG_OPTIONS = [
+    "personajes",
+    "mundo",
+    "prosa",
+    "ritmo",
+    "final",
+    "emocional",
+    "ideas",
+    "romance",
+    "misterio",
+    "clasico",
+];
+
 export function ReviewModal({ isOpen, onClose, bookId, bookTitle, status, initialReview, onSuccess }: ReviewModalProps) {
     const [rating, setRating] = React.useState(0);
     const [content, setContent] = React.useState("");
+    const [containsSpoilers, setContainsSpoilers] = React.useState(false);
+    const [emotionalTone, setEmotionalTone] = React.useState("");
+    const [pace, setPace] = React.useState("");
+    const [recommendedFor, setRecommendedFor] = React.useState("");
+    const [selectedTags, setSelectedTags] = React.useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [formError, setFormError] = React.useState("");
 
@@ -42,9 +81,19 @@ export function ReviewModal({ isOpen, onClose, bookId, bookTitle, status, initia
         if (initialReview) {
             setRating(initialReview.rating);
             setContent(initialReview.content);
+            setContainsSpoilers(Boolean(initialReview.containsSpoilers));
+            setEmotionalTone(initialReview.emotionalTone || "");
+            setPace(initialReview.pace || "");
+            setRecommendedFor(initialReview.recommendedFor || "");
+            setSelectedTags(initialReview.tags || []);
         } else {
             setRating(0);
             setContent("");
+            setContainsSpoilers(false);
+            setEmotionalTone("");
+            setPace("");
+            setRecommendedFor("");
+            setSelectedTags([]);
         }
 
         setFormError("");
@@ -68,7 +117,13 @@ export function ReviewModal({ isOpen, onClose, bookId, bookTitle, status, initia
 
         try {
             const { saveReview } = await import("@/app/app/mi-lectura/actions");
-            const result = await saveReview(bookId, rating, content.trim(), reviewType);
+            const result = await saveReview(bookId, rating, content.trim(), reviewType, {
+                containsSpoilers,
+                emotionalTone: emotionalTone || null,
+                pace: pace || null,
+                recommendedFor,
+                tags: selectedTags,
+            });
 
             if (result.error) {
                 setFormError(result.error);
@@ -83,6 +138,13 @@ export function ReviewModal({ isOpen, onClose, bookId, bookTitle, status, initia
         } finally {
             setIsSubmitting(false);
         }
+    };
+
+    const toggleTag = (tag: string) => {
+        setSelectedTags((current) => {
+            if (current.includes(tag)) return current.filter((item) => item !== tag);
+            return [...current, tag].slice(0, 6);
+        });
     };
 
     return (
@@ -145,6 +207,79 @@ export function ReviewModal({ isOpen, onClose, bookId, bookTitle, status, initia
                     value={content}
                     onChange={(e) => setContent(e.target.value)}
                 />
+
+                <div className="grid gap-3 md:grid-cols-2">
+                    <label className="space-y-1">
+                        <span className="text-xs font-bold uppercase tracking-widest text-grey/50">Emocion principal</span>
+                        <select
+                            value={emotionalTone}
+                            onChange={(event) => setEmotionalTone(event.target.value)}
+                            className="h-11 w-full rounded-2xl border border-teal/10 bg-white px-3 text-sm text-teal-dark focus:border-teal/30 focus:outline-none focus:ring-2 focus:ring-teal/5"
+                        >
+                            <option value="">Sin marcar</option>
+                            {EMOTIONAL_TONES.map((tone) => (
+                                <option key={tone.value} value={tone.value}>{tone.label}</option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <label className="space-y-1">
+                        <span className="text-xs font-bold uppercase tracking-widest text-grey/50">Ritmo</span>
+                        <select
+                            value={pace}
+                            onChange={(event) => setPace(event.target.value)}
+                            className="h-11 w-full rounded-2xl border border-teal/10 bg-white px-3 text-sm text-teal-dark focus:border-teal/30 focus:outline-none focus:ring-2 focus:ring-teal/5"
+                        >
+                            <option value="">Sin marcar</option>
+                            {PACE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                        </select>
+                    </label>
+                </div>
+
+                <label className="space-y-1 block">
+                    <span className="text-xs font-bold uppercase tracking-widest text-grey/50">Lo recomendaria a...</span>
+                    <input
+                        value={recommendedFor}
+                        onChange={(event) => setRecommendedFor(event.target.value)}
+                        maxLength={160}
+                        className="h-11 w-full rounded-2xl border border-teal/10 bg-white px-4 text-sm text-teal-dark placeholder:text-grey/35 focus:border-teal/30 focus:outline-none focus:ring-2 focus:ring-teal/5"
+                        placeholder="Lectores que disfruten de personajes complejos, finales lentos..."
+                    />
+                </label>
+
+                <div className="space-y-2">
+                    <p className="text-xs font-bold uppercase tracking-widest text-grey/50">Etiquetas</p>
+                    <div className="flex flex-wrap gap-2">
+                        {TAG_OPTIONS.map((tag) => {
+                            const active = selectedTags.includes(tag);
+                            return (
+                                <button
+                                    key={tag}
+                                    type="button"
+                                    onClick={() => toggleTag(tag)}
+                                    className={`rounded-full border px-3 py-1.5 text-xs font-bold transition ${active
+                                        ? "border-teal bg-teal text-white"
+                                        : "border-teal/10 bg-white text-grey/60 hover:border-teal/25 hover:text-teal-dark"
+                                        }`}
+                                >
+                                    {tag}
+                                </button>
+                            );
+                        })}
+                    </div>
+                </div>
+
+                <label className="flex items-center gap-3 rounded-2xl border border-coral/10 bg-coral/5 px-4 py-3 text-sm font-medium text-grey/70">
+                    <input
+                        type="checkbox"
+                        checked={containsSpoilers}
+                        onChange={(event) => setContainsSpoilers(event.target.checked)}
+                        className="rounded border-coral/30 text-coral focus:ring-coral/20"
+                    />
+                    Contiene spoilers
+                </label>
 
                 <div className="sticky bottom-0 z-10 -mx-5 grid grid-cols-2 gap-3 border-t border-teal/5 bg-white/95 px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 backdrop-blur sm:static sm:mx-0 sm:flex sm:justify-end sm:border-t-0 sm:bg-transparent sm:p-0 sm:pt-2 sm:backdrop-blur-none">
                     <Button type="button" variant="ghost" onClick={onClose} className="h-12 px-4 text-base sm:px-8" disabled={isSubmitting}>
