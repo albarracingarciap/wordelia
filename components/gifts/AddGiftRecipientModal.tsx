@@ -1,193 +1,319 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { X, Loader2 } from "lucide-react";
-import { createGiftRecipient } from "@/app/app/wishes/gift-actions";
+import { useEffect, useState, useTransition, type FormEvent } from "react";
+import { CalendarDays, Camera, Check, Gift, Loader2, UserRound, X } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
+import { createGiftRecipient, updateGiftRecipient } from "@/app/app/wishes/gift-actions";
+import { createClient } from "@/utils/supabase/client";
 
 interface AddGiftRecipientModalProps {
     isOpen: boolean;
     onClose: () => void;
     onSuccess: () => void;
+    recipient?: {
+        id: string;
+        name: string;
+        relation: string | null;
+        avatarUrl: string | null;
+        notes: string | null;
+        upcomingEvent: {
+            id: string;
+            name: string;
+            eventDate: string;
+        } | null;
+    };
 }
 
-const RELATION_SUGGESTIONS = ["Pareja 💖", "Sobrino/a", "Madre", "Padre", "Hermano/a", "Amigo/a", "Abuelo/a"];
+const RELATION_SUGGESTIONS = ["Pareja", "Sobrino/a", "Madre", "Padre", "Hermano/a", "Amigo/a", "Abuelo/a"];
+const EVENT_OPTIONS = ["Cumpleaños", "Aniversario", "Navidad", "Reyes", "Día de la Madre", "Día del Padre", "Otro"];
 
-export function AddGiftRecipientModal({ isOpen, onClose, onSuccess }: AddGiftRecipientModalProps) {
-    const [name, setName] = useState("");
-    const [relation, setRelation] = useState("");
-    const [notes, setNotes] = useState("");
-    const [eventName, setEventName] = useState("Cumpleaños");
-    const [eventDate, setEventDate] = useState("");
-    const [addEvent, setAddEvent] = useState(false);
+export function AddGiftRecipientModal({ isOpen, onClose, onSuccess, recipient }: AddGiftRecipientModalProps) {
+    const isEditing = Boolean(recipient);
+    const [name, setName] = useState(recipient?.name || "");
+    const [relation, setRelation] = useState(recipient?.relation || "");
+    const [avatarUrl, setAvatarUrl] = useState(recipient?.avatarUrl || "");
+    const [avatarFile, setAvatarFile] = useState<File | null>(null);
+    const [avatarPreview, setAvatarPreview] = useState(recipient?.avatarUrl || "");
+    const [notes, setNotes] = useState(recipient?.notes || "");
+    const [eventName, setEventName] = useState(recipient?.upcomingEvent?.name || "Cumpleaños");
+    const [eventDate, setEventDate] = useState(recipient?.upcomingEvent?.eventDate || "");
+    const [addEvent, setAddEvent] = useState(Boolean(recipient?.upcomingEvent));
     const [error, setError] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
 
-    if (!isOpen) return null;
+    useEffect(() => {
+        if (isOpen) reset();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [isOpen, recipient?.id]);
 
     function reset() {
-        setName(""); setRelation(""); setNotes("");
-        setEventName("Cumpleaños"); setEventDate("");
-        setAddEvent(false); setError(null);
+        setName(recipient?.name || "");
+        setRelation(recipient?.relation || "");
+        setAvatarUrl(recipient?.avatarUrl || "");
+        setAvatarFile(null);
+        setAvatarPreview(recipient?.avatarUrl || "");
+        setNotes(recipient?.notes || "");
+        setEventName(recipient?.upcomingEvent?.name || "Cumpleaños");
+        setEventDate(recipient?.upcomingEvent?.eventDate || "");
+        setAddEvent(Boolean(recipient?.upcomingEvent));
+        setError(null);
     }
 
     function handleClose() {
-        if (!isPending) { reset(); onClose(); }
+        if (isPending) return;
+        reset();
+        onClose();
     }
 
-    function handleSubmit(e: React.FormEvent) {
-        e.preventDefault();
+    function handleSubmit(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
         setError(null);
+
         startTransition(async () => {
-            const result = await createGiftRecipient({
-                name, relation, notes,
-                eventName: addEvent ? eventName : undefined,
-                eventDate: addEvent ? eventDate : undefined,
-            });
+            let finalAvatarUrl = avatarUrl || null;
+
+            if (avatarFile) {
+                const uploaded = await uploadGiftRecipientAvatar(avatarFile);
+                if (uploaded.error) {
+                    setError(uploaded.error);
+                    return;
+                }
+                finalAvatarUrl = uploaded.url || null;
+            }
+
+            const result = recipient
+                ? await updateGiftRecipient(recipient.id, {
+                    name,
+                    relation,
+                    notes,
+                    avatarUrl: finalAvatarUrl,
+                    eventId: recipient.upcomingEvent?.id || null,
+                    eventName: addEvent ? eventName : undefined,
+                    eventDate: addEvent ? eventDate : undefined,
+                })
+                : await createGiftRecipient({
+                    name,
+                    relation,
+                    notes,
+                    avatarUrl: finalAvatarUrl,
+                    eventName: addEvent ? eventName : undefined,
+                    eventDate: addEvent ? eventDate : undefined,
+                });
+
             if (result.error) {
                 setError(result.error);
-            } else {
-                reset();
-                onSuccess();
+                return;
             }
+
+            reset();
+            onSuccess();
         });
     }
 
+    function handleAvatarChange(file: File | undefined) {
+        if (!file) return;
+        setAvatarFile(file);
+        setAvatarPreview(URL.createObjectURL(file));
+    }
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={handleClose} />
-
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10 animate-in fade-in zoom-in-95 duration-200">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-grey/10">
-                    <div>
-                        <h2 className="font-serif text-xl text-teal">Añadir persona</h2>
-                        <p className="text-xs text-grey/50 mt-0.5">Guarda ideas de regalo en secreto</p>
+        <Modal
+            isOpen={isOpen}
+            onClose={handleClose}
+            preserveMobileNav
+            size="md"
+            className="max-h-[calc(100dvh-5rem)] sm:max-h-[calc(100dvh-2rem)]"
+        >
+            <div className="-m-5 sm:-m-6">
+                <header className="flex items-start justify-between gap-4 border-b border-grey/10 px-5 py-5 sm:px-6">
+                    <div className="min-w-0">
+                        <div className="mb-3 flex h-11 w-11 items-center justify-center rounded-2xl bg-teal/10 text-teal sm:hidden">
+                            <UserRound className="h-5 w-5" />
+                        </div>
+                        <h2 className="font-serif text-2xl font-bold leading-tight text-teal">
+                            {isEditing ? "Editar persona" : "Añadir persona"}
+                        </h2>
+                        <p className="mt-1 text-sm text-grey/55">
+                            {isEditing ? "Actualiza sus datos y próximas fechas." : "Guarda ideas de regalo en secreto."}
+                        </p>
                     </div>
-                    <button onClick={handleClose} className="w-8 h-8 rounded-full hover:bg-grey/10 flex items-center justify-center transition-colors text-grey/60">
-                        <X className="w-4 h-4" />
+                    <button
+                        type="button"
+                        onClick={handleClose}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-grey/50 transition-colors hover:bg-grey/10 hover:text-coral"
+                        aria-label="Cerrar"
+                    >
+                        <X className="h-5 w-5" />
                     </button>
-                </div>
+                </header>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                    {/* Name */}
+                <form onSubmit={handleSubmit} className="space-y-5 px-5 py-5 sm:px-6">
+                    <section className="flex items-center gap-4 rounded-2xl border border-teal/10 bg-cream/35 p-4">
+                        <div className="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-teal/10 bg-teal/10 text-teal shadow-sm">
+                            {avatarPreview ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={avatarPreview} alt={name || "Foto de perfil"} className="h-full w-full object-cover" />
+                            ) : (
+                                <span className="text-2xl font-bold">{name.trim().charAt(0).toUpperCase() || <UserRound className="h-7 w-7" />}</span>
+                            )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                            <p className="text-sm font-bold text-teal">Foto de la persona</p>
+                            <p className="mt-1 text-xs leading-relaxed text-grey/55">Opcional, solo para reconocer mejor el perfil.</p>
+                            <label className="mt-3 inline-flex h-9 cursor-pointer items-center gap-2 rounded-full border border-teal/10 bg-white px-4 text-xs font-bold text-teal shadow-sm transition-colors hover:border-teal/25">
+                                <Camera className="h-4 w-4" />
+                                {avatarPreview ? "Cambiar foto" : "Añadir foto"}
+                                <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="sr-only"
+                                    onChange={(event) => handleAvatarChange(event.target.files?.[0])}
+                                />
+                            </label>
+                        </div>
+                    </section>
+
                     <div>
-                        <label className="text-xs font-semibold text-grey/70 uppercase tracking-wider mb-2 block">Nombre *</label>
+                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-grey/55">Nombre *</label>
                         <input
                             type="text"
                             value={name}
-                            onChange={(e) => setName(e.target.value)}
+                            onChange={(event) => setName(event.target.value)}
                             placeholder="ej. Clara"
                             required
-                            className="w-full h-12 px-4 rounded-xl border-2 border-grey/10 focus:border-teal/40 focus:outline-none text-sm placeholder:text-grey/30 bg-cream/20 transition-colors"
+                            className="h-14 w-full rounded-2xl border-2 border-grey/10 bg-white px-4 text-base text-grey outline-none transition-colors placeholder:text-grey/30 focus:border-teal/35"
                         />
                     </div>
 
-                    {/* Relation */}
                     <div>
-                        <label className="text-xs font-semibold text-grey/70 uppercase tracking-wider mb-2 block">
-                            Relación <span className="font-normal text-grey/40">(opcional)</span>
+                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-grey/55">
+                            Relación <span className="font-medium text-grey/35">(opcional)</span>
                         </label>
                         <input
                             type="text"
                             value={relation}
-                            onChange={(e) => setRelation(e.target.value)}
+                            onChange={(event) => setRelation(event.target.value)}
                             placeholder="Pareja, sobrino, amigo..."
-                            className="w-full h-12 px-4 rounded-xl border-2 border-grey/10 focus:border-teal/40 focus:outline-none text-sm placeholder:text-grey/30 bg-cream/20 transition-colors"
+                            className="h-14 w-full rounded-2xl border-2 border-grey/10 bg-white px-4 text-base text-grey outline-none transition-colors placeholder:text-grey/30 focus:border-teal/35"
                         />
-                        {/* Quick suggestions */}
-                        <div className="flex flex-wrap gap-1.5 mt-2">
-                            {RELATION_SUGGESTIONS.map((s) => (
+                        <div className="mt-3 flex flex-wrap gap-2">
+                            {RELATION_SUGGESTIONS.map((suggestion) => (
                                 <button
-                                    key={s}
+                                    key={suggestion}
                                     type="button"
-                                    onClick={() => setRelation(s)}
-                                    className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${relation === s ? "border-teal/40 bg-teal/10 text-teal" : "border-grey/15 text-grey/60 hover:border-grey/30"
+                                    onClick={() => setRelation(suggestion)}
+                                    className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${relation === suggestion
+                                        ? "border-teal/35 bg-teal/10 text-teal"
+                                        : "border-grey/15 bg-white text-grey/60 hover:border-teal/25 hover:text-teal"
                                         }`}
                                 >
-                                    {s}
+                                    {suggestion}
                                 </button>
                             ))}
                         </div>
                     </div>
 
-                    {/* Notes */}
                     <div>
-                        <label className="text-xs font-semibold text-grey/70 uppercase tracking-wider mb-2 block">
-                            Gustos literarios <span className="font-normal text-grey/40">(opcional)</span>
+                        <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-grey/55">
+                            Gustos literarios <span className="font-medium text-grey/35">(opcional)</span>
                         </label>
                         <textarea
                             value={notes}
-                            onChange={(e) => setNotes(e.target.value)}
-                            placeholder="Le gusta el realismo mágico, le encantan los clásicos..."
-                            rows={2}
-                            className="w-full px-4 py-3 rounded-xl border-2 border-grey/10 focus:border-teal/40 focus:outline-none text-sm placeholder:text-grey/30 bg-cream/20 transition-colors resize-none"
+                            onChange={(event) => setNotes(event.target.value)}
+                            placeholder="Le gusta el realismo mágico, los clásicos, las novelas breves..."
+                            rows={3}
+                            className="w-full resize-none rounded-2xl border-2 border-grey/10 bg-white px-4 py-3 text-base text-grey outline-none transition-colors placeholder:text-grey/30 focus:border-teal/35"
                         />
                     </div>
 
-                    {/* Event Toggle */}
-                    <div>
+                    <section className="rounded-2xl border border-teal/10 bg-cream/35 p-3">
                         <button
                             type="button"
                             onClick={() => setAddEvent(!addEvent)}
-                            className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all flex items-center gap-3 ${addEvent ? "border-teal/40 bg-teal/5" : "border-grey/10 hover:border-grey/20"
-                                }`}
+                            className="flex w-full items-center gap-3 rounded-xl p-2 text-left transition-colors hover:bg-white/60"
                         >
-                            <span className="text-xl">🎉</span>
-                            <div className="flex-1">
-                                <p className={`text-sm font-semibold ${addEvent ? "text-teal" : "text-grey"}`}>
-                                    Añadir fecha especial
-                                </p>
-                                <p className="text-xs text-grey/50">Cumpleaños, aniversario, Navidad...</p>
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-coral/10 text-coral">
+                                <CalendarDays className="h-5 w-5" />
                             </div>
-                            <div className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${addEvent ? "border-teal bg-teal" : "border-grey/30"}`}>
-                                {addEvent && <span className="text-white text-[10px] font-bold">✓</span>}
+                            <div className="min-w-0 flex-1">
+                                <p className="font-bold text-teal">Añadir fecha especial</p>
+                                <p className="truncate text-sm text-grey/55">Cumpleaños, aniversario, Navidad...</p>
                             </div>
+                            <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition-colors ${addEvent ? "border-teal bg-teal text-white" : "border-grey/20 bg-white text-transparent"}`}>
+                                <Check className="h-4 w-4" />
+                            </span>
                         </button>
 
                         {addEvent && (
-                            <div className="mt-3 grid grid-cols-2 gap-3 animate-in slide-in-from-top-1 duration-150">
-                                <div>
-                                    <label className="text-xs text-grey/60 mb-1.5 block">Tipo de evento</label>
+                            <div className="mt-3 grid gap-3 rounded-2xl bg-white p-3 sm:grid-cols-2">
+                                <label>
+                                    <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-grey/45">Tipo</span>
                                     <select
                                         value={eventName}
-                                        onChange={(e) => setEventName(e.target.value)}
-                                        className="w-full h-10 px-3 rounded-lg border-2 border-grey/10 focus:border-teal/40 focus:outline-none text-sm transition-colors bg-white"
+                                        onChange={(event) => setEventName(event.target.value)}
+                                        className="h-11 w-full rounded-xl border border-grey/10 bg-white px-3 text-sm font-bold text-teal outline-none focus:border-teal/35"
                                     >
-                                        {["Cumpleaños", "Aniversario", "Navidad", "Reyes", "Día de la Madre", "Día del Padre", "Otro"].map((o) => (
-                                            <option key={o}>{o}</option>
+                                        {EVENT_OPTIONS.map((option) => (
+                                            <option key={option}>{option}</option>
                                         ))}
                                     </select>
-                                </div>
-                                <div>
-                                    <label className="text-xs text-grey/60 mb-1.5 block">Fecha</label>
+                                </label>
+                                <label>
+                                    <span className="mb-1.5 block text-xs font-bold uppercase tracking-wide text-grey/45">Fecha</span>
                                     <input
                                         type="date"
                                         value={eventDate}
-                                        onChange={(e) => setEventDate(e.target.value)}
-                                        className="w-full h-10 px-3 rounded-lg border-2 border-grey/10 focus:border-teal/40 focus:outline-none text-sm transition-colors"
+                                        onChange={(event) => setEventDate(event.target.value)}
+                                        required={addEvent}
+                                        className="h-11 w-full rounded-xl border border-grey/10 bg-white px-3 text-sm text-grey outline-none focus:border-teal/35"
                                     />
-                                </div>
+                                </label>
                             </div>
                         )}
-                    </div>
+                    </section>
 
-                    {/* Error */}
-                    {error && <p className="text-sm text-red-500 bg-red-50 px-4 py-2 rounded-lg">{error}</p>}
+                    {error && (
+                        <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-medium text-coral">{error}</p>
+                    )}
 
-                    {/* Submit */}
                     <button
                         type="submit"
-                        disabled={isPending || !name.trim()}
-                        className="w-full h-12 bg-teal text-white rounded-full font-medium hover:bg-opacity-90 transition-all shadow-md shadow-teal/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        disabled={isPending || !name.trim() || (addEvent && !eventDate)}
+                        className="flex h-14 w-full items-center justify-center gap-2 rounded-full bg-coral px-6 font-bold text-white shadow-md shadow-coral/20 transition-all hover:bg-[#C25852] disabled:cursor-not-allowed disabled:bg-grey/30 disabled:shadow-none"
                     >
                         {isPending ? (
-                            <><Loader2 className="w-4 h-4 animate-spin" />Añadiendo...</>
+                            <>
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                {isEditing ? "Guardando..." : "Añadiendo..."}
+                            </>
                         ) : (
-                            "Añadir persona"
+                            <>
+                                <Gift className="h-4 w-4" />
+                                {isEditing ? "Guardar cambios" : "Añadir persona"}
+                            </>
                         )}
                     </button>
                 </form>
             </div>
-        </div>
+        </Modal>
     );
+}
+
+async function uploadGiftRecipientAvatar(file: File): Promise<{ url?: string; error?: string }> {
+    const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "Debes iniciar sesión para subir una foto." };
+
+    const extension = file.name.split(".").pop()?.toLowerCase() || file.type.split("/")[1] || "jpg";
+    const filePath = `${user.id}/gift-recipients/${Date.now()}.${extension}`;
+    const { error: uploadError } = await supabase.storage
+        .from("gift-recipient-avatars")
+        .upload(filePath, file, { cacheControl: "3600", upsert: false });
+
+    if (uploadError) {
+        return { error: "No hemos podido subir la foto. Revisa que la migración del bucket esté aplicada." };
+    }
+
+    const { data } = supabase.storage.from("gift-recipient-avatars").getPublicUrl(filePath);
+    return { url: data.publicUrl };
 }

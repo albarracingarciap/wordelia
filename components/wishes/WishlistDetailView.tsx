@@ -1,48 +1,84 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { WishlistItemCard } from "@/components/wishes/WishlistItemCard";
 import { WishlistDetailData, WishlistItemData } from "@/app/app/wishes/item-actions";
 import { BookSearchModal, WishlistBook } from "@/components/gifts/BookSearchModal";
 import { CreateWishlistModal } from "@/components/wishes/CreateWishlistModal";
 import { StoreModeView } from "@/components/wishes/StoreModeView";
 import { addItemToWishlist } from "@/app/app/wishes/item-actions";
-import { Link2, Plus, BookOpen, Settings, Calendar, Store } from "lucide-react";
+import { createWishlistCandidate, WishlistCandidateData } from "@/app/app/wishes/candidate-actions";
+import { Button } from "@/components/ui/Button";
+import { ArrowLeft, BookOpen, Calendar, Link2, Plus, Settings, Store } from "lucide-react";
 
 interface WishlistDetailViewProps {
     wishlist: WishlistDetailData;
     items: WishlistItemData[];
     isOwner: boolean;
+    candidates: WishlistCandidateData[];
 }
 
-export function WishlistDetailView({ wishlist, items, isOwner }: WishlistDetailViewProps) {
+export function WishlistDetailView({ wishlist, items, isOwner, candidates }: WishlistDetailViewProps) {
     const router = useRouter();
-    const [isGuestView, setIsGuestView] = useState(false);
+    const searchParams = useSearchParams();
+    const [isGuestView, setIsGuestView] = useState(!isOwner);
     const [isSearchOpen, setIsSearchOpen] = useState(false);
+    const [searchMode, setSearchMode] = useState<"wishlist" | "candidate">("wishlist");
     const [isEditModalOpen, setIsEditModalOpen] = useState(false);
     const [isStoreModeOpen, setIsStoreModeOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
     const [copied, setCopied] = useState(false);
+    const hasItems = items.length > 0;
+    const availableItems = items.filter((item) => item.status === "AVAILABLE").length;
 
     const privacyLabel = { public: "Pública", private: "Privada", shared: "Compartida" };
 
+    useEffect(() => {
+        if (!isOwner || searchParams.get("view") === "guest") {
+            setIsGuestView(true);
+        }
+    }, [isOwner, searchParams]);
+
     function handleCopyLink() {
-        navigator.clipboard.writeText(window.location.href);
+        const url = new URL(window.location.href);
+        url.searchParams.set("view", "guest");
+        navigator.clipboard.writeText(url.toString());
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
     }
 
+    function handleOpenStoreMode() {
+        if (!isOwner && !hasItems) return;
+        setIsStoreModeOpen(true);
+    }
+
     function handleAddBook(book: WishlistBook) {
         startTransition(async () => {
-            await addItemToWishlist(wishlist.id, {
-                title: book.title,
-                author: book.author,
-                coverUrl: book.coverUrl ?? undefined,
-                price: book.price ?? undefined,
-                bookId: book.isbn ?? book.id,
-            });
+            if (searchMode === "candidate") {
+                const result = await createWishlistCandidate(wishlist.id, {
+                    source: "manual",
+                    title: book.title,
+                    author: book.author,
+                    isbn: book.isbn,
+                    coverUrl: book.coverUrl,
+                    price: book.price,
+                    confidence: 1,
+                });
+                if (result.error) {
+                    alert(result.error);
+                    return;
+                }
+            } else {
+                await addItemToWishlist(wishlist.id, {
+                    title: book.title,
+                    author: book.author,
+                    coverUrl: book.coverUrl ?? undefined,
+                    price: book.price ?? undefined,
+                    bookId: book.isbn ?? book.id,
+                });
+            }
             setIsSearchOpen(false);
             router.refresh();
         });
@@ -54,6 +90,8 @@ export function WishlistDetailView({ wishlist, items, isOwner }: WishlistDetailV
                 isOpen={isSearchOpen}
                 onClose={() => setIsSearchOpen(false)}
                 onAdd={handleAddBook}
+                title={searchMode === "candidate" ? "Capturar libro" : undefined}
+                addLabel={searchMode === "candidate" ? "Guardar candidato" : undefined}
             />
 
             {isStoreModeOpen && (
@@ -61,6 +99,12 @@ export function WishlistDetailView({ wishlist, items, isOwner }: WishlistDetailV
                     wishlist={wishlist}
                     items={items}
                     isGuestView={isGuestView}
+                    isOwner={isOwner}
+                    candidates={candidates}
+                    onAddBooks={() => {
+                        setSearchMode("candidate");
+                        setIsSearchOpen(true);
+                    }}
                     onExit={() => setIsStoreModeOpen(false)}
                 />
             )}
@@ -77,129 +121,170 @@ export function WishlistDetailView({ wishlist, items, isOwner }: WishlistDetailV
                 />
             )}
 
-            <div className="max-w-4xl mx-auto">
-                {/* Breadcrumb */}
-                <Link href="/app/wishes" className="text-sm text-grey/60 hover:text-teal mb-6 inline-flex items-center gap-1 group">
-                    <span className="group-hover:-translate-x-0.5 transition-transform">←</span> Volver a mis listas
+            <div className="mx-auto max-w-5xl pb-24">
+                <Link
+                    href={isOwner ? "/app/wishes" : "/app/wishes?tab=gifts"}
+                    className="mb-6 inline-flex items-center gap-2 text-sm font-bold text-grey/55 transition-colors hover:text-teal"
+                >
+                    <ArrowLeft className="h-4 w-4" />
+                    {isOwner ? "Volver a mis listas" : "Volver"}
                 </Link>
 
-                {/* Header */}
-                <div className="bg-white rounded-2xl p-6 md:p-8 shadow-sm border border-teal/5 mb-8">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                        <div>
-                            <h1 className="font-serif text-3xl text-teal mb-2">
-                                {wishlist.emoji} {wishlist.name}
+                <header className="mb-7">
+                    <div className="mb-2 text-xs font-bold uppercase tracking-widest text-grey/40">Lista</div>
+                    <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+                        <div className="min-w-0">
+                            <h1 className="font-serif text-[2rem] font-medium leading-tight text-teal sm:text-4xl">
+                                <span className="mr-2 align-middle">{wishlist.emoji}</span>
+                                {wishlist.name}
                             </h1>
-                            <div className="flex items-center gap-3 text-sm text-grey/60 flex-wrap">
-                                <span>{wishlist.bookCount} {wishlist.bookCount === 1 ? "libro" : "libros"}</span>
-                                <span>•</span>
-                                <span>{privacyLabel[wishlist.privacy]}</span>
+
+                            <div className="mt-4 flex flex-wrap items-center gap-2">
+                                <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-bold text-grey/70 shadow-sm">
+                                    {wishlist.bookCount} {wishlist.bookCount === 1 ? "libro" : "libros"}
+                                </span>
+                                <span className="rounded-full bg-white/70 px-3 py-1 text-xs font-bold text-grey/70 shadow-sm">
+                                    {privacyLabel[wishlist.privacy]}
+                                </span>
                                 {wishlist.targetDate && (
-                                    <>
-                                        <span>•</span>
-                                        <span className="flex items-center gap-1.5 font-medium text-coral">
-                                            <Calendar className="w-3.5 h-3.5" />
-                                            Para el {new Date(wishlist.targetDate).toLocaleDateString()}
-                                        </span>
-                                    </>
+                                    <span className="inline-flex items-center gap-1.5 rounded-full bg-coral/10 px-3 py-1 text-xs font-bold text-coral">
+                                        <Calendar className="h-3.5 w-3.5" />
+                                        Para el {new Date(wishlist.targetDate).toLocaleDateString()}
+                                    </span>
                                 )}
                             </div>
+
                             {wishlist.description && (
-                                <p className="text-sm text-grey/70 mt-2 italic">{wishlist.description}</p>
+                                <p className="mt-4 max-w-2xl text-base leading-relaxed text-grey/70">
+                                    {wishlist.description}
+                                </p>
                             )}
                         </div>
 
-                        {/* View Toggle (only for owner) + Guest toggle */}
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 justify-end">
+                        <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-nowrap sm:items-center sm:justify-end">
                             {isOwner && (
-                                <>
-                                    <button
-                                        onClick={() => setIsEditModalOpen(true)}
-                                        className="p-2 text-grey/40 hover:text-teal hover:bg-teal/5 rounded-full transition-colors"
-                                        title="Ajustes de la lista"
-                                    >
-                                        <Settings className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                        onClick={() => setIsSearchOpen(true)}
-                                        disabled={isPending}
-                                        className="inline-flex items-center gap-2 bg-coral text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-all shadow-sm whitespace-nowrap"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        Añadir libro
-                                    </button>
-                                </>
-                            )}
-                            <button
-                                onClick={() => setIsStoreModeOpen(true)}
-                                className="inline-flex items-center gap-2 bg-teal text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-opacity-90 transition-all shadow-sm whitespace-nowrap"
-                                title="Abrir Modo Tienda para ver la lista cómodamente en una librería"
-                            >
-                                <Store className="w-4 h-4" />
-                                Modo Tienda
-                            </button>
-                            <div className="flex items-center gap-2 bg-grey/5 p-1 rounded-full">
                                 <button
-                                    onClick={() => setIsGuestView(false)}
-                                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${!isGuestView ? "bg-white shadow-sm text-teal" : "text-grey/60 hover:text-grey"}`}
+                                    onClick={() => setIsEditModalOpen(true)}
+                                    className="col-span-2 flex h-12 items-center justify-center rounded-full border border-teal/10 bg-white/70 text-grey/50 shadow-sm transition-colors hover:text-teal sm:col-span-1 sm:w-12 sm:shrink-0"
+                                    title="Ajustes de la lista"
                                 >
-                                    👀 Mi Vista
+                                    <Settings className="h-5 w-5" />
+                                </button>
+                            )}
+                            {isOwner && (
+                                <Button
+                                    onClick={() => {
+                                        setSearchMode("wishlist");
+                                        setIsSearchOpen(true);
+                                    }}
+                                    disabled={isPending}
+                                    className="h-12 w-full rounded-full text-sm font-bold sm:w-auto sm:shrink-0 sm:rounded-2xl sm:px-6"
+                                >
+                                    <Plus className="mr-2 h-4 w-4" />
+                                    Añadir libro
+                                </Button>
+                            )}
+                            <Button
+                                onClick={handleOpenStoreMode}
+                                disabled={!isOwner && !hasItems}
+                                className={`h-12 w-full rounded-full bg-teal text-sm font-bold hover:bg-teal-dark sm:w-auto sm:shrink-0 sm:rounded-2xl sm:px-6 ${!isOwner && !hasItems ? "opacity-45" : ""}`}
+                                title={!isOwner && !hasItems ? "La lista aún no tiene libros" : "Abrir modo tienda"}
+                            >
+                                <Store className="mr-2 h-4 w-4" />
+                                Modo tienda
+                            </Button>
+                            {wishlist.privacy !== "private" && (
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    onClick={handleCopyLink}
+                                    className="col-span-2 h-11 w-full rounded-full border-teal/15 bg-white/70 text-sm font-bold text-teal shadow-sm sm:col-span-1 sm:h-12 sm:w-auto sm:shrink-0 sm:rounded-2xl sm:px-6"
+                                >
+                                    <Link2 className="mr-2 h-4 w-4" />
+                                    {copied ? "Enlace copiado" : "Compartir"}
+                                </Button>
+                            )}
+                        </div>
+                    </div>
+
+                    <div className="mt-6 rounded-2xl border border-teal/5 bg-white/55 p-3 shadow-sm md:flex md:items-center md:justify-between md:gap-6">
+                        <p className="min-w-0 text-sm leading-relaxed text-grey/60">
+                            {isGuestView
+                                ? "Puedes reservar un libro para que otros invitados no lo compren también. La persona que creó la lista no verá quién reservó cada regalo."
+                                : "Vista de propietario: ves todos los libros y puedes gestionar la lista."}
+                        </p>
+
+                        {isOwner && (
+                            <div className="mt-3 grid w-full grid-cols-2 rounded-2xl bg-grey/5 p-1 md:mt-0 md:w-[300px] md:shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={() => setIsGuestView(false)}
+                                    className={`h-10 whitespace-nowrap rounded-xl px-3 text-sm font-bold transition-all ${!isGuestView ? "bg-white text-teal shadow-sm" : "text-grey/55 hover:text-teal"}`}
+                                >
+                                    Mi vista
                                 </button>
                                 <button
+                                    type="button"
                                     onClick={() => setIsGuestView(true)}
-                                    className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${isGuestView ? "bg-teal text-white shadow-sm" : "text-grey/60 hover:text-grey"}`}
+                                    className={`h-10 whitespace-nowrap rounded-xl px-3 text-sm font-bold transition-all ${isGuestView ? "bg-teal text-white shadow-sm" : "text-grey/55 hover:text-teal"}`}
                                 >
-                                    👤 Vista Amigo
+                                    Vista amigo
                                 </button>
                             </div>
-                        </div>
-                    </div>
-
-                    {/* Share row */}
-                    <div className="mt-6 pt-5 border-t border-grey/10 flex justify-between items-center">
-                        <p className="text-xs text-grey/50 italic">
-                            {isGuestView
-                                ? "Así es como ven la lista tus amigos. Los regalados aparecen bloqueados."
-                                : "Tú ves todos los libros. Tus amigos ven los ya comprados bloqueados."}
-                        </p>
-                        {wishlist.privacy !== "private" && (
-                            <button
-                                onClick={handleCopyLink}
-                                className="inline-flex items-center gap-1.5 text-teal text-sm font-bold hover:underline"
-                            >
-                                <Link2 className="w-4 h-4" />
-                                {copied ? "¡Enlace copiado!" : "Compartir enlace"}
-                            </button>
                         )}
                     </div>
-                </div>
+                </header>
 
-                {/* Items */}
                 {items.length === 0 ? (
-                    <div className="text-center py-20 border-2 border-dashed border-teal/10 rounded-2xl">
-                        <BookOpen className="w-12 h-12 text-teal/20 mx-auto mb-4" />
-                        <p className="text-grey/50 text-lg font-medium mb-2">Esta lista está vacía</p>
-                        <p className="text-grey/40 text-sm mb-6">Añade libros que quieres leer o que te gustaría recibir</p>
+                    <div className="flex min-h-[320px] flex-col items-center justify-center rounded-2xl border-2 border-dashed border-teal/10 px-6 py-14 text-center sm:min-h-[360px]">
+                        <div className="mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-teal/5 text-teal/30">
+                            <BookOpen className="h-9 w-9" strokeWidth={1.5} />
+                        </div>
+                        <h2 className="font-serif text-2xl text-teal">
+                            {isGuestView ? "Todavía no hay libros para regalar" : "Esta lista está vacía"}
+                        </h2>
+                        <p className="mt-2 max-w-md text-sm leading-relaxed text-grey/55">
+                            {isGuestView
+                                ? `${wishlist.name} aún no tiene títulos. Vuelve más adelante o pide que añadan algunos libros.`
+                                : "Añade libros que quieres leer o que te gustaría recibir."}
+                        </p>
+                        {isGuestView && (
+                            <div className="mt-7 inline-flex items-center gap-2 rounded-full bg-white/70 px-4 py-2 text-xs font-bold text-grey/55 shadow-sm">
+                                <BookOpen className="h-4 w-4" />
+                                Modo tienda disponible cuando haya libros
+                            </div>
+                        )}
                         {isOwner && (
-                            <button
-                                onClick={() => setIsSearchOpen(true)}
-                                className="inline-flex items-center gap-2 bg-teal text-white px-6 py-2.5 rounded-full font-medium hover:bg-opacity-90 transition-all"
+                            <Button
+                                onClick={() => {
+                                    setSearchMode("wishlist");
+                                    setIsSearchOpen(true);
+                                }}
+                                className="mt-7 h-12 rounded-full bg-teal px-7 text-sm font-bold hover:bg-teal-dark sm:rounded-2xl"
                             >
-                                <Plus className="w-4 h-4" />
+                                <Plus className="mr-2 h-4 w-4" />
                                 Buscar libros para añadir
-                            </button>
+                            </Button>
                         )}
                     </div>
                 ) : (
-                    <div className="grid gap-4">
-                        {items.map((item) => (
-                            <WishlistItemCard
-                                key={item.id}
-                                item={item}
-                                isGuestView={isGuestView}
-                            />
-                        ))}
-                    </div>
+                    <>
+                        {isGuestView && (
+                            <div className="mb-4 rounded-2xl border border-teal/10 bg-white/60 p-4 text-sm leading-relaxed text-grey/60 shadow-sm">
+                                Hay {availableItems} {availableItems === 1 ? "libro disponible" : "libros disponibles"} para reservar. Reservar no compra el libro; solo evita duplicados entre invitados.
+                            </div>
+                        )}
+                        <div className="grid gap-4">
+                            {items.map((item) => (
+                                <WishlistItemCard
+                                    key={item.id}
+                                    item={item}
+                                    isGuestView={isGuestView}
+                                    isOwner={isOwner}
+                                />
+                            ))}
+                        </div>
+                    </>
                 )}
             </div>
         </>

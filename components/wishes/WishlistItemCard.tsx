@@ -14,9 +14,10 @@ import { ReadDedicationModal } from "./ReadDedicationModal";
 interface WishlistItemCardProps {
     item: WishlistItemData;
     isGuestView: boolean;
+    isOwner: boolean;
 }
 
-export function WishlistItemCard({ item, isGuestView }: WishlistItemCardProps) {
+export function WishlistItemCard({ item, isGuestView, isOwner }: WishlistItemCardProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [isReserveModalOpen, setReserveModalOpen] = useState(false);
@@ -250,7 +251,7 @@ export function WishlistItemCard({ item, isGuestView }: WishlistItemCardProps) {
                                     </span>
                                 )}
                             </div>
-                        ) : (
+                        ) : isOwner ? (
                             <div className="flex gap-2 items-center">
                                 {!isCrowdfunding && item.status === "AVAILABLE" && (
                                     <button
@@ -279,6 +280,10 @@ export function WishlistItemCard({ item, isGuestView }: WishlistItemCardProps) {
                                     <Trash2 className="w-4 h-4" />
                                 </button>
                             </div>
+                        ) : (
+                            <span className="text-xs font-bold text-grey/50 bg-grey/10 px-3 py-1.5 rounded-full">
+                                Solo lectura
+                            </span>
                         )}
                     </div>
                 )}

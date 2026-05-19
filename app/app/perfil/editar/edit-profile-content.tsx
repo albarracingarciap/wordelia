@@ -1,15 +1,39 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { Button } from "@/components/ui/Button";
+import { useRouter } from "next/navigation";
 import {
-    User, BookOpen, Target, Bell, Lock, Settings, ChevronLeft,
-    Camera, MapPin, Calendar as CalendarIcon, Save,
-    Smartphone, Eye
+    Bell,
+    BookOpen,
+    Calendar as CalendarIcon,
+    Camera,
+    Check,
+    ChevronLeft,
+    Eye,
+    FileDown,
+    Lock,
+    Mail,
+    MapPin,
+    Save,
+    Settings,
+    ShieldAlert,
+    Smartphone,
+    Target,
+    Trash2,
+    User
 } from "lucide-react";
-import { updateProfile, updatePreferences, updateGoals, updateSettings } from "../actions";
+import { Button } from "@/components/ui/Button";
 import { createClient } from "@/utils/supabase/client";
+import {
+    exportMyProfileData,
+    requestAccountDeactivation,
+    requestEmailChange,
+    requestPasswordReset,
+    updateGoals,
+    updatePreferences,
+    updateProfile,
+    updateSettings
+} from "../actions";
 
 type NotificationSettings = Record<string, boolean>;
 type PrivacySettings = {
@@ -17,7 +41,6 @@ type PrivacySettings = {
     [key: string]: boolean | string;
 };
 
-// --- Types ---
 type ProfileData = {
     id: string;
     username: string;
@@ -47,96 +70,198 @@ const TABS = [
     { id: "personal", label: "Personal", icon: User },
     { id: "preferences", label: "Preferencias", icon: BookOpen },
     { id: "goals", label: "Metas", icon: Target },
-    { id: "notifications", label: "Notificaciones", icon: Bell },
+    { id: "notifications", label: "Avisos", icon: Bell },
     { id: "privacy", label: "Privacidad", icon: Lock },
-    { id: "account", label: "Cuenta", icon: Settings },
+    { id: "account", label: "Cuenta", icon: Settings }
+] as const;
+
+const GENRE_OPTIONS = [
+    "Misterio/Thriller",
+    "Clásicos",
+    "Ensayo",
+    "Terror",
+    "Romance",
+    "Fantasía",
+    "Ciencia ficción",
+    "Histórica",
+    "Biografía",
+    "Poesía",
+    "Novela gráfica",
+    "No ficción"
 ];
 
+const ENGAGEMENT_OPTIONS = [
+    "Personajes profundos",
+    "Trama intrigante",
+    "Estilo literario",
+    "Giros inesperados",
+    "Mundo detallado",
+    "Ritmo ágil"
+];
+
+const SECONDARY_GOALS = [
+    "Leer al menos 3 géneros diferentes",
+    "Explorar autores de 5 países",
+    "Leer 1 clásico universal",
+    "Leer un libro de más de 500 páginas",
+    "Leer un libro publicado este año",
+    "Leer un autor de un continente diferente",
+    "Releer un libro favorito"
+];
+
+function FormSectionHeader({
+    title,
+    description,
+    action
+}: {
+    title: string;
+    description: string;
+    action?: React.ReactNode;
+}) {
+    return (
+        <div className="flex flex-col gap-4 border-b border-grey/10 pb-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+                <h2 className="text-xl font-bold text-teal-dark">{title}</h2>
+                <p className="mt-1 text-sm leading-relaxed text-grey/60">{description}</p>
+            </div>
+            {action}
+        </div>
+    );
+}
+
+function SaveStatus({ message }: { message: string | null }) {
+    if (!message) return null;
+    return (
+        <p className="inline-flex items-center gap-1 rounded-full bg-teal/5 px-3 py-1 text-xs font-semibold text-teal">
+            <Check className="h-3 w-3" /> {message}
+        </p>
+    );
+}
+
+function Toggle({
+    checked,
+    onChange,
+    label
+}: {
+    checked: boolean;
+    onChange: () => void;
+    label: string;
+}) {
+    return (
+        <button
+            type="button"
+            role="switch"
+            aria-checked={checked}
+            aria-label={label}
+            onClick={onChange}
+            className={`relative h-7 w-12 rounded-full transition-colors ${checked ? "bg-teal" : "bg-grey/20"}`}
+        >
+            <span className={`absolute left-1 top-1 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${checked ? "translate-x-5" : "translate-x-0"}`} />
+        </button>
+    );
+}
+
+function Chip({
+    selected,
+    children,
+    onClick
+}: {
+    selected: boolean;
+    children: React.ReactNode;
+    onClick: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            className={`rounded-full border px-3 py-2 text-sm font-semibold transition-all ${selected ? "border-teal bg-teal text-white shadow-sm" : "border-grey/15 bg-white text-grey-dark hover:border-teal/40 hover:text-teal-dark"}`}
+        >
+            {children}
+        </button>
+    );
+}
+
 export default function EditProfileContent({ profile }: { profile: ProfileData }) {
-    const [activeTab, setActiveTab] = React.useState("personal");
+    const [activeTab, setActiveTab] = React.useState<(typeof TABS)[number]["id"]>("personal");
+    const router = useRouter();
 
     return (
-        <div className="min-h-screen bg-cream/20 pb-20">
-            {/* Header */}
-            <header className="bg-white border-b border-grey/10 pt-4 pb-4 px-4 sm:px-6 sticky top-[72px] lg:top-0 z-40 shadow-sm">
-                <div className="max-w-5xl mx-auto flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                        <Link href="/app/perfil" className="p-2 -ml-2 hover:bg-grey/5 rounded-full transition-colors text-grey/60 hover:text-teal-dark">
-                            <ChevronLeft className="w-5 h-5" />
-                        </Link>
-                        <h1 className="text-xl font-bold text-teal-dark font-serif">Editar Perfil</h1>
-                    </div>
-                </div>
-            </header>
+        <div className="min-h-screen bg-cream/20 pb-24">
+            <main className="mx-auto max-w-5xl px-4 py-7 sm:px-6 sm:py-10">
+                <header className="mb-7">
+                    <button
+                        type="button"
+                        onClick={() => router.push("/app/perfil")}
+                        className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-grey/60 transition-colors hover:text-teal-dark"
+                    >
+                        <ChevronLeft className="h-4 w-4" />
+                        Volver
+                    </button>
+                    <span className="mb-2 block text-xs font-bold uppercase tracking-widest text-grey/40">
+                        PERFIL
+                    </span>
+                    <h1 className="mb-2 text-[2rem] font-medium leading-tight tracking-tight text-teal">
+                        Editar perfil
+                    </h1>
+                    <p className="max-w-2xl text-base leading-relaxed text-gray-500">
+                        Ajusta tu identidad lectora, preferencias, metas y privacidad.
+                    </p>
+                </header>
 
-            <main className="max-w-5xl mx-auto px-0 sm:px-6 py-5 sm:py-8">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-5 sm:gap-8">
-                    {/* Navigation Sidebar (Tabs) */}
-                    <nav className="md:col-span-1 flex gap-2 overflow-x-auto px-4 sm:px-0 pb-1 md:block md:space-y-2 md:sticky md:top-32 md:self-start">
+                <div className="grid grid-cols-1 gap-5 md:grid-cols-[220px_1fr] md:gap-8">
+                    <nav className="flex gap-2 overflow-x-auto pb-1 [-ms-overflow-style:none] [scrollbar-width:none] md:sticky md:top-28 md:block md:self-start md:overflow-visible md:pb-0 [&::-webkit-scrollbar]:hidden">
                         {TABS.map((tab) => (
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
-                                className={`shrink-0 md:w-full flex items-center gap-2 sm:gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-all duration-200 ${activeTab === tab.id
-                                    ? "bg-white text-teal-dark shadow-md border border-grey/5 translate-x-1"
-                                    : "text-grey/60 hover:text-teal hover:bg-white/50"
-                                    }`}
+                                className={`flex shrink-0 items-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold transition-all md:mb-2 md:w-full ${activeTab === tab.id ? "border border-grey/10 bg-white text-teal-dark shadow-sm" : "text-grey/60 hover:bg-white/60 hover:text-teal-dark"}`}
                             >
-                                <tab.icon className={`w-4 h-4 transition-colors ${activeTab === tab.id ? "text-coral" : "text-grey/40"}`} />
+                                <tab.icon className={`h-4 w-4 ${activeTab === tab.id ? "text-coral" : "text-grey/40"}`} />
                                 {tab.label}
                             </button>
                         ))}
                     </nav>
 
-                    {/* Content Area */}
-                    <div className="md:col-span-3 px-4 sm:px-0">
-                        <div className="bg-white rounded-2xl sm:rounded-3xl p-5 md:p-8 border border-grey/10 shadow-sm min-h-[600px] relative overflow-hidden">
-                            {/* Decorative background element */}
-                            <div className="absolute top-0 right-0 w-64 h-64 bg-gradient-to-br from-teal/5 to-coral/5 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
-
-                            {activeTab === "personal" && <PersonalTab profile={profile} />}
-                            {activeTab === "preferences" && <PreferencesTab profile={profile} />}
-                            {activeTab === "goals" && <GoalsTab profile={profile} />}
-                            {activeTab === "notifications" && <NotificationsTab profile={profile} />}
-                            {activeTab === "privacy" && <PrivacyTab profile={profile} />}
-                            {activeTab === "account" && <AccountTab email={profile.email} />}
-                        </div>
-                    </div>
+                    <section className="rounded-2xl border border-grey/10 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6 md:p-8">
+                        {activeTab === "personal" && <PersonalTab profile={profile} />}
+                        {activeTab === "preferences" && <PreferencesTab profile={profile} />}
+                        {activeTab === "goals" && <GoalsTab profile={profile} />}
+                        {activeTab === "notifications" && <NotificationsTab profile={profile} />}
+                        {activeTab === "privacy" && <PrivacyTab profile={profile} />}
+                        {activeTab === "account" && <AccountTab email={profile.email} />}
+                    </section>
                 </div>
             </main>
         </div>
     );
 }
 
-// --- TAB 1: Personal ---
-
 function PersonalTab({ profile }: { profile: ProfileData }) {
     const [loading, setLoading] = React.useState(false);
     const [avatarUrl, setAvatarUrl] = React.useState(profile.avatar_url);
     const [isUploading, setIsUploading] = React.useState(false);
+    const [status, setStatus] = React.useState<string | null>(null);
     const supabase = createClient();
 
-    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (!e.target.files || e.target.files.length === 0) return;
+    const handlePhotoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) return;
 
         setIsUploading(true);
-        const file = e.target.files[0];
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-        const filePath = `${fileName}`;
+        setStatus(null);
+        const fileExt = file.name.split(".").pop() || "jpg";
+        const filePath = `${profile.id}/${Date.now()}.${fileExt}`;
 
         try {
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, file);
-
+            const { error: uploadError } = await supabase.storage.from("avatars").upload(filePath, file, { upsert: true });
             if (uploadError) throw uploadError;
 
-            const { data } = supabase.storage.from('avatars').getPublicUrl(filePath);
+            const { data } = supabase.storage.from("avatars").getPublicUrl(filePath);
             setAvatarUrl(data.publicUrl);
+            setStatus("Foto preparada. Guarda para confirmar.");
         } catch (error: unknown) {
             const message = error instanceof Error ? error.message : "Error desconocido";
-            alert('Error uploading image: ' + message);
+            setStatus(`No se pudo subir la foto: ${message}`);
         } finally {
             setIsUploading(false);
         }
@@ -144,308 +269,298 @@ function PersonalTab({ profile }: { profile: ProfileData }) {
 
     const handleSubmit = async (formData: FormData) => {
         setLoading(true);
-        if (avatarUrl) {
-            formData.set("avatarUrl", avatarUrl);
-        }
-        await updateProfile(formData);
+        setStatus(null);
+        if (avatarUrl) formData.set("avatarUrl", avatarUrl);
+        const result = await updateProfile(formData);
         setLoading(false);
-        // Could show toast or success message
-        alert("Perfil actualizado correctamente");
+        setStatus(result?.error || "Perfil actualizado");
     };
 
     return (
-        <form action={handleSubmit} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 relative">
-            <div className="space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div>
-                        <h2 className="text-xl font-bold text-teal-dark font-serif">Información Personal</h2>
-                        <p className="text-sm text-grey/60">Completa tu perfil para que otros lectores te conozcan.</p>
+        <form action={handleSubmit} className="space-y-7">
+            <FormSectionHeader
+                title="Información personal"
+                description="Completa los datos que quieres mostrar en tu perfil lector."
+                action={
+                    <div className="flex flex-col gap-2 sm:items-end">
+                        <Button type="submit" size="sm" isLoading={loading} className="w-full gap-2 bg-teal text-white shadow-sm hover:bg-teal-dark sm:w-auto">
+                            <Save className="h-4 w-4" /> Guardar
+                        </Button>
+                        <SaveStatus message={status} />
                     </div>
-                    <Button type="submit" size="sm" isLoading={loading} className="w-full sm:w-auto bg-teal hover:bg-teal-dark text-white gap-2 shadow-sm">
-                        <Save className="w-4 h-4" /> Guardar
-                    </Button>
-                </div>
-            </div>
+                }
+            />
 
-            {/* Photo Upload */}
-            <div className="flex flex-col sm:flex-row items-center gap-5 sm:gap-6 p-4 sm:p-6 bg-cream/30 rounded-2xl border border-grey/5">
-                <div className="relative group cursor-pointer shrink-0" onClick={() => document.getElementById("photo-upload")?.click()}>
-                    <div className="w-24 h-24 rounded-full bg-white border-4 border-white shadow-md overflow-hidden flex items-center justify-center text-4xl">
+            <div className="flex flex-col items-center gap-5 rounded-2xl border border-grey/10 bg-cream/30 p-4 sm:flex-row sm:gap-6 sm:p-6">
+                <button
+                    type="button"
+                    className="group relative shrink-0"
+                    onClick={() => document.getElementById("photo-upload")?.click()}
+                >
+                    <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-white bg-white text-3xl shadow-md">
                         {avatarUrl ? (
-                            <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+                            <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
                         ) : (
-                            "👤"
+                            <User className="h-10 w-10 text-teal/60" />
                         )}
                     </div>
-                    <div className="absolute inset-0 bg-black/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
-                        <Camera className="w-6 h-6 text-white" />
-                    </div>
-                </div>
-                <input
-                    type="file"
-                    id="photo-upload"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={handlePhotoUpload}
-                />
+                    <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40 text-white opacity-0 backdrop-blur-sm transition-opacity group-hover:opacity-100">
+                        <Camera className="h-6 w-6" />
+                    </span>
+                </button>
+                <input id="photo-upload" type="file" accept="image/*" className="hidden" onChange={handlePhotoUpload} />
 
-                <div className="flex-1 space-y-3 text-center sm:text-left">
-                    <p className="text-sm font-medium text-teal-dark">Tu foto de perfil</p>
-                    <p className="text-xs text-grey/60">Sube una foto (máx. 5MB).</p>
-                    {isUploading && <p className="text-xs text-teal animate-pulse">Subiendo...</p>}
+                <div className="flex-1 text-center sm:text-left">
+                    <p className="font-semibold text-teal-dark">Tu foto de perfil</p>
+                    <p className="mt-1 text-sm leading-relaxed text-grey/60">Sube una imagen cuadrada o con el rostro centrado. Tamaño recomendado: menos de 5 MB.</p>
+                    {isUploading && <p className="mt-2 text-sm font-semibold text-teal">Subiendo foto...</p>}
                 </div>
             </div>
 
-            {/* Form Fields */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-6">
-                <div className="space-y-2">
-                    <label className="text-xs font-bold text-grey-dark uppercase tracking-wide">Nombre Completo</label>
-                    <input name="fullName" type="text" defaultValue={profile.full_name} className="w-full bg-grey/5 border border-grey/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal/20 text-teal-dark font-medium transition-all" required />
-                </div>
+            <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
+                <label className="space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-grey-dark">Nombre completo</span>
+                    <input name="fullName" type="text" defaultValue={profile.full_name} className="w-full rounded-xl border border-grey/10 bg-grey/5 px-4 py-3 text-sm font-medium text-teal-dark outline-none transition-all focus:ring-2 focus:ring-teal/20" required />
+                </label>
 
-                <div className="space-y-2">
-                    <label className="text-xs font-bold text-grey-dark uppercase tracking-wide">Fecha de Nacimiento</label>
-                    <div className="relative">
-                        <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-grey/40" />
-                        <input name="birthDate" type="date" defaultValue={profile.birth_date || ""} className="w-full bg-grey/5 border border-grey/10 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal/20 text-grey-dark transition-all" />
-                    </div>
-                </div>
+                <label className="space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-grey-dark">Fecha de nacimiento</span>
+                    <span className="relative block">
+                        <CalendarIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-grey/40" />
+                        <input name="birthDate" type="date" defaultValue={profile.birth_date || ""} className="w-full rounded-xl border border-grey/10 bg-grey/5 py-3 pl-10 pr-4 text-sm text-grey-dark outline-none transition-all focus:ring-2 focus:ring-teal/20" />
+                    </span>
+                </label>
 
-                <div className="space-y-2">
-                    <label className="text-xs font-bold text-grey-dark uppercase tracking-wide">Ubicación</label>
-                    <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-grey/40" />
-                        <input name="location" type="text" defaultValue={profile.location || ""} className="w-full bg-grey/5 border border-grey/10 rounded-xl pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal/20 text-teal-dark transition-all" placeholder="Ciudad, País" />
-                    </div>
-                </div>
+                <label className="space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-grey-dark">Ubicación</span>
+                    <span className="relative block">
+                        <MapPin className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-grey/40" />
+                        <input name="location" type="text" defaultValue={profile.location || ""} className="w-full rounded-xl border border-grey/10 bg-grey/5 py-3 pl-10 pr-4 text-sm text-teal-dark outline-none transition-all focus:ring-2 focus:ring-teal/20" placeholder="Ciudad, país" />
+                    </span>
+                </label>
 
-                <div className="space-y-2">
-                    <label className="text-xs font-bold text-grey-dark uppercase tracking-wide">Pronombres</label>
-                    <select name="pronouns" defaultValue={profile.pronouns || "Prefiero no decir"} className="w-full bg-grey/5 border border-grey/10 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-teal/20 text-grey-dark appearance-none transition-all">
-                        <option>Ella (She/Her)</option>
-                        <option>Él (He/Him)</option>
-                        <option>Elle (They/Them)</option>
+                <label className="space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-grey-dark">Pronombres</span>
+                    <select name="pronouns" defaultValue={profile.pronouns || "Prefiero no decir"} className="w-full rounded-xl border border-grey/10 bg-grey/5 px-4 py-3 text-sm text-grey-dark outline-none transition-all focus:ring-2 focus:ring-teal/20">
+                        <option>Ella</option>
+                        <option>Él</option>
+                        <option>Elle</option>
                         <option>Prefiero no decir</option>
                     </select>
-                </div>
+                </label>
             </div>
 
-            <div className="space-y-2">
-                <label className="text-xs font-bold text-grey-dark uppercase tracking-wide">Biografía Literaria</label>
-                <div className="relative">
-                    <textarea
-                        name="bio"
-                        className="w-full bg-grey/5 border border-grey/10 rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-teal/20 text-grey-dark min-h-[120px] resize-y transition-all"
-                        placeholder="Cuéntanos sobre ti como lector..."
-                        defaultValue={profile.bio || ""}
-                    />
-                </div>
-            </div>
+            <label className="block space-y-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-grey-dark">Biografía literaria</span>
+                <textarea
+                    name="bio"
+                    className="min-h-[120px] w-full resize-y rounded-xl border border-grey/10 bg-grey/5 px-4 py-3 text-sm text-grey-dark outline-none transition-all focus:ring-2 focus:ring-teal/20"
+                    placeholder="Cuéntanos qué tipo de lector eres, qué buscas o qué te gusta compartir."
+                    defaultValue={profile.bio || ""}
+                />
+            </label>
         </form>
     );
 }
 
-// --- TAB 2: Preferences ---
-
 function PreferencesTab({ profile }: { profile: ProfileData }) {
-    // We simplify the gamification for the edit page to direct form for now, or keep steps if desired.
-    // Direct form is better for editing.
-    // However, the original UI had a nice wizard. Let's adapt it to a single page form for editing ease.
-
-    // Actually, let's keep it simple as a form.
     const [loading, setLoading] = React.useState(false);
+    const [status, setStatus] = React.useState<string | null>(null);
+    const [complexity, setComplexity] = React.useState(profile.story_complexity_preference || 3);
+    const [format, setFormat] = React.useState(profile.reading_format_preference || "physical");
+    const [spoilerPreference, setSpoilerPreference] = React.useState(Boolean(profile.spoiler_preference));
+    const [engagementElements, setEngagementElements] = React.useState<string[]>(profile.engagement_elements || []);
+    const [favoriteGenres, setFavoriteGenres] = React.useState<string[]>(profile.favorite_genres || []);
+
+    const toggleWithLimit = (value: string, list: string[], setter: React.Dispatch<React.SetStateAction<string[]>>, limit: number) => {
+        if (list.includes(value)) {
+            setter(list.filter((item) => item !== value));
+            return;
+        }
+
+        if (list.length < limit) setter([...list, value]);
+    };
 
     const handleSubmit = async (formData: FormData) => {
         setLoading(true);
-        // Collect engagement elements
-        // We need to parse checkboxes manually if we don't control them or use hidden inputs.
-        // A cleaner way in React form actions with checkboxes is maintaining state or using formData.getAll().
-        // Let's rely on standard form behavior but we need correctly named inputs.
-        // For chips/buttons that are not checkboxes, we need hidden inputs.
-
-        // Let's use hidden input for complex state
+        setStatus(null);
         formData.append("engagementElements", JSON.stringify(engagementElements));
-
-        await updatePreferences(formData);
+        formData.append("favoriteGenres", JSON.stringify(favoriteGenres));
+        const result = await updatePreferences(formData);
         setLoading(false);
-        alert("Preferencias actualizadas");
+        setStatus(result?.error || "Preferencias actualizadas");
     };
 
-    const [complexity, setComplexity] = React.useState(profile.story_complexity_preference || 3);
-    const [format, setFormat] = React.useState(profile.reading_format_preference || "physical");
-    const [spoilerPreference, setSpoilerPreference] = React.useState(profile.spoiler_preference || false);
-    const [engagementElements, setEngagementElements] = React.useState<string[]>(profile.engagement_elements || []);
-
-    const toggleElement = (tag: string) => {
-        if (engagementElements.includes(tag)) {
-            setEngagementElements(engagementElements.filter(e => e !== tag));
-        } else {
-            if (engagementElements.length < 3)
-                setEngagementElements([...engagementElements, tag]);
-        }
-    }
-
     return (
-        <form action={handleSubmit} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-grey/10 pb-4">
+        <form action={handleSubmit} className="space-y-7">
+            <FormSectionHeader
+                title="Perfil lector"
+                description="Estos datos ayudan a personalizar recomendaciones, retos y señales sociales."
+                action={
+                    <div className="flex flex-col gap-2 sm:items-end">
+                        <Button type="submit" size="sm" isLoading={loading} className="w-full gap-2 bg-teal text-white shadow-sm hover:bg-teal-dark sm:w-auto">
+                            <Save className="h-4 w-4" /> Guardar
+                        </Button>
+                        <SaveStatus message={status} />
+                    </div>
+                }
+            />
+
+            <div className="space-y-3">
                 <div>
-                    <h2 className="text-xl font-bold text-teal-dark font-serif">Tu Perfil Lector</h2>
-                    <p className="text-sm text-grey/60">Personaliza tu experiencia.</p>
+                    <h3 className="font-semibold text-teal-dark">Géneros favoritos</h3>
+                    <p className="mt-1 text-sm text-grey/60">Elige hasta 6. Se mostrarán como intereses lectores en tu perfil.</p>
                 </div>
-                <Button type="submit" size="sm" isLoading={loading} className="w-full sm:w-auto bg-teal hover:bg-teal-dark text-white gap-2 shadow-sm">
-                    <Save className="w-4 h-4" /> Guardar
-                </Button>
+                <div className="flex flex-wrap gap-2">
+                    {GENRE_OPTIONS.map((genre) => (
+                        <Chip
+                            key={genre}
+                            selected={favoriteGenres.includes(genre)}
+                            onClick={() => toggleWithLimit(genre, favoriteGenres, setFavoriteGenres, 6)}
+                        >
+                            {genre}
+                        </Chip>
+                    ))}
+                </div>
             </div>
 
-            <div className="space-y-6 max-w-2xl mx-auto pt-2 sm:pt-4">
-                <div className="space-y-3">
-                    <label className="text-sm font-medium text-grey-dark block">Formato favorito</label>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <input type="hidden" name="readingFormat" value={format} />
-                        <button type="button" onClick={() => setFormat("physical")} className={`flex items-center justify-center gap-3 p-3 rounded-xl border font-bold text-sm transition-all ${format === "physical" ? "bg-teal text-white border-teal" : "bg-white text-grey-dark border-grey/10"}`}>
-                            <BookOpen className="w-4 h-4" /> Papel (Físico)
+            <div className="space-y-3">
+                <h3 className="font-semibold text-teal-dark">Formato favorito</h3>
+                <input type="hidden" name="readingFormat" value={format} />
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    {[
+                        { id: "physical", label: "Papel", icon: BookOpen },
+                        { id: "ebook", label: "E-book", icon: Smartphone },
+                        { id: "audio", label: "Audio", icon: Bell }
+                    ].map((option) => (
+                        <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => setFormat(option.id)}
+                            className={`flex items-center justify-center gap-3 rounded-xl border p-3 text-sm font-bold transition-all ${format === option.id ? "border-teal bg-teal text-white" : "border-grey/10 bg-white text-grey-dark hover:border-teal/30"}`}
+                        >
+                            <option.icon className="h-4 w-4" /> {option.label}
                         </button>
-                        <button type="button" onClick={() => setFormat("ebook")} className={`flex items-center justify-center gap-3 p-3 rounded-xl border font-bold text-sm transition-all ${format === "ebook" ? "bg-teal text-white border-teal" : "bg-white text-grey-dark border-grey/10"}`}>
-                            <Smartphone className="w-4 h-4" /> E-book
-                        </button>
-                        {/* Added Audio for completeness with schema */}
-                        {/* <button type="button" onClick={() => setFormat("audio")} ... >Audio</button> */}
-                    </div>
+                    ))}
                 </div>
+            </div>
 
-                <div className="space-y-3">
-                    <label className="text-sm font-medium text-grey-dark block">Complejidad narrativa ({complexity})</label>
-                    <div className="px-2">
-                        <input name="storyComplexity" type="range" min="1" max="5" value={complexity} onChange={(e) => setComplexity(parseInt(e.target.value))} className="w-full accent-teal h-2 bg-grey/20 rounded-lg appearance-none cursor-pointer" />
-                        <div className="flex justify-between text-[10px] text-grey/60 mt-2 font-medium">
-                            <span>Ligera</span>
-                            <span>Equilibrada</span>
-                            <span>Compleja</span>
-                        </div>
-                    </div>
+            <div className="space-y-3 rounded-2xl border border-grey/10 bg-cream/30 p-4">
+                <label className="block text-sm font-semibold text-teal-dark">Complejidad narrativa ({complexity})</label>
+                <input name="storyComplexity" type="range" min="1" max="5" value={complexity} onChange={(event) => setComplexity(parseInt(event.target.value))} className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-grey/20 accent-teal" />
+                <div className="flex justify-between text-[11px] font-medium text-grey/60">
+                    <span>Ligera</span>
+                    <span>Equilibrada</span>
+                    <span>Compleja</span>
                 </div>
+            </div>
 
-                <div className="flex items-start sm:items-center justify-between gap-4 p-4 bg-white border border-grey/10 rounded-xl shadow-sm">
-                    <div className="space-y-0.5">
-                        <label className="text-sm font-medium text-grey-dark block">Mostrar Spoilers</label>
-                        <p className="text-xs text-grey/60">¿Quieres ver contenido marcado como spoiler por defecto?</p>
-                    </div>
-                    <div
-                        onClick={() => setSpoilerPreference(!spoilerPreference)}
-                        className={`w-12 h-6 rounded-full relative cursor-pointer transition-colors duration-300 ${spoilerPreference ? "bg-teal" : "bg-grey/20"}`}
-                    >
-                        <div className={`absolute top-1 left-1 bg-white w-4 h-4 rounded-full shadow-sm transition-transform duration-300 ${spoilerPreference ? "translate-x-6" : "translate-x-0"}`} />
-                        <input type="hidden" name="spoilerPreference" value={spoilerPreference.toString()} />
-                    </div>
+            <div className="flex items-start justify-between gap-4 rounded-2xl border border-grey/10 bg-white p-4 shadow-sm">
+                <div>
+                    <h3 className="font-semibold text-teal-dark">Mostrar spoilers</h3>
+                    <p className="mt-1 text-sm leading-relaxed text-grey/60">Activa esta opción si quieres ver contenido marcado como spoiler por defecto.</p>
                 </div>
+                <Toggle checked={spoilerPreference} onChange={() => setSpoilerPreference(!spoilerPreference)} label="Mostrar spoilers" />
+                <input type="hidden" name="spoilerPreference" value={spoilerPreference.toString()} />
+            </div>
 
-                <div className="space-y-3">
-                    <label className="text-sm font-medium text-grey-dark block">¿Qué elementos te enganchan más? (Max 3)</label>
-                    <div className="flex flex-wrap gap-2">
-                        {["Personajes profundos", "Trama intrigante", "Estilo literario", "Giros inesperados", "Mundo detallado"].map(tag => (
-                            <button key={tag} type="button" onClick={() => toggleElement(tag)} className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition-all ${engagementElements.includes(tag) ? "bg-teal text-white border-teal" : "bg-white text-grey-dark border-grey/20"}`}>
-                                {tag}
-                            </button>
-                        ))}
-                    </div>
+            <div className="space-y-3">
+                <div>
+                    <h3 className="font-semibold text-teal-dark">Qué te engancha</h3>
+                    <p className="mt-1 text-sm text-grey/60">Elige hasta 3 elementos que suelen hacer que un libro te atrape.</p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                    {ENGAGEMENT_OPTIONS.map((tag) => (
+                        <Chip
+                            key={tag}
+                            selected={engagementElements.includes(tag)}
+                            onClick={() => toggleWithLimit(tag, engagementElements, setEngagementElements, 3)}
+                        >
+                            {tag}
+                        </Chip>
+                    ))}
                 </div>
             </div>
         </form>
     );
 }
 
-// --- TAB 3: Goals ---
-
 function GoalsTab({ profile }: { profile: ProfileData }) {
-    // Safely handle goals data incase it's null or an array (default DB value)
-    const goalsData = (profile.goals && !Array.isArray(profile.goals)) ? profile.goals : { yearly_target: 50, secondary: [] };
+    const goalsData = profile.goals && !Array.isArray(profile.goals) ? profile.goals : { yearly_target: 50, secondary: [] };
     const initialSecondary = Array.isArray(goalsData.secondary) ? goalsData.secondary : [];
-
     const [loading, setLoading] = React.useState(false);
+    const [status, setStatus] = React.useState<string | null>(null);
     const [secondaryGoals, setSecondaryGoals] = React.useState<string[]>(initialSecondary);
 
     const toggleGoal = (goal: string) => {
-        if (secondaryGoals.includes(goal)) {
-            setSecondaryGoals(secondaryGoals.filter(g => g !== goal));
-        } else {
-            setSecondaryGoals([...secondaryGoals, goal]);
-        }
-    }
+        setSecondaryGoals((current) => current.includes(goal) ? current.filter((item) => item !== goal) : [...current, goal]);
+    };
 
     const handleSubmit = async (formData: FormData) => {
         setLoading(true);
+        setStatus(null);
         formData.append("secondaryGoals", JSON.stringify(secondaryGoals));
-        await updateGoals(formData);
+        const result = await updateGoals(formData);
         setLoading(false);
-        alert("Metas actualizadas");
+        setStatus(result?.error || "Metas actualizadas");
     };
 
     return (
-        <form action={handleSubmit} className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-grey/10 pb-4">
-                <div>
-                    <h2 className="text-xl font-bold text-teal-dark font-serif">Metas de Lectura</h2>
-                    <p className="text-sm text-grey/60">Define tus desafíos para este año.</p>
-                </div>
-                <Button type="submit" size="sm" isLoading={loading} className="w-full sm:w-auto bg-teal hover:bg-teal-dark text-white gap-2 shadow-sm">
-                    <Save className="w-4 h-4" /> Guardar
-                </Button>
-            </div>
+        <form action={handleSubmit} className="space-y-7">
+            <FormSectionHeader
+                title="Metas de lectura"
+                description="Define tus objetivos del año y algunos retos secundarios."
+                action={
+                    <div className="flex flex-col gap-2 sm:items-end">
+                        <Button type="submit" size="sm" isLoading={loading} className="w-full gap-2 bg-teal text-white shadow-sm hover:bg-teal-dark sm:w-auto">
+                            <Save className="h-4 w-4" /> Guardar
+                        </Button>
+                        <SaveStatus message={status} />
+                    </div>
+                }
+            />
 
-            <section className="bg-teal/5 p-6 rounded-2xl space-y-4 border border-teal/10">
+            <section className="rounded-2xl border border-teal/10 bg-teal/5 p-4 sm:p-6">
                 <div className="flex items-start gap-4">
-                    <div className="p-3 bg-white rounded-full text-teal shadow-sm">
-                        <Target className="w-6 h-6" />
+                    <div className="rounded-full bg-white p-3 text-teal shadow-sm">
+                        <Target className="h-6 w-6" />
                     </div>
-                    <div className="space-y-1 flex-1">
-                        <h3 className="font-bold text-teal-dark">Meta Principal {new Date().getFullYear()}</h3>
-                        <p className="text-xs text-grey/60">Libros a leer este año.</p>
+                    <div>
+                        <h3 className="font-bold text-teal-dark">Meta principal {new Date().getFullYear()}</h3>
+                        <p className="mt-1 text-sm text-grey/60">Ajusta el objetivo a tu ritmo real.</p>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
-                    <div className="p-4 bg-white rounded-xl border border-teal/20 shadow-sm text-center space-y-2 cursor-pointer ring-2 ring-teal ring-offset-2">
-                        <span className="text-2xl">📚</span>
-                        <div className="font-bold text-teal-dark text-sm">Libros</div>
-                        <input name="mainGoal" type="number" defaultValue={goalsData.yearly_target} className="w-16 mx-auto text-center border-b border-grey/20 focus:border-teal outline-none font-bold text-lg" />
-                    </div>
-                    <div className="p-4 bg-white rounded-xl border border-grey/10 shadow-sm text-center space-y-2 group hover:border-teal/50 transition-colors">
-                        <span className="text-2xl">📄</span>
-                        <div className="font-bold text-grey-dark group-hover:text-teal-dark text-sm">Páginas</div>
-                        <input name="pagesGoal" type="number" defaultValue={goalsData.pages_target || 10000} className="w-20 mx-auto text-center border-b border-grey/20 focus:border-teal outline-none font-bold text-lg bg-transparent" />
-                    </div>
-                    <div className="p-4 bg-white rounded-xl border border-grey/10 shadow-sm text-center space-y-2 group hover:border-teal/50 transition-colors">
-                        <span className="text-2xl">🔥</span>
-                        <div className="font-bold text-grey-dark group-hover:text-teal-dark text-sm">Racha (Días)</div>
-                        <input name="streakGoal" type="number" defaultValue={goalsData.streak_target || 7} className="w-16 mx-auto text-center border-b border-grey/20 focus:border-teal outline-none font-bold text-lg bg-transparent" />
-                    </div>
+                <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <label className="rounded-xl border border-teal/20 bg-white p-4 text-center shadow-sm">
+                        <span className="block text-sm font-bold text-teal-dark">Libros</span>
+                        <input name="mainGoal" type="number" min="1" defaultValue={goalsData.yearly_target} className="mx-auto mt-2 w-20 border-b border-grey/20 bg-transparent text-center text-lg font-bold outline-none focus:border-teal" />
+                    </label>
+                    <label className="rounded-xl border border-grey/10 bg-white p-4 text-center shadow-sm">
+                        <span className="block text-sm font-bold text-grey-dark">Páginas</span>
+                        <input name="pagesGoal" type="number" min="0" defaultValue={goalsData.pages_target || 10000} className="mx-auto mt-2 w-24 border-b border-grey/20 bg-transparent text-center text-lg font-bold outline-none focus:border-teal" />
+                    </label>
+                    <label className="rounded-xl border border-grey/10 bg-white p-4 text-center shadow-sm">
+                        <span className="block text-sm font-bold text-grey-dark">Racha</span>
+                        <input name="streakGoal" type="number" min="0" defaultValue={goalsData.streak_target || 7} className="mx-auto mt-2 w-20 border-b border-grey/20 bg-transparent text-center text-lg font-bold outline-none focus:border-teal" />
+                    </label>
                 </div>
             </section>
 
-            <section className="space-y-4">
-                <h3 className="font-bold text-grey-dark text-sm uppercase tracking-wide">Desafíos Secundarios</h3>
-                <div className="space-y-3">
-                    {[
-                        "Leer al menos 3 géneros diferentes",
-                        "Explorar autores de 5 países",
-                        "Leer 1 clásico universal",
-                        "Leer un libro de más de 500 páginas",
-                        "Leer un libro publicado este año",
-                        "Leer un autor de un continente diferente",
-                        "Releer un libro favorito"
-                    ].map((habit, i) => (
-                        <div key={i} className="flex items-center gap-3 p-3 bg-white border border-grey/10 rounded-xl">
-                            <input type="checkbox" checked={secondaryGoals.includes(habit)} onChange={() => toggleGoal(habit)} className="w-4 h-4 accent-teal rounded-md" />
-                            <span className="text-sm text-grey-dark">{habit}</span>
-                        </div>
+            <section className="space-y-3">
+                <h3 className="text-sm font-bold uppercase tracking-wide text-grey-dark">Desafíos secundarios</h3>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {SECONDARY_GOALS.map((goal) => (
+                        <label key={goal} className="flex cursor-pointer items-center gap-3 rounded-xl border border-grey/10 bg-white p-3 text-sm text-grey-dark transition hover:border-teal/30">
+                            <input type="checkbox" checked={secondaryGoals.includes(goal)} onChange={() => toggleGoal(goal)} className="h-4 w-4 rounded-md accent-teal" />
+                            <span>{goal}</span>
+                        </label>
                     ))}
                 </div>
             </section>
         </form>
     );
 }
-
-// --- TAB 4: Notifications ---
 
 function NotificationsTab({ profile }: { profile: ProfileData }) {
     const settings = profile.notification_settings || {
@@ -459,55 +574,59 @@ function NotificationsTab({ profile }: { profile: ProfileData }) {
         push_achievements: true
     };
 
-    // State to handle toggles
     const [currentSettings, setCurrentSettings] = React.useState(settings);
     const [loading, setLoading] = React.useState(false);
+    const [status, setStatus] = React.useState<string | null>(null);
 
     const toggle = (key: string) => {
-        setCurrentSettings((prev: NotificationSettings) => ({ ...prev, [key]: !prev[key] }));
-    }
+        setCurrentSettings((current: NotificationSettings) => ({ ...current, [key]: !current[key] }));
+    };
 
     const handleSave = async () => {
         setLoading(true);
-        await updateSettings('notifications', currentSettings);
+        setStatus(null);
+        const result = await updateSettings("notifications", currentSettings);
         setLoading(false);
-        alert("Notificaciones actualizadas");
-    }
+        setStatus(result?.error || "Notificaciones actualizadas");
+    };
 
     const items = [
-        { title: "Recordatorios de lectura", desc: "Te avisaremos para mantener tu racha.", keys: ["email_reading_reminders", "push_reading_reminders"] },
+        { title: "Recordatorios de lectura", desc: "Avisos para mantener tu racha.", keys: ["email_reading_reminders", "push_reading_reminders"] },
         { title: "Nuevas recomendaciones", desc: "Libros seleccionados para ti semanalmente.", keys: ["email_recommendations", "push_recommendations"] },
-        { title: "Actividad social", desc: "Cuando alguien comenta o da like a tus reseñas.", keys: ["email_social", "push_social"] },
-        { title: "Logros y desafíos", desc: "Actualizaciones sobre tu progreso.", keys: ["email_achievements", "push_achievements"] },
+        { title: "Actividad social", desc: "Comentarios, menciones o reacciones.", keys: ["email_social", "push_social"] },
+        { title: "Logros y desafíos", desc: "Actualizaciones sobre insignias y retos.", keys: ["email_achievements", "push_achievements"] }
     ];
 
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-grey/10 pb-4">
-                <div>
-                    <h2 className="text-xl font-bold text-teal-dark font-serif">Notificaciones</h2>
-                    <p className="text-sm text-grey/60">Decide cómo y cuándo quieres que te contactemos.</p>
-                </div>
-                <Button onClick={handleSave} size="sm" isLoading={loading} className="w-full sm:w-auto bg-teal hover:bg-teal-dark text-white gap-2 shadow-sm">
-                    <Save className="w-4 h-4" /> Guardar
-                </Button>
-            </div>
+        <div className="space-y-7">
+            <FormSectionHeader
+                title="Notificaciones"
+                description="Decide cómo y cuándo quieres recibir avisos."
+                action={
+                    <div className="flex flex-col gap-2 sm:items-end">
+                        <Button onClick={handleSave} size="sm" isLoading={loading} className="w-full gap-2 bg-teal text-white shadow-sm hover:bg-teal-dark sm:w-auto">
+                            <Save className="h-4 w-4" /> Guardar
+                        </Button>
+                        <SaveStatus message={status} />
+                    </div>
+                }
+            />
 
-            <div className="space-y-6">
-                {items.map((item, i) => (
-                    <div key={i} className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 py-2">
-                        <div className="max-w-md">
-                            <h4 className="font-bold text-teal-dark text-sm">{item.title}</h4>
-                            <p className="text-xs text-grey/60">{item.desc}</p>
+            <div className="space-y-3">
+                {items.map((item) => (
+                    <div key={item.title} className="flex flex-col gap-4 rounded-2xl border border-grey/10 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h4 className="font-bold text-teal-dark">{item.title}</h4>
+                            <p className="mt-1 text-sm text-grey/60">{item.desc}</p>
                         </div>
                         <div className="flex items-center gap-4">
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" checked={currentSettings[item.keys[0]]} onChange={() => toggle(item.keys[0])} className="toggle toggle-sm accent-teal" />
-                                <span className="text-xs font-medium text-grey/60">Email</span>
+                            <label className="flex items-center gap-2 text-sm font-semibold text-grey/60">
+                                <input type="checkbox" checked={currentSettings[item.keys[0]]} onChange={() => toggle(item.keys[0])} className="h-4 w-4 accent-teal" />
+                                Email
                             </label>
-                            <label className="flex items-center gap-2 cursor-pointer">
-                                <input type="checkbox" checked={currentSettings[item.keys[1]]} onChange={() => toggle(item.keys[1])} className="toggle toggle-sm accent-teal" />
-                                <span className="text-xs font-medium text-grey/60">Push</span>
+                            <label className="flex items-center gap-2 text-sm font-semibold text-grey/60">
+                                <input type="checkbox" checked={currentSettings[item.keys[1]]} onChange={() => toggle(item.keys[1])} className="h-4 w-4 accent-teal" />
+                                Push
                             </label>
                         </div>
                     </div>
@@ -516,8 +635,6 @@ function NotificationsTab({ profile }: { profile: ProfileData }) {
         </div>
     );
 }
-
-// --- TAB 5: Privacy ---
 
 function PrivacyTab({ profile }: { profile: ProfileData }) {
     const settings = profile.privacy_settings || {
@@ -530,114 +647,204 @@ function PrivacyTab({ profile }: { profile: ProfileData }) {
 
     const [currentSettings, setCurrentSettings] = React.useState(settings);
     const [loading, setLoading] = React.useState(false);
+    const [status, setStatus] = React.useState<string | null>(null);
 
     const update = (key: string, value: boolean | string) => {
-        setCurrentSettings((prev: PrivacySettings) => ({ ...prev, [key]: value }));
-    }
+        setCurrentSettings((current: PrivacySettings) => ({ ...current, [key]: value }));
+    };
 
     const handleSave = async () => {
         setLoading(true);
-        await updateSettings('privacy', currentSettings);
+        setStatus(null);
+        const result = await updateSettings("privacy", currentSettings);
         setLoading(false);
-        alert("Privacidad actualizada");
-    }
+        setStatus(result?.error || "Privacidad actualizada");
+    };
 
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-grey/10 pb-4">
-                <div>
-                    <h2 className="text-xl font-bold text-teal-dark font-serif">Privacidad</h2>
-                    <p className="text-sm text-grey/60">Controla quién puede ver tu actividad.</p>
-                </div>
-                <Button onClick={handleSave} size="sm" isLoading={loading} className="w-full sm:w-auto bg-teal hover:bg-teal-dark text-white gap-2 shadow-sm">
-                    <Save className="w-4 h-4" /> Guardar
-                </Button>
-            </div>
-
-            <div className="bg-amber-50 border border-amber-100 p-4 rounded-xl flex gap-3 text-amber-800 text-sm">
-                <Eye className="w-5 h-5 shrink-0" />
-                <p>Tu perfil es actualmente <strong>{currentSettings.profile_visibility === 'public' ? 'Público' : 'Privado/Restringido'}</strong>.</p>
-            </div>
-
-            <div className="space-y-6">
-                <div>
-                    <h4 className="font-bold text-teal-dark text-sm mb-3">Visibilidad del Perfil</h4>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        {[
-                            { id: "public", label: "Público 🌍" },
-                            { id: "members", label: "Solo Miembros 👥" },
-                            { id: "friends", label: "Solo Amigos 🔒" },
-                            { id: "private", label: "Privado 🔐" }
-                        ].map((opt) => (
-                            <button key={opt.id} onClick={() => update("profile_visibility", opt.id)} className={`p-3 rounded-xl border text-sm font-medium text-left ${currentSettings.profile_visibility === opt.id ? "border-teal bg-teal/5 text-teal-dark ring-1 ring-teal" : "border-grey/10 bg-white text-grey-dark"}`}>
-                                {opt.label}
-                            </button>
-                        ))}
+        <div className="space-y-7">
+            <FormSectionHeader
+                title="Privacidad"
+                description="Controla quién puede ver tu perfil y tu actividad lectora."
+                action={
+                    <div className="flex flex-col gap-2 sm:items-end">
+                        <Button onClick={handleSave} size="sm" isLoading={loading} className="w-full gap-2 bg-teal text-white shadow-sm hover:bg-teal-dark sm:w-auto">
+                            <Save className="h-4 w-4" /> Guardar
+                        </Button>
+                        <SaveStatus message={status} />
                     </div>
-                </div>
+                }
+            />
 
-                <div className="space-y-3">
-                    <h4 className="font-bold text-teal-dark text-sm mb-2">¿Qué información es visible?</h4>
+            <div className="flex gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-4 text-sm text-amber-800">
+                <Eye className="h-5 w-5 shrink-0" />
+                <p>
+                    Tu perfil público está configurado como <strong>{currentSettings.profile_visibility === "public" ? "público" : "restringido"}</strong>.
+                    Estos ajustes se aplican en la página compartida de perfil.
+                </p>
+            </div>
+
+            <section className="space-y-3">
+                <h3 className="font-bold text-teal-dark">Visibilidad del perfil</h3>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {[
-                        { id: "show_name_photo", label: "Nombre y Foto" },
-                        { id: "show_location", label: "Ubicación (Ciudad)" },
-                        { id: "show_recent_reads", label: "Libros leídos recientemente" },
-                        { id: "show_stats", label: "Estadísticas de lectura" }
-                    ].map(item => (
-                        <div key={item.id} className="flex items-center justify-between p-3 bg-white border border-grey/10 rounded-xl">
-                            <span className="text-sm text-grey-dark">{item.label}</span>
-                            <label className="relative inline-block w-10 mr-2 align-middle select-none transition duration-200 ease-in">
-                                <input type="checkbox" checked={Boolean(currentSettings[item.id])} onChange={(e) => update(item.id, e.target.checked)} className="toggle-checkbox absolute block w-5 h-5 rounded-full bg-white border-4 appearance-none cursor-pointer checked:right-0 checked:border-teal" />
-                                <span className="toggle-label block overflow-hidden h-5 rounded-full bg-grey/20 cursor-pointer text-transparent">.</span>
-                            </label>
-                        </div>
+                        { id: "public", label: "Público", desc: "Cualquier lector puede verlo." },
+                        { id: "members", label: "Solo miembros", desc: "Visible dentro de Wordelia." },
+                        { id: "friends", label: "Solo amigos", desc: "Limita el acceso a tu círculo." },
+                        { id: "private", label: "Privado", desc: "Solo tú puedes verlo." }
+                    ].map((option) => (
+                        <button
+                            key={option.id}
+                            type="button"
+                            onClick={() => update("profile_visibility", option.id)}
+                            className={`rounded-2xl border p-4 text-left transition ${currentSettings.profile_visibility === option.id ? "border-teal bg-teal/5 ring-1 ring-teal" : "border-grey/10 bg-white hover:border-teal/30"}`}
+                        >
+                            <span className="font-bold text-teal-dark">{option.label}</span>
+                            <span className="mt-1 block text-sm text-grey/60">{option.desc}</span>
+                        </button>
                     ))}
                 </div>
-            </div>
+            </section>
+
+            <section className="space-y-3">
+                <h3 className="font-bold text-teal-dark">Información visible</h3>
+                {[
+                    { id: "show_name_photo", label: "Nombre y foto" },
+                    { id: "show_location", label: "Ubicación" },
+                    { id: "show_recent_reads", label: "Lecturas recientes" },
+                    { id: "show_stats", label: "Estadísticas de lectura" }
+                ].map((item) => (
+                    <div key={item.id} className="flex items-center justify-between gap-4 rounded-2xl border border-grey/10 bg-white p-4">
+                        <span className="text-sm font-semibold text-grey-dark">{item.label}</span>
+                        <Toggle checked={Boolean(currentSettings[item.id])} onChange={() => update(item.id, !currentSettings[item.id])} label={item.label} />
+                    </div>
+                ))}
+            </section>
         </div>
     );
 }
 
-// --- TAB 6: Account ---
-
 function AccountTab({ email }: { email: string }) {
+    const [newEmail, setNewEmail] = React.useState(email);
+    const [status, setStatus] = React.useState<string | null>(null);
+    const [loadingAction, setLoadingAction] = React.useState<string | null>(null);
+
+    const runAction = async (name: string, action: () => Promise<any>, successMessage: string) => {
+        setLoadingAction(name);
+        setStatus(null);
+        const result = await action();
+        setLoadingAction(null);
+        setStatus(result?.error || successMessage);
+    };
+
+    const handleExport = async () => {
+        await runAction("export", async () => {
+            const result = await exportMyProfileData();
+            if (result?.error) return result;
+
+            const blob = new Blob([JSON.stringify(result, null, 2)], { type: "application/json" });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `wordelia-datos-${new Date().toISOString().slice(0, 10)}.json`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            URL.revokeObjectURL(url);
+
+            return { success: true };
+        }, "Exportación preparada");
+    };
+
     return (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="border-b border-grey/10 pb-4">
-                <h2 className="text-xl font-bold text-teal-dark font-serif">Configuración de Cuenta</h2>
-                <p className="text-sm text-grey/60">Gestiona tu acceso y seguridad.</p>
-            </div>
+        <div className="space-y-7">
+            <FormSectionHeader
+                title="Cuenta"
+                description="Gestiona acceso, seguridad y datos personales."
+                action={<SaveStatus message={status} />}
+            />
 
-            <div className="space-y-6">
-                <div className="space-y-2">
-                    <label className="text-xs font-bold text-grey-dark uppercase tracking-wide">Correo Electrónico</label>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                        <input type="email" defaultValue={email} disabled className="flex-1 bg-grey/5 border border-grey/10 rounded-xl px-4 py-2 text-sm text-grey-dark cursor-not-allowed" />
-                        <Button variant="outline" size="sm">Cambiar</Button>
+            <div className="space-y-5">
+                <label className="block space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-grey-dark">Correo electrónico</span>
+                    <span className="flex flex-col gap-2 sm:flex-row">
+                        <span className="relative flex-1">
+                            <Mail className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-grey/40" />
+                            <input
+                                type="email"
+                                value={newEmail}
+                                onChange={(event) => setNewEmail(event.target.value)}
+                                className="w-full rounded-xl border border-grey/10 bg-grey/5 py-3 pl-10 pr-4 text-sm text-grey-dark outline-none focus:ring-2 focus:ring-teal/20"
+                            />
+                        </span>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="sm:h-auto"
+                            isLoading={loadingAction === "email"}
+                            onClick={() => runAction("email", () => requestEmailChange(newEmail), "Revisa tu correo para confirmar el cambio")}
+                        >
+                            Cambiar
+                        </Button>
+                    </span>
+                </label>
+
+                <div className="rounded-2xl border border-grey/10 bg-white p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 className="font-bold text-teal-dark">Contraseña</h3>
+                            <p className="mt-1 text-sm text-grey/60">Actualiza tu contraseña desde un enlace seguro.</p>
+                        </div>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            isLoading={loadingAction === "password"}
+                            onClick={() => runAction("password", requestPasswordReset, "Te hemos enviado un email para actualizar la contraseña")}
+                        >
+                            Actualizar
+                        </Button>
                     </div>
                 </div>
 
-                <div className="space-y-2">
-                    <label className="text-xs font-bold text-grey-dark uppercase tracking-wide">Contraseña</label>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                        <input type="password" value="********" disabled className="flex-1 bg-grey/5 border border-grey/10 rounded-xl px-4 py-2 text-sm text-grey-dark cursor-not-allowed" />
-                        <Button variant="outline" size="sm">Actualizar</Button>
+                <div className="rounded-2xl border border-grey/10 bg-white p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 className="font-bold text-teal-dark">Exportar datos</h3>
+                            <p className="mt-1 text-sm text-grey/60">Descarga una copia de tu información.</p>
+                        </div>
+                        <Button
+                            variant="ghost"
+                            size="sm"
+                            className="gap-2 text-teal hover:bg-teal/5"
+                            isLoading={loadingAction === "export"}
+                            onClick={handleExport}
+                        >
+                            <FileDown className="h-4 w-4" /> Descargar JSON
+                        </Button>
                     </div>
                 </div>
 
-                <div className="pt-6 border-t border-grey/10">
-                    <h4 className="font-bold text-teal-dark text-sm mb-4">Exportar datos</h4>
-                    <Button variant="ghost" size="sm" className="text-teal hover:bg-teal/5">
-                        Descargar archivo .JSON con mis datos
-                    </Button>
-                </div>
-
-                <div className="pt-6 border-t border-grey/10">
-                    <h4 className="font-bold text-coral text-sm mb-2">Zona de Peligro</h4>
-                    <p className="text-xs text-grey/60 mb-4">Una vez que elimines tu cuenta, no podrás volver atrás.</p>
-                    <Button variant="ghost" size="sm" className="text-coral hover:bg-coral/5 border border-coral/20">
-                        Eliminar Cuenta Personal
-                    </Button>
+                <div className="rounded-2xl border border-coral/20 bg-coral/5 p-4">
+                    <div className="flex gap-3">
+                        <ShieldAlert className="mt-0.5 h-5 w-5 shrink-0 text-coral" />
+                        <div className="flex-1">
+                            <h3 className="font-bold text-coral">Zona delicada</h3>
+                            <p className="mt-1 text-sm text-grey-dark/70">Eliminar tu cuenta borrará tus datos personales y no se podrá deshacer.</p>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="mt-4 gap-2 border border-coral/20 text-coral hover:bg-coral/5"
+                                isLoading={loadingAction === "deactivate"}
+                                onClick={() => {
+                                    if (confirm("¿Quieres solicitar la baja y ocultar tu perfil público?")) {
+                                        runAction("deactivate", requestAccountDeactivation, "Solicitud registrada. Tu perfil queda oculto.");
+                                    }
+                                }}
+                            >
+                                <Trash2 className="h-4 w-4" /> Solicitar baja
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>

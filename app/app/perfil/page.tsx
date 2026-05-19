@@ -44,16 +44,29 @@ export default async function ProfilePage() {
     const startOfYear = new Date(new Date().getFullYear(), 0, 1).toISOString();
     const { data: sessions } = await supabase
         .from("reading_sessions")
-        .select("pages_read")
+        .select("pages_read, created_at")
         .eq("user_id", user.id)
         .gte("created_at", startOfYear);
 
     const pagesRead = sessions?.reduce((acc, session) => acc + (session.pages_read || 0), 0) || 0;
 
-    // 3. Streak
-    // Streak calculation is complex. For now mock or simple check.
-    // Let's use a simple placeholder or 0 if no recent activity.
-    const streakDays = 0; // TODO: Implement streak logic
+    // 3. Streak from reading session dates.
+    const sessionDays = new Set(
+        (sessions || []).map((session) => new Date(session.created_at).toISOString().slice(0, 10))
+    );
+    const today = new Date();
+    let cursor = new Date(today);
+    let streakDays = 0;
+
+    // If the user has not read today but read yesterday, keep the streak alive.
+    if (!sessionDays.has(cursor.toISOString().slice(0, 10))) {
+        cursor.setDate(cursor.getDate() - 1);
+    }
+
+    while (sessionDays.has(cursor.toISOString().slice(0, 10))) {
+        streakDays += 1;
+        cursor.setDate(cursor.getDate() - 1);
+    }
 
     const stats = {
         booksRead: booksRead || 0,
@@ -178,6 +191,20 @@ export default async function ProfilePage() {
         .select("*")
         .order("category");
 
+    const libraryCountsResult = await Promise.all([
+        supabase.from("user_books").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "READ"),
+        supabase.from("user_books").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "READING"),
+        supabase.from("user_books").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "WANT_TO_READ"),
+        supabase.from("user_books").select("*", { count: "exact", head: true }).eq("user_id", user.id).eq("status", "DNF"),
+    ]);
+
+    const libraryCounts = {
+        read: libraryCountsResult[0].count || 0,
+        reading: libraryCountsResult[1].count || 0,
+        wantToRead: libraryCountsResult[2].count || 0,
+        abandoned: libraryCountsResult[3].count || 0,
+    };
+
     return <UserProfile
         profile={profile}
         stats={stats}
@@ -185,5 +212,6 @@ export default async function ProfilePage() {
         allBadges={allBadges || []}
         activity={activity}
         initialLibrary={initialLibrary}
+        libraryCounts={libraryCounts}
     />;
 }

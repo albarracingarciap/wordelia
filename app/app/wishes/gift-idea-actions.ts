@@ -14,9 +14,12 @@ export interface GiftIdeaData {
     coverUrl: string | null;
     price: number | null;
     isPurchased: boolean;
+    giftStatus: GiftIdeaStatus;
     isSecret: boolean;
     privateNote: string | null;
 }
+
+export type GiftIdeaStatus = "IDEA" | "RESERVED" | "PURCHASED" | "WRAPPED" | "DELIVERED";
 
 export interface GiftRecipientDetailData {
     id: string;
@@ -79,6 +82,7 @@ export async function getGiftRecipientDetail(id: string): Promise<{
         coverUrl: i.cover_url,
         price: i.price ? Number(i.price) : null,
         isPurchased: i.is_purchased,
+        giftStatus: i.gift_status || (i.is_purchased ? "PURCHASED" : "IDEA"),
         isSecret: i.is_secret,
         privateNote: i.private_note,
     }));
@@ -128,11 +132,13 @@ export async function addGiftIdea(recipientId: string, data: {
         price: data.price || null,
         private_note: data.privateNote || null,
         is_purchased: false,
+        gift_status: "IDEA",
         is_secret: true,
     });
 
     if (error) return { error: error.message };
     revalidatePath(`/app/wishes/person/${recipientId}`);
+    revalidatePath("/app/wishes");
     return { success: true };
 }
 
@@ -143,11 +149,77 @@ export async function markGiftIdeaAsPurchased(ideaId: string, recipientId: strin
 
     const { error } = await supabase
         .from("gift_ideas")
-        .update({ is_purchased: true })
+        .update({ is_purchased: true, gift_status: "PURCHASED" })
         .eq("id", ideaId);
 
     if (error) return { error: error.message };
     revalidatePath(`/app/wishes/person/${recipientId}`);
+    revalidatePath("/app/wishes");
+    return { success: true };
+}
+
+export async function updateGiftIdeaStatus(ideaId: string, recipientId: string, status: GiftIdeaStatus) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "No autenticado" };
+
+    const { data: recipient } = await supabase
+        .from("gift_recipients")
+        .select("user_id")
+        .eq("id", recipientId)
+        .single();
+
+    if (!recipient || recipient.user_id !== user.id) return { error: "No autorizado" };
+
+    const { error } = await supabase
+        .from("gift_ideas")
+        .update({
+            gift_status: status,
+            is_purchased: ["PURCHASED", "WRAPPED", "DELIVERED"].includes(status),
+        })
+        .eq("id", ideaId)
+        .eq("recipient_id", recipientId);
+
+    if (error) return { error: error.message };
+    revalidatePath(`/app/wishes/person/${recipientId}`);
+    revalidatePath("/app/wishes");
+    return { success: true };
+}
+
+export async function updateGiftIdea(ideaId: string, recipientId: string, data: {
+    title: string;
+    author?: string | null;
+    price?: number | null;
+    privateNote?: string | null;
+}) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "No autenticado" };
+
+    if (!data.title.trim()) return { error: "El título es obligatorio" };
+
+    const { data: recipient } = await supabase
+        .from("gift_recipients")
+        .select("user_id")
+        .eq("id", recipientId)
+        .single();
+
+    if (!recipient || recipient.user_id !== user.id) return { error: "No autorizado" };
+
+    const { error } = await supabase
+        .from("gift_ideas")
+        .update({
+            title: data.title.trim(),
+            author: data.author?.trim() || null,
+            price: data.price ?? null,
+            private_note: data.privateNote?.trim() || null,
+        })
+        .eq("id", ideaId)
+        .eq("recipient_id", recipientId);
+
+    if (error) return { error: error.message };
+    revalidatePath(`/app/wishes/person/${recipientId}`);
+    revalidatePath("/app/wishes");
     return { success: true };
 }
 
@@ -163,5 +235,6 @@ export async function deleteGiftIdea(ideaId: string, recipientId: string) {
 
     if (error) return { error: error.message };
     revalidatePath(`/app/wishes/person/${recipientId}`);
+    revalidatePath("/app/wishes");
     return { success: true };
 }

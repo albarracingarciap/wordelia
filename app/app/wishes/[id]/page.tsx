@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getWishlistDetail } from "@/app/app/wishes/item-actions";
+import { getWishlistCandidates } from "@/app/app/wishes/candidate-actions";
 import { WishlistDetailView } from "@/components/wishes/WishlistDetailView";
 
 export default async function WishlistDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -8,5 +9,7 @@ export default async function WishlistDetailPage({ params }: { params: Promise<{
 
     if (!wishlist) notFound();
 
-    return <WishlistDetailView wishlist={wishlist} items={items} isOwner={isOwner} />;
+    const candidates = isOwner ? await getWishlistCandidates(id) : [];
+
+    return <WishlistDetailView wishlist={wishlist} items={items} isOwner={isOwner} candidates={candidates} />;
 }

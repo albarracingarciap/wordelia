@@ -2,33 +2,34 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
 import {
-    MapPin,
-    Calendar,
-    Edit2,
+    Award,
     BookOpen,
+    Calendar,
+    CalendarCheck,
+    Check,
+    ChevronRight,
+    Compass,
+    Cookie,
+    Edit2,
     FileText,
     Flame,
-    Award,
-    ChevronRight,
-    MoreHorizontal,
-    Mouse,
-    Cookie,
     Library,
-    Sun,
-    CalendarCheck,
-    Shield,
-    Compass,
-    PenTool,
+    MapPin,
     Megaphone,
+    Mouse,
     Palette,
-    Check
+    PenTool,
+    Plus,
+    Shield,
+    Sparkles,
+    Sun,
+    Target
 } from "lucide-react";
-import { updateProfile } from "./actions";
+import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
+import { updateProfile } from "./actions";
 
-// Types
 type ProfileData = {
     id: string;
     username: string;
@@ -36,14 +37,18 @@ type ProfileData = {
     bio: string | null;
     location: string | null;
     avatar_url: string | null;
-
     goals: {
         yearly_target: number;
+        pages_target?: number;
+        streak_target?: number;
         secondary: string[];
     } | null;
-    favorite_genres: string[] | null; // stored as jsonb
+    favorite_genres: string[] | null;
+    reading_format_preference?: string | null;
+    story_complexity_preference?: number | null;
+    engagement_elements?: string[] | null;
     banner_color?: string | null;
-    created_at?: string | null; // Optional if existing data is missing
+    created_at?: string | null;
 };
 
 type StatsData = {
@@ -58,50 +63,9 @@ type Badge = {
     description: string;
     icon_name: string;
     category: string;
-    awarded_at?: string; // Optional because allBadges won't have it
+    awarded_at?: string;
 };
 
-
-
-const LIBRARY_TABS = ["Leídos", "Leyendo", "Quiero Leer", "Abandonados"];
-
-function ProgressBar({ current, target }: { current: number; target: number }) {
-    const percentage = Math.min(100, Math.max(0, (current / target) * 100));
-    return (
-        <div className="space-y-2">
-            <div className="flex justify-between text-sm font-medium">
-                <span className="text-teal-dark">Meta {new Date().getFullYear()}: {target} libros</span>
-                <span className="text-grey/60">{current}/{target} ({Math.round(percentage)}%)</span>
-            </div>
-            <div className="h-3 w-full bg-grey/10 rounded-full overflow-hidden">
-                <div
-                    className="h-full bg-gradient-to-r from-teal to-teal-light rounded-full transition-all duration-1000"
-                    style={{ width: `${percentage}%` }}
-                />
-            </div>
-            <p className="text-xs text-grey/60">
-                ¡Vas genial! Te quedan <strong className="text-teal">{Math.max(0, target - current)}</strong> libros para tu meta 🎯
-            </p>
-        </div>
-    );
-}
-
-function StatCard({ label, value, subtext, icon }: { label: string; value: string | number; subtext: string; icon: React.ReactNode }) {
-    return (
-        <div className="bg-white p-3 sm:p-4 rounded-2xl border border-grey/10 shadow-sm flex flex-col sm:flex-row items-center sm:items-start gap-2 sm:gap-4 hover:shadow-md transition-shadow text-center sm:text-left">
-            <div className="p-2 sm:p-3 bg-teal/5 text-teal rounded-xl">
-                {icon}
-            </div>
-            <div>
-                <div className="text-xl sm:text-2xl font-bold text-teal-dark leading-tight">{value}</div>
-                <div className="text-xs sm:text-sm font-medium text-grey-dark">{label}</div>
-                <div className="hidden sm:block text-xs text-grey/50 mt-1">{subtext}</div>
-            </div>
-        </div>
-    );
-}
-
-// Activity Data Type
 type ActivityData = {
     lastRead: { title: string; author: string; timeAgo: string; cover: string | null } | null;
     current: { title: string; author: string; progress: number; cover: string | null } | null;
@@ -113,17 +77,268 @@ type LibraryBook = {
     cover: string | null;
 };
 
+type LibraryCounts = {
+    read: number;
+    reading: number;
+    wantToRead: number;
+    abandoned: number;
+};
+
 type LibraryBookRow = {
-    book: {
+    book:
+    | {
         id: string;
         title: string;
         cover_url: string | null;
-    } | {
+    }
+    | {
         id: string;
         title: string;
         cover_url: string | null;
     }[];
 };
+
+const LIBRARY_TABS = [
+    { label: "Leídos", status: "READ", filter: "read", countKey: "read" },
+    { label: "Leyendo", status: "READING", filter: "reading", countKey: "reading" },
+    { label: "Quiero leer", status: "WANT_TO_READ", filter: "toread", countKey: "wantToRead" },
+    { label: "Abandonados", status: "DNF", filter: "abandoned", countKey: "abandoned" }
+] as const;
+
+const BANNER_COLORS = [
+    "#115e59",
+    "#14b8a6",
+    "#0891b2",
+    "#0284c7",
+    "#2563eb",
+    "#4f46e5",
+    "#7c3aed",
+    "#9333ea",
+    "#c026d3",
+    "#db2777",
+    "#e11d48",
+    "#FF7F50",
+    "#FF9F80",
+    "#f97316",
+    "#f59e0b",
+    "#eab308",
+    "#65a30d",
+    "#16a34a",
+    "#059669",
+    "#475569",
+    "#27272a"
+];
+
+const GENRE_COLORS = ["#20535B", "#F27A72", "#FACC15", "#C084FC", "#60A5FA", "#F472B6"];
+
+function getInitialColor(color?: string | null) {
+    if (!color) return "#115e59";
+    if (color.startsWith("#")) return color;
+    if (color === "bg-teal-dark") return "#115e59";
+    return "#115e59";
+}
+
+function ProgressBar({ current, target }: { current: number; target: number }) {
+    const safeTarget = Math.max(target, 1);
+    const percentage = Math.min(100, Math.max(0, (current / safeTarget) * 100));
+    const monthIndex = new Date().getMonth() + 1;
+    const expected = Math.ceil((safeTarget / 12) * monthIndex);
+    const delta = current - expected;
+    const remaining = Math.max(0, safeTarget - current);
+    const statusText =
+        delta >= 0
+            ? delta === 0
+                ? "Vas justo al ritmo previsto para este mes."
+                : `Vas ${delta} ${delta === 1 ? "libro" : "libros"} por delante del ritmo.`
+            : `Para ir al ritmo, intenta sumar ${Math.abs(delta)} ${Math.abs(delta) === 1 ? "libro" : "libros"} más este mes.`;
+
+    return (
+        <div className="space-y-3">
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <span className="font-semibold text-teal-dark">Meta {new Date().getFullYear()}: {safeTarget} libros</span>
+                <span className="text-sm font-semibold text-grey/60">{current}/{safeTarget} ({Math.round(percentage)}%)</span>
+            </div>
+            <div className="h-3 w-full overflow-hidden rounded-full bg-grey/10">
+                <div
+                    className="h-full rounded-full bg-gradient-to-r from-teal to-teal-light transition-all duration-1000"
+                    style={{ width: `${percentage}%` }}
+                />
+            </div>
+            <div className="flex flex-col gap-1 text-sm text-grey-dark sm:flex-row sm:items-center sm:justify-between">
+                <span>{statusText}</span>
+                <span className="font-semibold text-teal">{remaining} pendientes</span>
+            </div>
+        </div>
+    );
+}
+
+function GoalMeter({
+    label,
+    current,
+    target,
+    suffix = "",
+    tone = "teal"
+}: {
+    label: string;
+    current: number;
+    target: number;
+    suffix?: string;
+    tone?: "teal" | "coral" | "gold";
+}) {
+    const safeTarget = Math.max(target, 1);
+    const percentage = Math.min(100, Math.round((current / safeTarget) * 100));
+    const colorClass = tone === "coral" ? "bg-coral" : tone === "gold" ? "bg-yellow-400" : "bg-teal";
+
+    return (
+        <div className="rounded-2xl border border-grey/10 bg-white p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+                <div>
+                    <p className="text-sm font-bold text-teal-dark">{label}</p>
+                    <p className="mt-1 text-xs text-grey/60">
+                        {current.toLocaleString()} / {safeTarget.toLocaleString()}{suffix}
+                    </p>
+                </div>
+                <span className="rounded-full bg-cream px-2.5 py-1 text-xs font-bold text-teal-dark">
+                    {percentage}%
+                </span>
+            </div>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-grey/10">
+                <div className={`h-full rounded-full ${colorClass}`} style={{ width: `${percentage}%` }} />
+            </div>
+        </div>
+    );
+}
+
+function GoalsOverview({
+    booksRead,
+    pagesRead,
+    streakDays,
+    goals
+}: {
+    booksRead: number;
+    pagesRead: number;
+    streakDays: number;
+    goals: NonNullable<ProfileData["goals"]> | null;
+}) {
+    const bookTarget = goals?.yearly_target || 50;
+    const pagesTarget = goals?.pages_target || 10000;
+    const streakTarget = goals?.streak_target || 7;
+
+    return (
+        <section className="space-y-4 rounded-2xl border border-grey/10 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6">
+            <ProgressBar current={booksRead} target={bookTarget} />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <GoalMeter label="Páginas" current={pagesRead} target={pagesTarget} suffix=" págs." tone="coral" />
+                <GoalMeter label="Racha" current={streakDays} target={streakTarget} suffix=" días" tone="gold" />
+            </div>
+            {goals?.secondary?.length ? (
+                <div className="rounded-2xl bg-cream/40 p-4">
+                    <h3 className="text-xs font-bold uppercase tracking-[0.14em] text-grey/50">Retos secundarios</h3>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                        {goals.secondary.slice(0, 4).map((goal) => (
+                            <span key={goal} className="rounded-full border border-teal/10 bg-white px-3 py-1.5 text-xs font-semibold text-grey-dark">
+                                {goal}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+            ) : (
+                <div className="flex flex-col gap-3 rounded-2xl bg-cream/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+                    <p className="text-sm text-grey-dark/70">Añade retos secundarios para orientar mejor tu año lector.</p>
+                    <Link href="/app/perfil/editar" className="text-sm font-bold text-coral">
+                        Configurar metas
+                    </Link>
+                </div>
+            )}
+        </section>
+    );
+}
+
+function RecommendedChallenge({
+    genres,
+    booksRead
+}: {
+    genres: string[];
+    booksRead: number;
+}) {
+    const currentYear = new Date().getFullYear();
+    const primaryGenre = genres[0];
+    const challenge = primaryGenre
+        ? {
+            title: `Reto ${primaryGenre}`,
+            description: `Lee 3 libros de ${primaryGenre.toLowerCase()} antes de terminar ${currentYear}.`,
+            helper: "Basado en tus intereses lectores."
+        }
+        : booksRead === 0
+            ? {
+                title: "Primer libro del año",
+                description: "Elige una lectura breve y márcala como leída para estrenar tu perfil.",
+                helper: "Ideal para empezar sin presión."
+            }
+            : {
+                title: "Reto de exploración",
+                description: "Lee 3 libros de géneros distintos durante los próximos meses.",
+                helper: "Pensado para ampliar tu mapa lector."
+            };
+
+    return (
+        <section className="relative overflow-hidden rounded-2xl border border-orange-100 bg-gradient-to-br from-[#FFF9C4] to-[#FFE0B2] p-4 shadow-sm transition-shadow hover:shadow-md sm:rounded-3xl sm:p-6">
+            <div className="relative z-10">
+                <div className="text-xs font-bold uppercase tracking-[0.14em] text-teal-dark/50">Reto recomendado</div>
+                <h3 className="mt-2 text-xl text-teal-dark">{challenge.title}</h3>
+                <p className="mb-2 mt-2 text-sm font-medium leading-relaxed text-teal-dark/80">
+                    {challenge.description}
+                </p>
+                <p className="mb-4 text-xs font-semibold text-teal-dark/50">{challenge.helper}</p>
+                <Link href="/app/perfil/editar" className="inline-flex items-center rounded-xl bg-white px-3 py-2 text-xs font-bold text-teal-dark shadow-sm transition-all hover:bg-teal hover:text-white">
+                    Ajustar metas <ChevronRight className="ml-1 h-3 w-3" />
+                </Link>
+            </div>
+        </section>
+    );
+}
+
+function StatCard({ label, value, subtext, icon }: { label: string; value: string | number; subtext: string; icon: React.ReactNode }) {
+    return (
+        <div className="flex flex-col items-center gap-2 rounded-2xl border border-grey/10 bg-white p-3 text-center shadow-sm transition-shadow hover:shadow-md sm:flex-row sm:items-start sm:gap-4 sm:p-4 sm:text-left">
+            <div className="rounded-xl bg-teal/5 p-2 text-teal sm:p-3">{icon}</div>
+            <div>
+                <div className="text-xl font-bold leading-tight text-teal-dark sm:text-2xl">{value}</div>
+                <div className="text-xs font-medium text-grey-dark sm:text-sm">{label}</div>
+                <div className="mt-1 hidden text-xs text-grey/50 sm:block">{subtext}</div>
+            </div>
+        </div>
+    );
+}
+
+function EmptyActivityCard({
+    icon,
+    title,
+    text,
+    href,
+    cta
+}: {
+    icon: React.ReactNode;
+    title: string;
+    text: string;
+    href: string;
+    cta: string;
+}) {
+    return (
+        <div className="rounded-2xl border border-grey/10 bg-cream/30 p-4">
+            <div className="flex items-start gap-3">
+                <div className="rounded-full bg-white p-2 text-teal shadow-sm">{icon}</div>
+                <div className="min-w-0">
+                    <h4 className="font-semibold text-teal-dark">{title}</h4>
+                    <p className="mt-1 text-sm leading-relaxed text-grey-dark/70">{text}</p>
+                    <Link href={href} className="mt-3 inline-flex items-center gap-1 text-sm font-semibold text-coral">
+                        {cta} <ChevronRight className="h-4 w-4" />
+                    </Link>
+                </div>
+            </div>
+        </div>
+    );
+}
 
 export default function UserProfile({
     profile,
@@ -131,7 +346,8 @@ export default function UserProfile({
     badges = [],
     allBadges = [],
     activity,
-    initialLibrary = []
+    initialLibrary = [],
+    libraryCounts = { read: 0, reading: 0, wantToRead: 0, abandoned: 0 }
 }: {
     profile: ProfileData;
     stats: StatsData;
@@ -139,109 +355,21 @@ export default function UserProfile({
     allBadges?: Badge[];
     activity?: ActivityData;
     initialLibrary?: LibraryBook[];
+    libraryCounts?: LibraryCounts;
 }) {
     const [activeTab, setActiveTab] = React.useState("Leídos");
     const [libraryBooks, setLibraryBooks] = React.useState<LibraryBook[]>(initialLibrary);
     const [libraryLoading, setLibraryLoading] = React.useState(false);
-    const [isEditingBio, setIsEditingBio] = React.useState(false);
     const [isBadgesModalOpen, setIsBadgesModalOpen] = React.useState(false);
-    const [bio, setBio] = React.useState(profile.bio || "Sin biografía aún.");
-
-    // Optimistic UI for bio
-    const handleBioSave = async () => {
-        setIsEditingBio(false);
-        if (bio !== profile.bio) {
-            const formData = new FormData();
-            formData.append('bio', bio);
-            await updateProfile(formData);
-        }
-    };
-
-    // Banner Color Logic
-    // Predefined palette - tailored to the app theme
-    const BANNER_COLORS = [
-        "#115e59", // teal-dark (Default)
-        "#14b8a6", // teal
-        "#0891b2", // cyan-600
-        "#0284c7", // sky-600
-        "#2563eb", // blue-600
-        "#4f46e5", // indigo-600
-        "#7c3aed", // violet-600
-        "#9333ea", // purple-600
-        "#c026d3", // fuchsia-600
-        "#db2777", // pink-600
-        "#e11d48", // rose-600
-        "#FF7F50", // coral
-        "#FF9F80", // coral-light
-        "#f97316", // orange-500
-        "#f59e0b", // amber-500
-        "#eab308", // yellow-500
-        "#65a30d", // lime-600
-        "#16a34a", // green-600
-        "#059669", // emerald-600
-        "#475569", // slate-600
-        "#27272a"  // zinc-800
-    ];
-
-    // Helper: Normalize color (handle transition from tailwind class to hex)
-    const getInitialColor = (color?: string | null) => {
-        if (!color) return "#115e59";
-        if (color.startsWith("#")) return color;
-        // Fallback for legacy classes if they exist in DB
-        if (color === "bg-teal-dark") return "#115e59";
-        return "#115e59"; // Default fallback if unknown class
-    };
-
-    // We store the HEX code directly
     const [bannerColor, setBannerColor] = React.useState(getInitialColor(profile.banner_color));
     const [isColorPickerOpen, setIsColorPickerOpen] = React.useState(false);
 
-    const handleBannerColorChange = async (colorHex: string) => {
-        setBannerColor(colorHex);
-        setIsColorPickerOpen(false);
-
-        // Optimistic update + Server Save
-        const formData = new FormData();
-        formData.append('banner_color', colorHex);
-        await updateProfile(formData);
-    };
-
-    // Fetch library books when tab changes
-    // We need to import createClient safely or pass a server action. 
-    // Since this is a client component, we should strictly use `createClient` from `@/utils/supabase/client`.
-    // However, I'll use a dynamic import or just standard client pattern.
-    // Assuming `createClient` is available or I can import it at the top.
-    // Wait, I need to add the import first. But I can't easily add top-level imports with replace_file_content if I don't see the top.
-    // I check the top of the file in previous steps. It imports `createClient` from `.../server` which is WRONG for client component if used in useEffect.
-    // `user-profile.tsx` has "use client" at the top.
-    // `import { createClient } from "@/utils/supabase/server";` would break it if it was there (it uses fs).
-    // Let's check imports.
-
-    // Previous view_file of user-profile.tsx showed imports:
-    // import * as React from "react";
-    // import Link from "next/link";
-    // import { Button } ...
-    // import { updateProfile } from "./actions";
-
-    // It DOES NOT import supabase client.
-
-    // I'll add the useEffect logic but I need `createClient`.
-    // I will mock it or use the server action pattern if possible? 
-    // No, standard pattern is client-side fetch for tabs.
-
-    // I will add the import in a separate step if needed, or assume I can use `createClient` from `@/utils/supabase/client`.
-
-    // Let's inject the useEffect.
     React.useEffect(() => {
         const fetchBooks = async () => {
             setLibraryLoading(true);
             const { createClient } = await import("@/utils/supabase/client");
             const supabase = createClient();
-
-            let status = 'READ';
-            if (activeTab === 'Leyendo') status = 'READING';
-            if (activeTab === 'Quiero Leer') status = 'WANT_TO_READ';
-            if (activeTab === 'Abandonados') status = 'DNF';
+            const tab = LIBRARY_TABS.find((item) => item.label === activeTab) || LIBRARY_TABS[0];
 
             const { data } = await supabase
                 .from("user_books")
@@ -253,12 +381,12 @@ export default function UserProfile({
                     )
                 `)
                 .eq("user_id", profile.id)
-                .eq("status", status)
+                .eq("status", tab.status)
                 .limit(10);
 
             if (data) {
-                setLibraryBooks((data as LibraryBookRow[]).map((b) => {
-                    const book = Array.isArray(b.book) ? b.book[0] : b.book;
+                setLibraryBooks((data as LibraryBookRow[]).map((row) => {
+                    const book = Array.isArray(row.book) ? row.book[0] : row.book;
                     return {
                         id: book.id,
                         title: book.title,
@@ -269,346 +397,398 @@ export default function UserProfile({
             setLibraryLoading(false);
         };
 
-        // Skip fetching if it's the initial tab and we already have data (optimization)
-        if (activeTab === 'Leídos' && initialLibrary.length > 0 && JSON.stringify(libraryBooks) === JSON.stringify(initialLibrary)) {
-            // do nothing, we have initial data
-        } else {
-            fetchBooks();
+        if (activeTab === "Leídos" && initialLibrary.length > 0 && JSON.stringify(libraryBooks) === JSON.stringify(initialLibrary)) {
+            return;
         }
-    }, [activeTab, profile.id]); // Removed initialLibrary dependency to avoid loop if it changes ref
 
-    const memberSince = React.useMemo(() => {
-        const dateStr = profile.created_at || profile.created_at; // Fallback? No, just check existence
-        if (!dateStr) return "Recientemente";
-        try {
-            return new Date(dateStr).toLocaleDateString('es-ES', { month: 'short', year: 'numeric' });
-        } catch (e) {
-            return "Recientemente";
-        }
-    }, [profile.created_at]);
-    const goalTarget = profile.goals?.yearly_target || 50;
+        fetchBooks();
+    }, [activeTab, profile.id]);
 
-    // Genres logic
-    const genres = (profile.favorite_genres || []).slice(0, 4).map((g, i) => ({
-        name: g,
-        percentage: 25, // Mock
-        color: ["bg-teal", "bg-coral", "bg-yellow-400", "bg-purple-400"][i % 4]
-    }));
+    const handleBannerColorChange = async (colorHex: string) => {
+        setBannerColor(colorHex);
+        setIsColorPickerOpen(false);
 
-    // Icon mapping
-    const IconMap: { [key: string]: React.ElementType } = {
-        Mouse, Cookie, Library: BookOpen, Sun, CalendarCheck: Calendar, Shield: Award, Compass: MapPin, PenTool: Edit2, Megaphone: Flame
+        const formData = new FormData();
+        formData.append("banner_color", colorHex);
+        await updateProfile(formData);
     };
 
-    // Use a default icon if not found
+    const memberSince = React.useMemo(() => {
+        if (!profile.created_at) return "recientemente";
+        try {
+            return new Date(profile.created_at).toLocaleDateString("es-ES", { month: "short", year: "numeric" });
+        } catch {
+            return "recientemente";
+        }
+    }, [profile.created_at]);
+
+    const genres = (profile.favorite_genres || []).filter(Boolean).slice(0, 6);
+    const activeTabData = LIBRARY_TABS.find((tab) => tab.label === activeTab) || LIBRARY_TABS[0];
+    const activeTabCount = libraryCounts[activeTabData.countKey];
+    const nextBadges = allBadges.filter((badge) => !badges.some((earned) => earned.id === badge.id)).slice(0, 3);
+    const completionItems = [
+        { label: "Foto", done: Boolean(profile.avatar_url), href: "/app/perfil/editar" },
+        { label: "Bio", done: Boolean(profile.bio?.trim()), href: "/app/perfil/editar" },
+        { label: "Géneros", done: genres.length > 0, href: "/app/perfil/editar" },
+        { label: "Ubicación", done: Boolean(profile.location?.trim()), href: "/app/perfil/editar" },
+        { label: "Meta", done: Boolean(profile.goals?.yearly_target), href: "/app/perfil/editar" },
+        {
+            label: "Preferencias",
+            done: Boolean(
+                profile.reading_format_preference ||
+                profile.story_complexity_preference ||
+                profile.engagement_elements?.length
+            ),
+            href: "/app/perfil/editar"
+        }
+    ];
+    const completedItems = completionItems.filter((item) => item.done).length;
+    const completionPercent = Math.round((completedItems / completionItems.length) * 100);
+    const nextCompletionItem = completionItems.find((item) => !item.done);
+
+    const IconMap: { [key: string]: React.ElementType } = {
+        Mouse,
+        Cookie,
+        Library: BookOpen,
+        Sun,
+        CalendarCheck: Calendar,
+        Shield: Award,
+        Compass: MapPin,
+        PenTool: Edit2,
+        Megaphone: Flame
+    };
+
     const getBadgeIcon = (name: string) => {
         const Icon = IconMap[name] || Award;
-        return <Icon className="w-6 h-6" />;
+        return <Icon className="h-6 w-6" />;
     };
 
     return (
-        <div className="min-h-screen bg-cream/20 pb-20">
-            {/* --- Header Section --- */}
-            <header className="bg-white border-b border-grey/10 pb-6 sm:pb-8 pt-16 sm:pt-24 px-4 sm:px-6 md:px-12 relative group/header overflow-hidden rounded-2xl lg:rounded-none">
-                {/* Cover/Banner Customizable */}
+        <div className="min-h-screen bg-cream/20 pb-24">
+            <header className="relative overflow-hidden rounded-2xl border-b border-grey/10 bg-white px-4 pb-6 pt-16 sm:px-6 sm:pb-8 sm:pt-24 md:px-12 lg:rounded-none">
                 <div
-                    className="absolute top-0 left-0 w-full h-28 sm:h-32 opacity-90 transition-colors duration-500"
+                    className="absolute left-0 top-0 h-28 w-full opacity-90 transition-colors duration-500 sm:h-32"
                     style={{ backgroundColor: bannerColor }}
                 />
-                <div className="absolute top-0 left-0 w-full h-28 sm:h-32 opacity-10 pattern-grid-lg pointer-events-none" />
+                <div className="pattern-grid-lg pointer-events-none absolute left-0 top-0 h-28 w-full opacity-10 sm:h-32" />
 
-                {/* Banner Edit Trigger - Always visible for now to debug, with high z-index */}
-                <div className="absolute top-3 right-3 sm:top-4 sm:right-6 z-50">
-                    <div className="relative">
-                        <button
-                            onClick={() => setIsColorPickerOpen(!isColorPickerOpen)}
-                            className="p-2 bg-white/30 hover:bg-white/50 backdrop-blur-md rounded-full text-white transition-all shadow-sm border border-white/20"
-                            title="Cambiar color de portada"
-                        >
-                            <Palette className="w-4 h-4" />
-                        </button>
+                <div className="absolute right-3 top-3 z-50 sm:right-6 sm:top-4">
+                    <button
+                        onClick={() => setIsColorPickerOpen((value) => !value)}
+                        className="rounded-full border border-white/20 bg-white/30 p-2 text-white shadow-sm backdrop-blur-md transition-all hover:bg-white/50"
+                        title="Cambiar color de portada"
+                    >
+                        <Palette className="h-4 w-4" />
+                    </button>
 
-                        {/* Color Picker Popover */}
-                        {isColorPickerOpen && (
-                            <div className="absolute top-full right-0 mt-2 p-3 bg-white rounded-xl shadow-xl border border-grey/10 grid grid-cols-3 gap-2 z-50 animate-in fade-in zoom-in-95 w-32">
-                                {BANNER_COLORS.map(color => (
-                                    <button
-                                        key={color}
-                                        onClick={() => handleBannerColorChange(color)}
-                                        className={`w-8 h-8 rounded-full hover:scale-110 transition-transform ring-2 ring-offset-1 ${bannerColor === color ? 'ring-grey/40' : 'ring-transparent'}`}
-                                        style={{ backgroundColor: color }}
-                                        title={color}
-                                    />
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    {isColorPickerOpen && (
+                        <div className="absolute right-0 top-full z-50 mt-2 grid w-32 grid-cols-3 gap-2 rounded-xl border border-grey/10 bg-white p-3 shadow-xl">
+                            {BANNER_COLORS.map((color) => (
+                                <button
+                                    key={color}
+                                    onClick={() => handleBannerColorChange(color)}
+                                    className={`h-8 w-8 rounded-full ring-2 ring-offset-1 transition-transform hover:scale-110 ${bannerColor === color ? "ring-grey/40" : "ring-transparent"}`}
+                                    style={{ backgroundColor: color }}
+                                    title={color}
+                                />
+                            ))}
+                        </div>
+                    )}
                 </div>
 
-                <div className="max-w-6xl mx-auto flex flex-col md:flex-row items-center md:items-end gap-4 sm:gap-6 relative z-10 text-center md:text-left">
-                    {/* Avatar */}
-                    <div className="relative group">
-                        <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-white shadow-lg overflow-hidden bg-grey/20">
+                <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center gap-4 text-center sm:gap-6 md:flex-row md:items-end md:text-left">
+                    <div className="relative">
+                        <div className="h-24 w-24 overflow-hidden rounded-full border-4 border-white bg-grey/20 shadow-lg sm:h-32 sm:w-32">
                             {profile.avatar_url ? (
-                                <img src={profile.avatar_url} alt={profile.full_name} className="w-full h-full object-cover" />
+                                <img src={profile.avatar_url} alt={profile.full_name} className="h-full w-full object-cover" />
                             ) : (
-                                <div className="w-full h-full bg-gradient-to-br from-teal/20 to-coral/20 flex items-center justify-center text-4xl">
-                                    👤
+                                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-teal/20 to-coral/20 text-4xl">
+                                    <span aria-hidden="true">👤</span>
                                 </div>
                             )}
                         </div>
-                        <Link href="/app/perfil/editar" className="absolute bottom-1 right-1 p-2 bg-white rounded-full shadow-md text-grey-dark hover:text-teal transition-colors border border-grey/10">
-                            <Edit2 className="w-4 h-4" />
+                        <Link href="/app/perfil/editar" className="absolute bottom-1 right-1 rounded-full border border-grey/10 bg-white p-2 text-grey-dark shadow-md transition-colors hover:text-teal">
+                            <Edit2 className="h-4 w-4" />
                         </Link>
                     </div>
 
-                    {/* User Info */}
-                    <div className="flex-1 space-y-2 mb-2 md:mb-0 min-w-0">
-                        <h1 className="text-2xl sm:text-3xl font-bold text-teal-dark break-words">{profile.full_name || "Lector Sin Nombre"}</h1>
-                        <p className="text-grey/60 text-sm font-medium">{profile.username ? `@${profile.username}` : ""}</p>
+                    <div className="min-w-0 flex-1 space-y-2">
+                        <h1 className="break-words text-2xl font-bold text-teal-dark sm:text-3xl">{profile.full_name || "Lector sin nombre"}</h1>
+                        <p className="text-sm font-medium text-grey/60">{profile.username ? `@${profile.username}` : ""}</p>
 
-                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-3 sm:gap-4 text-xs text-grey/60 mt-1">
+                        <div className="mt-1 flex flex-wrap items-center justify-center gap-3 text-xs text-grey/60 sm:gap-4 md:justify-start">
                             {profile.location && (
-                                <span className="flex items-center gap-1"><MapPin className="w-3 h-3" /> {profile.location}</span>
+                                <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {profile.location}</span>
                             )}
-                            <span className="flex items-center gap-1"><Calendar className="w-3 h-3" /> Miembro desde {memberSince}</span>
+                            <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> Miembro desde {memberSince}</span>
                         </div>
 
-                        {/* Editable Bio */}
-                        <div className="mt-4 max-w-xl mx-auto md:mx-0">
-                            <p className="text-grey-dark text-sm leading-relaxed">
-                                {bio}
-                            </p>
-                        </div>
+                        <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-grey-dark md:mx-0">
+                            {profile.bio?.trim() || "Sin biografía aún."}
+                        </p>
                     </div>
 
-                    {/* Action Button */}
-                    <div className="flex w-full md:w-auto gap-3">
-                        {/* Removed unused menu button */}
+                    <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
+                        {profile.username && (
+                            <Link
+                                href={`/app/perfil/${profile.username}`}
+                                className="inline-flex h-10 w-full items-center justify-center rounded-2xl border border-teal/15 bg-white/80 px-4 text-sm font-medium text-teal-dark shadow-sm transition-all hover:bg-teal/5 md:w-auto"
+                            >
+                                Ver público
+                            </Link>
+                        )}
                         <Link
                             href="/app/perfil/editar"
-                            className="inline-flex w-full md:w-auto items-center justify-center rounded-2xl font-medium transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none cursor-pointer bg-transparent border border-coral text-coral hover:bg-coral/10 hover:shadow-sm focus:ring-coral h-10 px-4 text-sm"
+                            className="inline-flex h-10 w-full items-center justify-center rounded-2xl border border-coral bg-transparent px-4 text-sm font-medium text-coral transition-all hover:bg-coral/10 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-coral focus:ring-offset-2 md:w-auto"
                         >
-                            Editar Perfil
+                            Editar perfil
                         </Link>
                     </div>
                 </div>
             </header>
 
-            <main className="max-w-6xl mx-auto px-0 sm:px-6 md:px-12 py-5 sm:py-8 grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-8">
+            <main className="mx-auto grid max-w-6xl grid-cols-1 gap-5 px-4 py-5 sm:px-6 sm:py-8 md:px-12 lg:grid-cols-3 lg:gap-8">
+                <div className="space-y-6 lg:col-span-2">
+                    <section className="rounded-2xl border border-grey/10 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                                <div className="flex items-center gap-2 text-sm font-semibold uppercase tracking-[0.14em] text-grey/50">
+                                    <Target className="h-4 w-4 text-coral" /> Perfil lector
+                                </div>
+                                <h2 className="mt-2 text-xl font-bold text-teal-dark">{completionPercent}% completo</h2>
+                                <p className="mt-1 text-sm leading-relaxed text-grey-dark/70">
+                                    Cuanto más completo esté, más útil será para recomendaciones, clubs y retos.
+                                </p>
+                            </div>
+                            {nextCompletionItem && (
+                                <Link href={nextCompletionItem.href} className="inline-flex h-10 items-center justify-center rounded-2xl bg-coral px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-coral-dark">
+                                    Completar {nextCompletionItem.label}
+                                </Link>
+                            )}
+                        </div>
+                        <div className="mt-4 h-3 overflow-hidden rounded-full bg-grey/10">
+                            <div className="h-full rounded-full bg-teal transition-all duration-700" style={{ width: `${completionPercent}%` }} />
+                        </div>
+                        <div className="mt-4 flex flex-wrap gap-2">
+                            {completionItems.map((item) => (
+                                <span
+                                    key={item.label}
+                                    className={`inline-flex items-center gap-1 rounded-full border px-3 py-1 text-xs font-semibold ${item.done ? "border-teal/15 bg-teal/5 text-teal" : "border-grey/15 bg-cream/40 text-grey/60"}`}
+                                >
+                                    {item.done ? <Check className="h-3 w-3" /> : <Plus className="h-3 w-3" />}
+                                    {item.label}
+                                </span>
+                            ))}
+                        </div>
+                    </section>
 
-                {/* --- Left Column (Stats & Charts) --- */}
-                <div className="space-y-8 lg:col-span-2">
-                    {/* Stats Grid */}
                     <section className="grid grid-cols-3 gap-2 sm:gap-4">
-                        <StatCard
-                            icon={<BookOpen className="w-5 h-5" />}
-                            value={stats.booksRead}
-                            label="Libros"
-                            subtext="leídos este año"
-                        />
-                        <StatCard
-                            icon={<FileText className="w-5 h-5" />}
-                            value={stats.pagesRead.toLocaleString()}
-                            label="Páginas"
-                            subtext="este año"
-                        />
-                        <StatCard
-                            icon={<Flame className="w-5 h-5 text-coral" />}
-                            value={`${stats.streakDays} días`}
-                            label="Racha"
-                            subtext="leyendo"
-                        />
+                        <StatCard icon={<BookOpen className="h-5 w-5" />} value={stats.booksRead} label="Libros" subtext="leídos este año" />
+                        <StatCard icon={<FileText className="h-5 w-5" />} value={stats.pagesRead.toLocaleString()} label="Páginas" subtext="este año" />
+                        <StatCard icon={<Flame className="h-5 w-5 text-coral" />} value={`${stats.streakDays} días`} label="Racha" subtext="leyendo" />
                     </section>
 
-                    {/* Goal Progress */}
-                    <section className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-grey/10 shadow-sm">
-                        <ProgressBar current={stats.booksRead} target={goalTarget} />
-                    </section>
+                    <GoalsOverview
+                        booksRead={stats.booksRead}
+                        pagesRead={stats.pagesRead}
+                        streakDays={stats.streakDays}
+                        goals={profile.goals}
+                    />
 
-                    {/* Recent Content Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 sm:gap-8">
-                        {/* Activity */}
-                        <section className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-grey/10 shadow-sm space-y-6">
-                            <h3 className="font-bold text-teal-dark flex items-center gap-2">
-                                Actividad Reciente
-                            </h3>
+                    <div className="grid grid-cols-1 gap-5 sm:gap-8 md:grid-cols-2">
+                        <section className="space-y-5 rounded-2xl border border-grey/10 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6">
+                            <h3 className="font-bold text-teal-dark">Actividad reciente</h3>
 
-                            {/* Last Read */}
                             {activity?.lastRead ? (
-                                <div className="flex gap-4 items-start">
-                                    <div className="w-12 h-16 bg-grey/10 rounded shadow-sm shrink-0 overflow-hidden relative">
+                                <div className="flex items-start gap-4">
+                                    <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded bg-grey/10 shadow-sm">
                                         {activity.lastRead.cover ? (
-                                            <img src={activity.lastRead.cover} alt="" className="w-full h-full object-cover" />
+                                            <img src={activity.lastRead.cover} alt="" className="h-full w-full object-cover" />
                                         ) : (
-                                            <div className="absolute inset-0 bg-teal/20 flex items-center justify-center text-xs">📖</div>
+                                            <div className="absolute inset-0 flex items-center justify-center bg-teal/20 text-xs">📖</div>
                                         )}
                                     </div>
                                     <div>
-                                        <div className="text-xs text-grey/40 uppercase tracking-wider mb-0.5">Terminado</div>
-                                        <h4 className="font-bold text-teal-dark text-sm line-clamp-1">{activity.lastRead.title}</h4>
+                                        <div className="mb-0.5 text-xs uppercase tracking-wider text-grey/40">Terminado</div>
+                                        <h4 className="line-clamp-1 text-sm font-bold text-teal-dark">{activity.lastRead.title}</h4>
                                         <p className="text-xs text-grey/60">{activity.lastRead.timeAgo}</p>
                                     </div>
                                 </div>
                             ) : (
-                                <p className="text-xs text-grey/60 italic">No has terminado ningún libro recientemente.</p>
+                                <EmptyActivityCard
+                                    icon={<Check className="h-4 w-4" />}
+                                    title="Cierra tu primera lectura"
+                                    text="Marca un libro como leído para que tu perfil empiece a contar actividad real."
+                                    href="/app/mi-lectura"
+                                    cta="Ir a mi lectura"
+                                />
                             )}
 
-                            {/* Current Read */}
                             {activity?.current ? (
-                                <div className="flex gap-4 items-start">
-                                    <div className="w-12 h-16 bg-grey/10 rounded shadow-sm shrink-0 overflow-hidden relative">
+                                <div className="flex items-start gap-4">
+                                    <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded bg-grey/10 shadow-sm">
                                         {activity.current.cover ? (
-                                            <img src={activity.current.cover} alt="" className="w-full h-full object-cover" />
+                                            <img src={activity.current.cover} alt="" className="h-full w-full object-cover" />
                                         ) : (
-                                            <div className="absolute inset-0 bg-coral/20 flex items-center justify-center text-xs">📖</div>
+                                            <div className="absolute inset-0 flex items-center justify-center bg-coral/20 text-xs">📖</div>
                                         )}
                                     </div>
-                                    <div className="flex-1">
-                                        <div className="text-xs text-grey/40 uppercase tracking-wider mb-0.5">Leyendo</div>
-                                        <h4 className="font-bold text-teal-dark text-sm line-clamp-1">{activity.current.title}</h4>
-                                        <div className="w-full bg-grey/10 h-1.5 rounded-full mt-2 overflow-hidden">
-                                            <div className="bg-coral h-full rounded-full" style={{ width: `${activity.current.progress}%` }} />
+                                    <div className="min-w-0 flex-1">
+                                        <div className="mb-0.5 text-xs uppercase tracking-wider text-grey/40">Leyendo</div>
+                                        <h4 className="line-clamp-1 text-sm font-bold text-teal-dark">{activity.current.title}</h4>
+                                        <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-grey/10">
+                                            <div className="h-full rounded-full bg-coral" style={{ width: `${activity.current.progress}%` }} />
                                         </div>
-                                        <p className="text-[10px] text-grey/60 mt-1">{activity.current.progress}% completado</p>
+                                        <p className="mt-1 text-[10px] text-grey/60">{activity.current.progress}% completado</p>
                                     </div>
                                 </div>
                             ) : (
-                                <p className="text-xs text-grey/60 italic">No estás leyendo nada actualmente.</p>
+                                <EmptyActivityCard
+                                    icon={<BookOpen className="h-4 w-4" />}
+                                    title="Elige tu lectura actual"
+                                    text="Añade un libro a 'Leyendo' para ver tu progreso de un vistazo."
+                                    href="/app/mi-lectura"
+                                    cta="Añadir lectura"
+                                />
                             )}
                         </section>
 
-                        {/* Genres Chart */}
-                        {/* Genres Chart */}
-                        <section className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-grey/10 shadow-sm space-y-4">
-                            <h3 className="font-bold text-teal-dark">Géneros Favoritos</h3>
-                            <div className="flex items-center gap-4">
-                                {/* Simple CSS Donut Chart */}
-                                {genres.length > 0 ? (
-                                    <>
-                                        <div className="relative w-28 h-28 rounded-full border-[12px] border-cream flex items-center justify-center shrink-0"
-                                            style={{
-                                                background: `conic-gradient(
-                                                ${genres.map((g, i) => {
-                                                    // Calculate cumulative percentages for gradient
-                                                    const start = (i * 100) / genres.length;
-                                                    const end = ((i + 1) * 100) / genres.length;
-                                                    // Map tailwind classes to hex codes for gradient (Simplified)
-                                                    const colorMap: { [key: string]: string } = {
-                                                        "bg-teal": "#20535B",
-                                                        "bg-coral": "#F27A72",
-                                                        "bg-yellow-400": "#FACC15",
-                                                        "bg-purple-400": "#C084FC",
-                                                        "bg-blue-400": "#60A5FA",
-                                                        "bg-pink-400": "#F472B6"
-                                                    };
-                                                    return `${colorMap[g.color] || '#ccc'} ${start}% ${end}%`;
-                                                }).join(', ')}
-                                            )`
-                                            }}
-                                        >
-                                            <div className="absolute inset-0 m-auto w-14 h-14 bg-white rounded-full" />
-                                        </div>
-                                        <div className="space-y-3 text-xs flex-1 min-w-0">
-                                            {genres.map(g => (
-                                                <div key={g.name} className="flex items-center justify-between gap-2">
-                                                    <div className="flex items-center gap-1.5 min-w-0">
-                                                        <span className={`w-2 h-2 rounded-full shrink-0 ${g.color}`} />
-                                                        <span className="text-grey-dark text-[10px] truncate leading-tight" title={g.name}>{g.name}</span>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </>
-                                ) : (
-                                    <div className="flex-1 text-center py-4">
-                                        <p className="text-grey/40 text-xs">Sin géneros favoritos.</p>
-                                        <Link href="/app/perfil/editar" className="text-[10px] text-teal hover:underline">Añadir en Editar Perfil</Link>
-                                    </div>
-                                )}
+                        <section className="space-y-4 rounded-2xl border border-grey/10 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6">
+                            <div>
+                                <h3 className="font-bold text-teal-dark">Intereses lectores</h3>
+                                <p className="mt-1 text-xs leading-relaxed text-grey/60">
+                                    Elegidos en tu perfil; se irán afinando con tus lecturas.
+                                </p>
                             </div>
+
+                            {genres.length > 0 ? (
+                                <div className="flex items-center gap-4">
+                                    <div
+                                        className="relative flex h-28 w-28 shrink-0 items-center justify-center rounded-full border-[12px] border-cream"
+                                        style={{
+                                            background: `conic-gradient(${genres
+                                                .map((genre, index) => {
+                                                    const start = (index * 100) / genres.length;
+                                                    const end = ((index + 1) * 100) / genres.length;
+                                                    return `${GENRE_COLORS[index % GENRE_COLORS.length]} ${start}% ${end}%`;
+                                                })
+                                                .join(", ")})`
+                                        }}
+                                    >
+                                        <div className="absolute inset-0 m-auto h-14 w-14 rounded-full bg-white" />
+                                    </div>
+                                    <div className="min-w-0 flex-1 space-y-3 text-xs">
+                                        {genres.map((genre, index) => (
+                                            <div key={genre} className="flex min-w-0 items-center gap-2">
+                                                <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: GENRE_COLORS[index % GENRE_COLORS.length] }} />
+                                                <span className="truncate leading-tight text-grey-dark" title={genre}>{genre}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            ) : (
+                                <div className="rounded-2xl border border-dashed border-grey/20 bg-cream/30 p-5 text-center">
+                                    <Sparkles className="mx-auto h-8 w-8 text-teal/50" />
+                                    <p className="mt-2 text-sm font-semibold text-teal-dark">Aún no has elegido géneros.</p>
+                                    <Link href="/app/perfil/editar" className="mt-3 inline-flex text-sm font-semibold text-coral">
+                                        Añadir intereses
+                                    </Link>
+                                </div>
+                            )}
                         </section>
                     </div>
 
-                    {/* Quick Library */}
-                    <section className="space-y-4 pt-4">
-                        <div className="flex items-center justify-between border-b border-grey/10 overflow-x-auto">
-                            <div className="flex min-w-max gap-5 sm:gap-6">
-                                {LIBRARY_TABS.map(tab => (
+                    <section className="space-y-4 pt-2">
+                        <div className="flex items-center justify-between border-b border-grey/10">
+                            <div className="flex min-w-0 gap-4 overflow-x-auto [-ms-overflow-style:none] [scrollbar-width:none] sm:gap-6 [&::-webkit-scrollbar]:hidden">
+                                {LIBRARY_TABS.map((tab) => (
                                     <button
-                                        key={tab}
-                                        onClick={() => setActiveTab(tab)}
-                                        className={`pb-3 text-sm font-medium transition-colors relative ${activeTab === tab
-                                            ? "text-teal-dark"
-                                            : "text-grey/40 hover:text-teal"
-                                            }`}
+                                        key={tab.label}
+                                        onClick={() => setActiveTab(tab.label)}
+                                        className={`relative flex shrink-0 items-center gap-2 pb-3 text-sm font-medium transition-colors ${activeTab === tab.label ? "text-teal-dark" : "text-grey/40 hover:text-teal"}`}
                                     >
-                                        {tab}
-                                        {activeTab === tab && (
-                                            <span className="absolute bottom-0 left-0 w-full h-0.5 bg-coral rounded-full" />
+                                        <span>{tab.label}</span>
+                                        <span className="rounded-full bg-grey/10 px-2 py-0.5 text-[11px] font-bold text-grey/60">
+                                            {libraryCounts[tab.countKey]}
+                                        </span>
+                                        {activeTab === tab.label && (
+                                            <span className="absolute bottom-0 left-0 h-0.5 w-full rounded-full bg-coral" />
                                         )}
                                     </button>
                                 ))}
                             </div>
                             <Link
-                                href={`/app/mi-lectura/estanterias?filter=${activeTab === 'Leídos' ? 'read' :
-                                    activeTab === 'Leyendo' ? 'reading' :
-                                        activeTab === 'Quiero Leer' ? 'toread' :
-                                            activeTab === 'Abandonados' ? 'abandoned' : 'all'
-                                    }`}
-                                className="hidden sm:flex text-xs text-grey-dark hover:text-teal items-center"
+                                href={`/app/mi-lectura/estanterias?filter=${activeTabData.filter}`}
+                                className="hidden items-center text-xs text-grey-dark hover:text-teal sm:flex"
                             >
-                                Ver todos <ChevronRight className="w-3 h-3 ml-1" />
+                                Ver todos <ChevronRight className="ml-1 h-3 w-3" />
                             </Link>
                         </div>
+                        <Link
+                            href={`/app/mi-lectura/estanterias?filter=${activeTabData.filter}`}
+                            className="inline-flex items-center text-sm font-semibold text-teal sm:hidden"
+                        >
+                            Ver todos en {activeTab.toLowerCase()} <ChevronRight className="ml-1 h-4 w-4" />
+                        </Link>
 
-                        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3 sm:gap-4 py-4">
+                        <div className="grid grid-cols-3 gap-3 py-4 sm:grid-cols-4 sm:gap-4 md:grid-cols-5">
                             {libraryLoading ? (
                                 <div className="col-span-full py-8 text-center text-xs text-grey/40">Cargando...</div>
                             ) : (
                                 <>
                                     {libraryBooks.map((book) => (
-                                        <Link href={`/app/libros/${book.id}`} key={book.id} className="aspect-[2/3] bg-white rounded-xl shadow-sm border border-grey/10 flex items-center justify-center relative group overflow-hidden cursor-pointer hover:-translate-y-1 transition-transform">
+                                        <Link
+                                            href={`/app/libros/${book.id}`}
+                                            key={book.id}
+                                            className="group relative flex aspect-[2/3] items-center justify-center overflow-hidden rounded-xl border border-grey/10 bg-white shadow-sm transition-transform hover:-translate-y-1"
+                                        >
                                             {book.cover ? (
-                                                <img src={book.cover} alt={book.title} className="w-full h-full object-cover" />
+                                                <img src={book.cover} alt={book.title} className="h-full w-full object-cover" />
                                             ) : (
-                                                <div className="text-center p-2">
-                                                    <BookOpen className="w-8 h-8 mx-auto mb-2 text-teal" />
-                                                    <span className="text-xs line-clamp-2">{book.title}</span>
+                                                <div className="p-2 text-center">
+                                                    <BookOpen className="mx-auto mb-2 h-8 w-8 text-teal" />
+                                                    <span className="line-clamp-2 text-xs">{book.title}</span>
                                                 </div>
                                             )}
                                         </Link>
                                     ))}
-                                    {(libraryBooks.length === 0 && !libraryLoading) && (
-                                        <div className="col-span-full py-8 text-center text-xs text-grey/40 italic">
-                                            No hay libros en esta sección.
+                                    {libraryBooks.length === 0 && (
+                                        <div className="col-span-full rounded-2xl border border-dashed border-grey/20 bg-white/60 px-4 py-8 text-center">
+                                            <BookOpen className="mx-auto h-9 w-9 text-teal/40" />
+                                            <p className="mt-3 text-sm font-semibold text-teal-dark">
+                                                {activeTabCount > 0 ? "No se han cargado libros todavía." : `No hay libros en ${activeTab.toLowerCase()}.`}
+                                            </p>
+                                            <p className="mx-auto mt-1 max-w-md text-sm text-grey/60">
+                                                Añade libros o cambia su estado desde Mi lectura para completar esta sección.
+                                            </p>
                                         </div>
                                     )}
                                 </>
                             )}
 
-                            <Link href="/app/mi-lectura" className="aspect-[2/3] border-2 border-dashed border-grey/20 rounded-xl flex items-center justify-center cursor-pointer hover:border-teal/40 hover:bg-teal/5 transition-colors">
-                                <span className="text-xs text-grey/40 font-medium">+ Añadir</span>
+                            <Link href="/app/mi-lectura" className="flex aspect-[2/3] items-center justify-center rounded-xl border-2 border-dashed border-grey/20 transition-colors hover:border-teal/40 hover:bg-teal/5">
+                                <span className="inline-flex items-center gap-1 text-xs font-medium text-grey/50">
+                                    <Plus className="h-4 w-4" /> Añadir
+                                </span>
                             </Link>
                         </div>
                     </section>
                 </div>
 
-                {/* --- Right Column (Badges & Extras) --- */}
-                <div className="space-y-8">
-                    {/* Badges */}
-                    <section className="bg-white p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-grey/10 shadow-sm space-y-4">
+                <div className="space-y-6 lg:space-y-8">
+                    <section className="space-y-4 rounded-2xl border border-grey/10 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6">
                         <div className="flex items-center justify-between">
-                            <h3 className="font-bold text-teal-dark flex items-center gap-2">
-                                <Award className="w-4 h-4 text-coral" /> Insignias
+                            <h3 className="flex items-center gap-2 font-bold text-teal-dark">
+                                <Award className="h-4 w-4 text-coral" /> Insignias
                             </h3>
-                            {/* <span className="text-xs text-grey/50">Ver todas</span> */}
+                            <span className="text-xs font-semibold text-grey/50">{badges.length}/{allBadges.length || badges.length}</span>
                         </div>
+
                         {badges.length > 0 ? (
                             <div className="grid grid-cols-3 gap-4">
-                                {badges.map((badge) => (
-                                    <div key={badge.id} className="flex flex-col items-center gap-2 text-center group cursor-pointer" title={badge.description}>
-                                        <div className="w-12 h-12 rounded-full bg-teal/5 flex items-center justify-center text-teal group-hover:bg-teal group-hover:text-white transition-colors">
+                                {badges.slice(0, 6).map((badge) => (
+                                    <div key={badge.id} className="group flex flex-col items-center gap-2 text-center" title={badge.description}>
+                                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-teal/5 text-teal transition-colors group-hover:bg-teal group-hover:text-white">
                                             {getBadgeIcon(badge.icon_name)}
                                         </div>
                                         <span className="text-xs font-medium text-teal-dark">{badge.name}</span>
@@ -616,9 +796,27 @@ export default function UserProfile({
                                 ))}
                             </div>
                         ) : (
-                            <div className="flex flex-col items-center justify-center text-center py-8 text-grey/40 text-sm">
-                                <p className="font-medium">Aún no tienes insignias.</p>
-                                <p className="text-xs mt-1">¡Sigue leyendo para desbloquearlas!</p>
+                            <div className="rounded-2xl bg-cream/30 p-5 text-center">
+                                <Award className="mx-auto h-8 w-8 text-coral/60" />
+                                <p className="mt-2 text-sm font-semibold text-teal-dark">Aún no tienes insignias.</p>
+                                <p className="mt-1 text-xs text-grey/60">Lee, registra avances y explora géneros para desbloquearlas.</p>
+                            </div>
+                        )}
+
+                        {nextBadges.length > 0 && (
+                            <div className="space-y-2 rounded-2xl bg-cream/30 p-3">
+                                <h4 className="text-xs font-bold uppercase tracking-[0.14em] text-grey/50">Próximas</h4>
+                                {nextBadges.map((badge) => (
+                                    <div key={badge.id} className="flex items-start gap-3 rounded-xl bg-white p-3">
+                                        <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-grey/10 text-grey-dark">
+                                            {getBadgeIcon(badge.icon_name)}
+                                        </div>
+                                        <div className="min-w-0">
+                                            <p className="text-sm font-semibold text-teal-dark">{badge.name}</p>
+                                            <p className="line-clamp-2 text-xs text-grey/60">{badge.description}</p>
+                                        </div>
+                                    </div>
+                                ))}
                             </div>
                         )}
 
@@ -627,55 +825,37 @@ export default function UserProfile({
                             className="w-full text-xs text-grey-dark hover:text-teal"
                             onClick={() => setIsBadgesModalOpen(true)}
                         >
-                            Ver todas las insignias disponibles <ChevronRight className="w-3 h-3 ml-1" />
+                            Ver todas las insignias disponibles <ChevronRight className="ml-1 h-3 w-3" />
                         </Button>
                     </section>
 
-                    {/* Reading Challenge Promo (Optional/Extra) */}
-                    <section className="bg-gradient-to-br from-[#FFF9C4] to-[#FFE0B2] p-4 sm:p-6 rounded-2xl sm:rounded-3xl border border-orange-100 shadow-sm relative overflow-hidden group cursor-pointer hover:shadow-md transition-shadow">
-                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/40 rounded-full -mr-10 -mt-10 blur-xl group-hover:bg-white/60 transition-colors" />
-
-                        <div className="relative z-10">
-                            <h3 className="font-serif text-xl mb-2 text-teal-dark">Reto de Verano ☀️</h3>
-                            <p className="text-xs text-teal-dark/80 mb-4 leading-relaxed font-medium">
-                                Lee 3 libros de autores nórdicos antes de Septiembre.
-                            </p>
-                            <div className="inline-flex items-center text-xs font-bold bg-white text-teal-dark px-3 py-1.5 rounded-lg shadow-sm group-hover:bg-teal group-hover:text-white transition-all">
-                                Unirse al reto <ChevronRight className="w-3 h-3 ml-1" />
-                            </div>
-                        </div>
-                    </section>
+                    <RecommendedChallenge genres={genres} booksRead={stats.booksRead} />
                 </div>
             </main>
 
-            {/* Badges Modal */}
-            <Modal isOpen={isBadgesModalOpen} onClose={() => setIsBadgesModalOpen(false)} title="Insignias Disponibles">
+            <Modal isOpen={isBadgesModalOpen} onClose={() => setIsBadgesModalOpen(false)} title="Insignias disponibles">
                 <div className="space-y-6">
-                    <p className="text-sm text-grey-dark mb-4">
-                        Desbloquea insignias leyendo más libros, explorando nuevos géneros y siendo constante.
+                    <p className="text-sm text-grey-dark">
+                        Desbloquea insignias leyendo más libros, explorando nuevos géneros y manteniendo constancia.
                     </p>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         {allBadges.map((badge) => {
-                            const isEarned = badges.some(b => b.id === badge.id);
+                            const isEarned = badges.some((earned) => earned.id === badge.id);
                             return (
                                 <div
                                     key={badge.id}
-                                    className={`flex items-start gap-4 p-4 rounded-xl border ${isEarned ? 'bg-teal/5 border-teal/20' : 'bg-grey/5 border-grey/10 opacity-60'}`}
+                                    className={`flex items-start gap-4 rounded-xl border p-4 ${isEarned ? "border-teal/20 bg-teal/5" : "border-grey/10 bg-grey/5 opacity-70"}`}
                                 >
-                                    <div className={`w-12 h-12 rounded-full flex items-center justify-center shrink-0 ${isEarned ? 'bg-white text-teal shadow-sm' : 'bg-grey/10 text-grey-dark'}`}>
+                                    <div className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-full ${isEarned ? "bg-white text-teal shadow-sm" : "bg-grey/10 text-grey-dark"}`}>
                                         {getBadgeIcon(badge.icon_name)}
                                     </div>
                                     <div>
-                                        <h4 className={`font-bold text-sm ${isEarned ? 'text-teal-dark' : 'text-grey-dark'}`}>
-                                            {badge.name}
-                                        </h4>
-                                        <p className="text-xs text-grey-dark mt-1">
-                                            {badge.description}
-                                        </p>
+                                        <h4 className={`text-sm font-bold ${isEarned ? "text-teal-dark" : "text-grey-dark"}`}>{badge.name}</h4>
+                                        <p className="mt-1 text-xs text-grey-dark">{badge.description}</p>
                                         {isEarned && (
-                                            <span className="inline-block mt-2 text-[10px] font-bold text-teal bg-white px-2 py-0.5 rounded-full border border-teal/20 shadow-sm">
-                                                ¡Conseguida!
+                                            <span className="mt-2 inline-block rounded-full border border-teal/20 bg-white px-2 py-0.5 text-[10px] font-bold text-teal shadow-sm">
+                                                Conseguida
                                             </span>
                                         )}
                                     </div>

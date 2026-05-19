@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { X, Search, Loader2, BookOpen, Plus } from "lucide-react";
 import { searchBooksAction } from "@/app/app/search/actions";
@@ -23,6 +23,7 @@ interface BookSearchModalProps {
     onClose: () => void;
     onAdd: (book: WishlistBook) => void;
     title?: string;
+    addLabel?: string;
 }
 
 function mapToWishlistBook(b: BookSearchResult): WishlistBook {
@@ -43,7 +44,7 @@ function mapToWishlistBook(b: BookSearchResult): WishlistBook {
     };
 }
 
-export function BookSearchModal({ isOpen, onClose, onAdd, title = "Añadir libro 📚" }: BookSearchModalProps) {
+export function BookSearchModal({ isOpen, onClose, onAdd, title = "Añadir libro 📚", addLabel = "Añadir a la lista" }: BookSearchModalProps) {
     const [query, setQuery] = useState("");
     const [results, setResults] = useState<WishlistBook[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -51,6 +52,20 @@ export function BookSearchModal({ isOpen, onClose, onAdd, title = "Añadir libro
     const [selected, setSelected] = useState<WishlistBook | null>(null);
     const [customPrice, setCustomPrice] = useState("");
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+    useEffect(() => {
+        if (!isOpen) return;
+
+        const previousHtmlOverflow = document.documentElement.style.overflow;
+        const previousOverflow = document.body.style.overflow;
+        document.documentElement.style.overflow = "hidden";
+        document.body.style.overflow = "hidden";
+
+        return () => {
+            document.documentElement.style.overflow = previousHtmlOverflow;
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [isOpen]);
 
     const handleQueryChange = useCallback((value: string) => {
         setQuery(value);
@@ -99,12 +114,12 @@ export function BookSearchModal({ isOpen, onClose, onAdd, title = "Añadir libro
     if (!isOpen) return null;
 
     return (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
+        <div className="fixed inset-x-0 top-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-40 flex items-end justify-center p-0 sm:inset-0 sm:z-50 sm:items-center sm:p-4">
             {/* Backdrop */}
             <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
 
             {/* Modal */}
-            <div className="relative bg-white rounded-t-2xl sm:rounded-2xl w-full max-w-lg shadow-2xl animate-in fade-in slide-in-from-bottom-4 sm:zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            <div className="relative flex max-h-[calc(100dvh-4rem-env(safe-area-inset-bottom))] w-full max-w-lg flex-col rounded-t-2xl bg-white shadow-2xl animate-in fade-in slide-in-from-bottom-4 duration-200 sm:max-h-[90vh] sm:rounded-2xl sm:zoom-in-95">
                 {/* Header */}
                 <div className="flex items-center justify-between p-5 border-b border-grey/10 shrink-0">
                     <h3 className="font-serif text-xl text-teal font-bold">{title}</h3>
@@ -268,7 +283,7 @@ export function BookSearchModal({ isOpen, onClose, onAdd, title = "Añadir libro
                                 className="w-full h-12 bg-coral text-white rounded-full font-medium hover:bg-opacity-90 transition-all shadow-md shadow-coral/20 flex items-center justify-center gap-2"
                             >
                                 <Plus className="w-4 h-4" />
-                                Añadir a la lista
+                                {addLabel}
                             </button>
                         </div>
                     )}

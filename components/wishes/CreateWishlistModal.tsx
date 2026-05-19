@@ -1,8 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { X, Loader2 } from "lucide-react";
+import { useEffect, useState, useTransition } from "react";
+import { Check, Loader2 } from "lucide-react";
 import { createWishlist, updateWishlist } from "@/app/app/wishes/wishlist-actions";
+import { Modal } from "@/components/ui/Modal";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
 
 interface CreateWishlistModalProps {
     isOpen: boolean;
@@ -19,9 +22,10 @@ interface CreateWishlistModalProps {
 }
 
 const EMOJIS = ["📚", "🎂", "🎁", "☀️", "❄️", "🌸", "💭", "✨", "🎶", "🏖️", "🍂", "💖"];
+
 const PRIVACY_OPTIONS = [
     { value: "public", label: "Pública", icon: "🌍", desc: "Cualquiera con el enlace puede verla" },
-    { value: "shared", label: "Compartida", icon: "👥", desc: "Visible para tus amigos — los regalados aparecen bloqueados" },
+    { value: "shared", label: "Compartida", icon: "👥", desc: "Visible para tus amigos; los regalados aparecen bloqueados" },
     { value: "private", label: "Privada", icon: "🔒", desc: "Solo tú puedes verla" },
 ] as const;
 
@@ -35,22 +39,20 @@ export function CreateWishlistModal({ isOpen, onClose, onSuccess, initialData }:
     const [error, setError] = useState<string | null>(null);
     const [isPending, startTransition] = useTransition();
 
-    if (!isOpen) return null;
+    useEffect(() => {
+        if (!isOpen) return;
 
-    function reset() {
-        if (!isEdit) {
-            setName("");
-            setEmoji("📚");
-            setDescription("");
-            setPrivacy("public");
-            setTargetDate("");
-        }
+        setName(initialData?.name || "");
+        setEmoji(initialData?.emoji || "📚");
+        setDescription(initialData?.description || "");
+        setPrivacy(initialData?.privacy || "public");
+        setTargetDate(initialData?.targetDate || "");
         setError(null);
-    }
+    }, [initialData, isOpen]);
 
     function handleClose() {
         if (!isPending) {
-            reset();
+            setError(null);
             onClose();
         }
     }
@@ -60,197 +62,170 @@ export function CreateWishlistModal({ isOpen, onClose, onSuccess, initialData }:
         setError(null);
 
         startTransition(async () => {
-            let result;
-            if (isEdit && initialData) {
-                result = await updateWishlist(initialData.id, {
+            const result = isEdit && initialData
+                ? await updateWishlist(initialData.id, {
                     name,
                     emoji,
                     description,
                     privacy,
                     targetDate: targetDate || null,
+                })
+                : await createWishlist({
+                    name,
+                    emoji,
+                    description,
+                    privacy,
+                    targetDate: targetDate || undefined,
                 });
-            } else {
-                result = await createWishlist({ name, emoji, description, privacy, targetDate: targetDate || undefined });
-            }
 
             if (result.error) {
                 setError(result.error);
-            } else {
-                reset();
-                onSuccess();
+                return;
             }
+
+            onSuccess();
         });
     }
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            {/* Backdrop */}
-            <div
-                className="absolute inset-0 bg-black/40 backdrop-blur-sm"
-                onClick={handleClose}
-            />
+        <Modal
+            isOpen={isOpen}
+            onClose={handleClose}
+            title={isEdit ? "Editar lista de deseos" : "Nueva lista de deseos"}
+            size="md"
+            preserveMobileNav
+            className="max-h-[calc(100dvh-4.75rem-env(safe-area-inset-bottom))] overflow-y-auto rounded-b-none sm:max-h-[min(760px,calc(100dvh-2rem))] sm:rounded-2xl"
+        >
+            <form onSubmit={handleSubmit} className="space-y-5 pt-1">
+                <p className="text-sm leading-relaxed text-grey/70">
+                    {isEdit ? "Ajusta el nombre, la fecha o la privacidad de esta lista." : "Organiza los libros que te gustaría recibir y decide cómo compartir la lista."}
+                </p>
 
-            {/* Modal */}
-            <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-md z-10 animate-in fade-in zoom-in-95 duration-200">
-                {/* Header */}
-                <div className="flex items-center justify-between p-6 border-b border-grey/10">
-                    <div>
-                        <h2 className="font-serif text-xl text-teal">
-                            {isEdit ? "Editar lista de deseos" : "Nueva lista de deseos"}
-                        </h2>
-                        <p className="text-xs text-grey/50 mt-0.5">
-                            {isEdit ? "Modifica los detalles de tu lista" : "Organiza tus sueños lectores"}
-                        </p>
+                <div>
+                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-grey/60">
+                        Nombre de la lista
+                    </label>
+                    <div className="flex items-start gap-3">
+                        <div className="shrink-0">
+                            <button
+                                type="button"
+                                className="flex h-12 w-12 items-center justify-center rounded-xl border border-teal/10 bg-cream/30 text-2xl transition-colors hover:border-teal/30"
+                                aria-label="Emoji seleccionado"
+                            >
+                                {emoji}
+                            </button>
+                        </div>
+                        <Input
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            placeholder="Ej. Cumpleaños de Carlos"
+                            maxLength={60}
+                            required
+                            autoFocus
+                            className="h-12"
+                        />
                     </div>
-                    <button
-                        onClick={handleClose}
-                        className="w-8 h-8 rounded-full hover:bg-grey/10 flex items-center justify-center transition-colors text-grey/60"
-                    >
-                        <X className="w-4 h-4" />
-                    </button>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                        {EMOJIS.map((item) => (
+                            <button
+                                key={item}
+                                type="button"
+                                onClick={() => setEmoji(item)}
+                                className={`flex h-8 w-8 items-center justify-center rounded-lg text-base transition-all hover:bg-cream/60 ${emoji === item ? "bg-teal/10 ring-1 ring-teal/20" : ""}`}
+                                aria-label={`Usar ${item}`}
+                            >
+                                {item}
+                            </button>
+                        ))}
+                    </div>
                 </div>
 
-                <form onSubmit={handleSubmit} className="p-6 space-y-5">
-                    {/* Emoji + Name */}
-                    <div>
-                        <label className="text-xs font-semibold text-grey/70 uppercase tracking-wider mb-2 block">
-                            Nombre de la lista
-                        </label>
-                        <div className="flex gap-3 items-center">
-                            {/* Emoji selector */}
-                            <div className="relative group">
-                                <button
-                                    type="button"
-                                    className="w-12 h-12 text-2xl rounded-xl border-2 border-grey/10 hover:border-teal/30 flex items-center justify-center transition-colors bg-cream/30"
-                                >
-                                    {emoji}
-                                </button>
-                                {/* Emoji picker dropdown */}
-                                <div className="absolute top-full left-0 mt-2 bg-white border border-grey/10 rounded-xl shadow-lg p-2 grid grid-cols-6 gap-1 z-20 hidden group-focus-within:grid">
-                                    {EMOJIS.map((e) => (
-                                        <button
-                                            key={e}
-                                            type="button"
-                                            onClick={() => setEmoji(e)}
-                                            className={`w-8 h-8 text-lg rounded-lg hover:bg-cream/60 flex items-center justify-center transition-colors ${emoji === e ? "bg-teal/10 ring-1 ring-teal/20" : ""}`}
-                                        >
-                                            {e}
-                                        </button>
-                                    ))}
-                                </div>
-                            </div>
-                            <input
-                                type="text"
-                                value={name}
-                                onChange={(e) => setName(e.target.value)}
-                                placeholder="ej. Cumpleaños de Carlos 🎂"
-                                maxLength={60}
-                                required
-                                className="flex-1 h-12 px-4 rounded-xl border-2 border-grey/10 focus:border-teal/40 focus:outline-none text-sm placeholder:text-grey/30 bg-cream/20 transition-colors"
-                            />
-                        </div>
-                        {/* Emoji quick select */}
-                        <div className="flex gap-1.5 mt-2 flex-wrap">
-                            {EMOJIS.map((e) => (
-                                <button
-                                    key={e}
-                                    type="button"
-                                    onClick={() => setEmoji(e)}
-                                    className={`w-8 h-8 text-base rounded-lg hover:bg-cream/60 flex items-center justify-center transition-all text-sm ${emoji === e ? "bg-teal/10 ring-1 ring-teal/20 scale-110" : ""}`}
-                                >
-                                    {e}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
+                <div>
+                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-grey/60">
+                        Descripción <span className="font-medium text-grey/40">(opcional)</span>
+                    </label>
+                    <textarea
+                        value={description}
+                        onChange={(e) => setDescription(e.target.value)}
+                        placeholder="Para qué es esta lista..."
+                        rows={3}
+                        maxLength={200}
+                        className="w-full resize-none rounded-xl border border-teal/10 bg-cream/30 px-4 py-3 text-sm text-teal-dark placeholder:text-grey/30 transition-all focus:border-teal/30 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal/5"
+                    />
+                </div>
 
-                    {/* Description */}
-                    <div>
-                        <label className="text-xs font-semibold text-grey/70 uppercase tracking-wider mb-2 block">
-                            Descripción <span className="font-normal text-grey/40">(opcional)</span>
-                        </label>
-                        <textarea
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
-                            placeholder="Para qué es esta lista..."
-                            rows={2}
-                            maxLength={200}
-                            className="w-full px-4 py-3 rounded-xl border-2 border-grey/10 focus:border-teal/40 focus:outline-none text-sm placeholder:text-grey/30 bg-cream/20 transition-colors resize-none"
-                        />
-                    </div>
+                <Input
+                    label="Fecha del evento"
+                    helperText="Añade la fecha si es para tu cumpleaños, Navidad o una ocasión concreta."
+                    type="date"
+                    value={targetDate}
+                    onChange={(e) => setTargetDate(e.target.value)}
+                    min={new Date().toISOString().split("T")[0]}
+                />
 
-                    {/* Target Date */}
-                    <div>
-                        <label className="text-xs font-semibold text-grey/70 uppercase tracking-wider mb-2 block">
-                            Fecha del evento <span className="font-normal text-grey/40">(opcional)</span>
-                        </label>
-                        <input
-                            type="date"
-                            value={targetDate}
-                            onChange={(e) => setTargetDate(e.target.value)}
-                            min={new Date().toISOString().split("T")[0]}
-                            className="w-full px-4 py-3 rounded-xl border-2 border-grey/10 focus:border-teal/40 focus:outline-none text-sm bg-cream/20 transition-colors"
-                        />
-                        <p className="text-[10px] text-grey/40 mt-1">
-                            Añade la fecha si es para tu cumpleaños, Navidad, boda...
-                        </p>
-                    </div>
-
-                    {/* Privacy */}
-                    <div>
-                        <label className="text-xs font-semibold text-grey/70 uppercase tracking-wider mb-2 block">
-                            Privacidad
-                        </label>
-                        <div className="space-y-2">
-                            {PRIVACY_OPTIONS.map((opt) => (
+                <div>
+                    <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-grey/60">
+                        Privacidad
+                    </label>
+                    <div className="space-y-2">
+                        {PRIVACY_OPTIONS.map((option) => {
+                            const isSelected = privacy === option.value;
+                            return (
                                 <button
-                                    key={opt.value}
+                                    key={option.value}
                                     type="button"
-                                    onClick={() => setPrivacy(opt.value)}
-                                    className={`w-full text-left px-4 py-3 rounded-xl border-2 transition-all flex items-start gap-3 ${privacy === opt.value
-                                        ? "border-teal/40 bg-teal/5"
-                                        : "border-grey/10 hover:border-grey/20 bg-transparent"
+                                    onClick={() => setPrivacy(option.value)}
+                                    className={`flex w-full items-start gap-3 rounded-2xl border px-4 py-3 text-left transition-all ${isSelected
+                                        ? "border-teal/35 bg-teal/5"
+                                        : "border-teal/10 bg-white hover:border-teal/20 hover:bg-cream/30"
                                         }`}
                                 >
-                                    <span className="text-xl leading-none mt-0.5">{opt.icon}</span>
-                                    <div>
-                                        <p className={`text-sm font-semibold ${privacy === opt.value ? "text-teal" : "text-grey"}`}>
-                                            {opt.label}
-                                        </p>
-                                        <p className="text-xs text-grey/50">{opt.desc}</p>
-                                    </div>
-                                    {privacy === opt.value && (
-                                        <div className="ml-auto w-4 h-4 rounded-full bg-teal flex items-center justify-center shrink-0 mt-0.5">
-                                            <span className="text-white text-[10px]">✓</span>
-                                        </div>
+                                    <span className="mt-0.5 text-xl leading-none">{option.icon}</span>
+                                    <span className="min-w-0 flex-1">
+                                        <span className={`block text-sm font-bold ${isSelected ? "text-teal" : "text-grey-dark"}`}>
+                                            {option.label}
+                                        </span>
+                                        <span className="mt-0.5 block text-xs leading-relaxed text-grey/55">
+                                            {option.desc}
+                                        </span>
+                                    </span>
+                                    {isSelected && (
+                                        <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-teal text-white">
+                                            <Check className="h-3.5 w-3.5" />
+                                        </span>
                                     )}
                                 </button>
-                            ))}
-                        </div>
+                            );
+                        })}
                     </div>
+                </div>
 
-                    {/* Error */}
-                    {error && (
-                        <p className="text-sm text-red-500 bg-red-50 px-4 py-2 rounded-lg">{error}</p>
-                    )}
+                {error && (
+                    <p className="rounded-2xl bg-coral/10 px-4 py-3 text-sm font-bold text-coral">
+                        {error}
+                    </p>
+                )}
 
-                    {/* Submit */}
-                    <button
+                <div className="grid grid-cols-1 gap-3 border-t border-teal/5 pt-4 sm:flex sm:justify-end">
+                    <Button type="button" variant="ghost" onClick={handleClose} className="h-12 w-full sm:w-auto">
+                        Cancelar
+                    </Button>
+                    <Button
                         type="submit"
                         disabled={isPending || !name.trim()}
-                        className="w-full h-12 bg-coral text-white rounded-full font-medium hover:bg-opacity-90 transition-all shadow-md shadow-coral/20 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="h-12 w-full disabled:shadow-none disabled:opacity-45 sm:w-auto"
                     >
                         {isPending ? (
                             <>
-                                <Loader2 className="w-4 h-4 animate-spin" />
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                                 Guardando...
                             </>
                         ) : (
                             isEdit ? "Guardar cambios" : "Crear lista"
                         )}
-                    </button>
-                </form>
-            </div>
-        </div>
+                    </Button>
+                </div>
+            </form>
+        </Modal>
     );
 }

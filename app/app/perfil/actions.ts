@@ -56,6 +56,7 @@ export async function updatePreferences(formData: FormData) {
     const format = formData.get("readingFormat") as string;
     const complexity = formData.get("storyComplexity") ? parseInt(formData.get("storyComplexity") as string) : null;
     const elements = formData.get("engagementElements") ? JSON.parse(formData.get("engagementElements") as string) : [];
+    const favoriteGenres = formData.get("favoriteGenres") ? JSON.parse(formData.get("favoriteGenres") as string) : [];
     const spoilerPreference = formData.get("spoilerPreference") === "true"; // Parse boolean
 
     // Could also handle "preferred_time" if added to schema, but sticking to plan
@@ -64,6 +65,7 @@ export async function updatePreferences(formData: FormData) {
         reading_format_preference: format,
         story_complexity_preference: complexity,
         engagement_elements: elements,
+        favorite_genres: favoriteGenres,
         spoiler_preference: spoilerPreference,
         updated_at: new Date().toISOString(),
     };
@@ -145,5 +147,120 @@ export async function updateSettings(type: 'notifications' | 'privacy', settings
     }
 
     revalidatePath("/app/perfil");
+    return { success: true };
+}
+
+export async function exportMyProfileData() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "No autenticado" };
+
+    const [
+        profile,
+        userBooks,
+        sessions,
+        badges,
+        wishlists,
+        giftRecipients
+    ] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user.id).single(),
+        supabase.from("user_books").select("*, book:books(title, isbn, cover_url)").eq("user_id", user.id),
+        supabase.from("reading_sessions").select("*").eq("user_id", user.id),
+        supabase.from("user_badges").select("awarded_at, badge:badges(name, description, category)").eq("user_id", user.id),
+        supabase.from("wishlists").select("*").eq("user_id", user.id),
+        supabase.from("gift_recipients").select("*").eq("user_id", user.id),
+    ]);
+
+    return {
+        success: true,
+        exportedAt: new Date().toISOString(),
+        user: {
+            id: user.id,
+            email: user.email,
+        },
+        data: {
+            profile: profile.data,
+            library: userBooks.data || [],
+            readingSessions: sessions.data || [],
+            badges: badges.data || [],
+            wishlists: wishlists.data || [],
+            giftRecipients: giftRecipients.data || [],
+        }
+    };
+}
+
+export async function requestPasswordReset() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user?.email) return { error: "No se ha encontrado el email de la cuenta" };
+
+    const origin =
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        process.env.NEXT_PUBLIC_APP_URL ||
+        "http://localhost:3000";
+
+    const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+        redirectTo: `${origin}/app/perfil/editar`
+    });
+
+    if (error) {
+        console.error("Error sending password reset:", error);
+        return { error: "No se pudo enviar el email de actualización" };
+    }
+
+    return { success: true };
+}
+
+export async function requestEmailChange(newEmail: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "No autenticado" };
+
+    const email = newEmail.trim().toLowerCase();
+    if (!email || !email.includes("@")) {
+        return { error: "Introduce un email válido" };
+    }
+
+    const { error } = await supabase.auth.updateUser({ email });
+
+    if (error) {
+        console.error("Error requesting email change:", error);
+        return { error: "No se pudo solicitar el cambio de email" };
+    }
+
+    return { success: true };
+}
+
+export async function requestAccountDeactivation() {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "No autenticado" };
+
+    const { error } = await supabase
+        .from("profiles")
+        .update({
+            privacy_settings: {
+                profile_visibility: "private",
+                show_name_photo: false,
+                show_location: false,
+                show_recent_reads: false,
+                show_stats: false,
+                deactivation_requested_at: new Date().toISOString()
+            },
+            updated_at: new Date().toISOString()
+        })
+        .eq("id", user.id);
+
+    if (error) {
+        console.error("Error requesting account deactivation:", error);
+        return { error: "No se pudo registrar la solicitud" };
+    }
+
+    revalidatePath("/app/perfil");
+    revalidatePath("/app/perfil/editar");
     return { success: true };
 }
