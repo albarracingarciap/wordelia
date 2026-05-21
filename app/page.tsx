@@ -1,14 +1,15 @@
 import { Navbar } from "@/components/landing/Navbar";
 import { Hero } from "@/components/landing/Hero";
-import { FeaturesIA } from "@/components/landing/FeaturesIA";
 import { ClubsGrid } from "@/components/landing/ClubsGrid";
-import { BookMonth } from "@/components/landing/BookMonth";
-import { Pricing } from "@/components/landing/Pricing";
-import { Testimonials } from "@/components/landing/Testimonials";
+import {
+  HomeAdnSection,
+  HomeBetaSection,
+  HomeExploreSection,
+  HomeWishlistSection,
+} from "@/components/landing/HomeSections";
 import { Footer } from "@/components/landing/Footer";
 import { createClient } from "@/utils/supabase/server";
 import { getOfficialClubs } from "@/app/actions";
-import { getFeaturedClub } from "@/app/clubes/actions";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -28,9 +29,8 @@ export default async function Home() {
     redirect('/app/mi-lectura');
   }
 
-  const [officialClubs, featuredClub, founderStatsResult] = await Promise.all([
+  const [officialClubs, founderStatsResult] = await Promise.all([
     getOfficialClubs(),
-    getFeaturedClub(),
     supabase.rpc("get_founder_membership_stats").maybeSingle(),
   ]);
 
@@ -43,11 +43,11 @@ export default async function Home() {
     <main className="min-h-screen bg-cream selection:bg-teal selection:text-white overflow-x-hidden">
       <Navbar mode="public" />
       <Hero founderCount={founderCount} />
-      <FeaturesIA />
+      <HomeExploreSection />
       <ClubsGrid initialClubs={officialClubs} />
-      <BookMonth club={featuredClub} />
-      <Pricing />
-      <Testimonials />
+      <HomeAdnSection />
+      <HomeWishlistSection />
+      <HomeBetaSection />
       <Footer />
     </main>
   );

@@ -24,7 +24,7 @@ export default async function ClubesPage() {
     return (
         <div className="min-h-screen bg-cream flex flex-col">
             {/* Landing Navbar */}
-            <Navbar />
+            <Navbar mode="public" />
 
             {/* Main Content */}
             <main className="flex-1 pt-[72px]">

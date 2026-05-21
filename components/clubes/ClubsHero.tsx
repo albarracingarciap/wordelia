@@ -3,28 +3,27 @@ import { Button } from "@/components/ui/Button";
 
 export function ClubsHero() {
     return (
-        <div className="relative overflow-hidden bg-gradient-to-br from-teal to-teal-dark rounded-3xl shadow-2xl mb-12 p-8 md:p-12 lg:p-16">
-            {/* Decorative Elements */}
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/5 rounded-full blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-96 h-96 bg-teal-dark/30 rounded-full blur-3xl" />
+        <div className="relative mb-12 overflow-hidden rounded-3xl bg-gradient-to-br from-teal to-teal-dark p-8 shadow-2xl md:p-12 lg:p-16">
+            <div className="absolute right-0 top-0 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
+            <div className="absolute bottom-0 left-0 h-96 w-96 rounded-full bg-teal-dark/30 blur-3xl" />
 
-            {/* Content */}
             <div className="relative z-10 max-w-3xl">
-                <h1 className="text-4xl md:text-5xl lg:text-6xl font-serif text-white mb-6 drop-shadow-lg">
-                    Clubes Wordelia Originals
+                <h1 className="mb-6 text-4xl !text-white drop-shadow-lg md:text-5xl lg:text-6xl">
+                    Clubs Wordelia Originals
                 </h1>
-                <p className="text-lg md:text-xl text-cream font-bold mb-2">
+                <p className="mb-2 text-lg font-bold text-cream md:text-xl">
                     Clubs de lectura curados por expertos
                 </p>
-                <p className="text-base md:text-lg text-cream/90 mb-8 leading-relaxed">
-                    Únete a nuestros clubs oficiales con guías de discusión profesionales, mapas emocionales detallados y calendario estructurado. Todos los clubs comienzan el <span className="font-bold text-white">15 de marzo de 2026</span>.
+                <p className="mb-8 text-base leading-relaxed text-cream/90 md:text-lg">
+                    Únete a nuestros clubs oficiales con guías de discusión profesionales, mapas emocionales
+                    detallados y calendario estructurado. Todos los clubs comienzas en las próximas semanas.
                 </p>
 
-                <div className="flex flex-col sm:flex-row gap-4">
+                <div className="flex flex-col gap-4 sm:flex-row">
                     <Link href="/register">
                         <Button
-                            style={{ color: '#234A4E' }}
-                            className="bg-cream hover:bg-white border-none font-bold shadow-lg hover:shadow-xl transition-all text-base"
+                            style={{ color: "#234A4E" }}
+                            className="border-none bg-cream text-base font-bold shadow-lg transition-all hover:bg-white hover:shadow-xl"
                         >
                             Únete ahora
                         </Button>
@@ -32,7 +31,7 @@ export function ClubsHero() {
                     <Link href="/app/adn">
                         <Button
                             variant="outline"
-                            className="border-2 border-white !text-white bg-transparent hover:bg-white hover:!text-teal-dark font-semibold transition-all"
+                            className="border-2 border-white bg-transparent font-semibold !text-white transition-all hover:bg-white hover:!text-teal-dark"
                         >
                             Demo ADN literario
                         </Button>

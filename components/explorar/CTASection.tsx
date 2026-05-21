@@ -6,71 +6,57 @@ import { Sparkles, Users, TrendingUp } from "lucide-react";
 
 export function CTASection() {
     return (
-        <section className="bg-gradient-to-br from-cream to-teal/5 rounded-2xl p-8 md:p-12 border border-teal/10">
-            <div className="max-w-3xl mx-auto text-center space-y-6">
-                {/* Icon */}
+        <section className="rounded-2xl border border-teal/10 bg-gradient-to-br from-cream to-teal/5 p-8 md:p-12">
+            <div className="mx-auto max-w-3xl space-y-6 text-center">
                 <div className="flex justify-center">
-                    <div className="bg-teal/10 rounded-full p-4">
-                        <Sparkles className="w-8 h-8 text-teal" />
+                    <div className="rounded-full bg-teal/10 p-4">
+                        <Sparkles className="h-8 w-8 text-teal" />
                     </div>
                 </div>
 
-                {/* Headline */}
                 <div>
-                    <h2 className="text-3xl md:text-4xl font-serif text-grey mb-3">
+                    <h2 className="mb-3 text-3xl text-teal md:text-4xl">
                         ¿Listo para encontrar tu próximo libro favorito?
                     </h2>
-                    <p className="text-grey/70 text-lg">
+                    <p className="text-lg text-grey/70">
                         Únete a miles de lectores que descubren libros de una forma diferente
                     </p>
                 </div>
 
-                {/* Features */}
-                <div className="flex flex-col sm:flex-row justify-center gap-6 py-6">
+                <div className="flex flex-col justify-center gap-6 py-6 sm:flex-row">
                     <div className="flex items-center gap-3 text-grey/80">
-                        <div className="bg-teal/10 rounded-full p-2">
-                            <TrendingUp className="w-5 h-5 text-teal" />
+                        <div className="rounded-full bg-teal/10 p-2">
+                            <TrendingUp className="h-5 w-5 text-teal" />
                         </div>
-                        <span className="text-sm font-medium">Mapas Emocionales</span>
+                        <span className="text-sm font-medium">Mapas emocionales</span>
                     </div>
                     <div className="flex items-center gap-3 text-grey/80">
-                        <div className="bg-teal/10 rounded-full p-2">
-                            <Users className="w-5 h-5 text-teal" />
+                        <div className="rounded-full bg-teal/10 p-2">
+                            <Users className="h-5 w-5 text-teal" />
                         </div>
-                        <span className="text-sm font-medium">Clubs de Lectura</span>
+                        <span className="text-sm font-medium">Clubs de lectura</span>
                     </div>
                     <div className="flex items-center gap-3 text-grey/80">
-                        <div className="bg-teal/10 rounded-full p-2">
-                            <Sparkles className="w-5 h-5 text-teal" />
+                        <div className="rounded-full bg-teal/10 p-2">
+                            <Sparkles className="h-5 w-5 text-teal" />
                         </div>
-                        <span className="text-sm font-medium">IA Personalizada</span>
+                        <span className="text-sm font-medium">IA personalizada</span>
                     </div>
                 </div>
 
-                {/* CTAs */}
-                <div className="flex flex-col sm:flex-row justify-center gap-4">
+                <div className="flex justify-center">
                     <Link href="/register">
                         <Button
                             size="lg"
-                            className="bg-teal hover:bg-teal-dark text-white font-semibold shadow-lg hover:shadow-xl transition-all"
+                            className="bg-teal font-semibold text-white shadow-lg transition-all hover:bg-teal-dark hover:shadow-xl"
                         >
                             Crear cuenta gratis
                         </Button>
                     </Link>
-                    <Link href="/app/adn">
-                        <Button
-                            size="lg"
-                            variant="outline"
-                            className="border-2 border-teal/30 text-teal hover:bg-teal/5"
-                        >
-                            Ver cómo funciona
-                        </Button>
-                    </Link>
                 </div>
 
-                {/* Trust signal */}
                 <p className="text-xs text-grey/50">
-                    ✨ Sin tarjeta de crédito • Acceso inmediato • Cancela cuando quieras
+                    Sin tarjeta de crédito · Acceso inmediato · Cancela cuando quieras
                 </p>
             </div>
         </section>

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { ArrowRight, BookOpen, Gauge, ShieldCheck, Users } from "lucide-react";
+import { ArrowRight, BookOpen, CalendarDays, Gauge, MessageCircle, ShieldCheck, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Section } from "../ui/Section";
 import { Button } from "../ui/Button";
@@ -51,9 +51,9 @@ const fallbackClubs: Club[] = [
         cover: "/assets/images/fahrenheit_451.jpg",
         pace: "Lectura guiada",
         status: "15 jul",
-        badges: ["Sin spoilers", "Checkpoints", "Debate guiado"],
-        description: "Una lectura sobre censura, memoria y pensamiento crítico con conversación por tramos.",
-        hookQuestion: "¿Qué hace que una sociedad deje de proteger los libros?",
+        badges: ["Lectura distópica", "Futuros controlados", "Libertad y resistencia"],
+        description: "Explora sociedades futuras controladas y la lucha por la libertad a través de clásicos distópicos que siguen hablando del presente.",
+        hookQuestion: "En el mundo de Montag, los libros se queman porque causan infelicidad al hacer pensar a la gente. Si tuvieras que elegir entre vivir en una ignorancia absolutamente feliz y pacífica, o en una verdad dolorosa y caótica, ¿qué elegirías honestamente?",
         priceLabel: "9,90 €",
     },
     {
@@ -63,9 +63,9 @@ const fallbackClubs: Club[] = [
         cover: "/assets/images/1984_Orwell.jpg",
         pace: "Lectura guiada",
         status: "15 jul",
-        badges: ["Mapa emocional", "Contexto", "Sin spoilers"],
-        description: "Un club para leer vigilancia, lenguaje y miedo colectivo con calma y capas de análisis.",
-        hookQuestion: "¿Cuándo deja una persona de pensar libremente?",
+        badges: ["Mente libre", "Contra el totalitarismo", "Resistencia psicológica"],
+        description: "Una lectura para conversar sobre vigilancia, lenguaje, miedo colectivo y pensamiento libre.",
+        hookQuestion: "Si hoy en día sacrificamos voluntariamente tanta privacidad a través de nuestros teléfonos y redes sociales a cambio de comodidad, ¿estamos construyendo el Gran Hermano por elección propia, o la distopía de Orwell era algo completamente diferente?",
         priceLabel: "9,90 €",
     },
     {
@@ -75,9 +75,9 @@ const fallbackClubs: Club[] = [
         cover: "/assets/images/rui_harper_lee.jpg",
         pace: "Lectura guiada",
         status: "15 ago",
-        badges: ["Debate", "Contexto histórico", "Empatía"],
-        description: "Lectura pausada sobre justicia, prejuicio y valentía moral.",
-        hookQuestion: "¿La verdadera valentía está en resistir o en acompañar?",
+        badges: ["Justicia social", "Prejuicios", "Moralidad en cuestión"],
+        description: "Análisis profundo de una obra que cuestiona prejuicios, desigualdades y valentía moral.",
+        hookQuestion: "Atticus Finch dice que nunca entiendes realmente a una persona hasta que te pones en su pellejo. Pensando en los personajes más juzgados del libro, como Boo Radley o Mayella Ewell, ¿con quién les costó más empatizar y por qué?",
         priceLabel: "9,90 €",
     },
     {
@@ -87,12 +87,26 @@ const fallbackClubs: Club[] = [
         cover: "/assets/images/ensayo_saramago.jpg",
         pace: "Lectura guiada",
         status: "15 ago",
-        badges: ["Simbología", "Mapa emocional", "Lectura lenta"],
+        badges: ["Metáforas de interpelan", "Condición humana", "Lectura lenta"],
         description: "Una conversación sobre fragilidad, comunidad y lo que revelan las crisis.",
-        hookQuestion: "¿Qué vemos de nosotros cuando todo lo demás desaparece?",
+        hookQuestion: "Saramago nos muestra que, al perder la vista, los personajes pierden rápidamente la capa de civilización y moral que los cubre. Si mañana colapsaran las reglas básicas de nuestra sociedad, ¿creen que los seres humanos tenderíamos a la crueldad por supervivencia o a la solidaridad?",
         priceLabel: "9,90 €",
     },
 ];
+
+const clubIncludes = [
+    "Checkpoints sin spoilers",
+    "Preguntas de discusión",
+    "Mapa emocional",
+    "Calendario de lectura",
+];
+
+const hookQuestionByBook: Record<string, string> = {
+    "1984": "Si hoy en día sacrificamos voluntariamente tanta privacidad a través de nuestros teléfonos y redes sociales a cambio de comodidad, ¿estamos construyendo el Gran Hermano por elección propia, o la distopía de Orwell era algo completamente diferente?",
+    "Fahrenheit 451": "En el mundo de Montag, los libros se queman porque causan infelicidad al hacer pensar a la gente. Si tuvieras que elegir entre vivir en una ignorancia absolutamente feliz y pacífica, o en una verdad dolorosa y caótica, ¿qué elegirías honestamente?",
+    "Matar a un ruiseñor": "Atticus Finch dice que nunca entiendes realmente a una persona hasta que te pones en su pellejo. Pensando en los personajes más juzgados del libro, como Boo Radley o Mayella Ewell, ¿con quién les costó más empatizar y por qué?",
+    "Ensayo sobre la ceguera": "Saramago nos muestra que, al perder la vista, los personajes pierden rápidamente la capa de civilización y moral que los cubre. Si mañana colapsaran las reglas básicas de nuestra sociedad, ¿creen que los seres humanos tenderíamos a la crueldad por supervivencia o a la solidaridad?",
+};
 
 function formatClubStartDate(value?: string | null) {
     if (!value) {
@@ -124,17 +138,24 @@ function formatClubPrice(price?: number | null, currency = "EUR") {
 }
 
 function mapDbClub(dbClub: InitialClub): Club {
+    const bookTitle = dbClub.book?.title || "Libro por confirmar";
+    const normalizedBookTitle = Object.keys(hookQuestionByBook).find((title) =>
+        bookTitle.toLowerCase().includes(title.toLowerCase())
+    );
+
     return {
         id: dbClub.id,
         title: dbClub.name || "Club de lectura",
-        book: dbClub.book?.title || "Libro por confirmar",
+        book: bookTitle,
         author: dbClub.book?.author || "Autor por confirmar",
         cover: dbClub.book?.cover_url || "/assets/images/default_cover.jpg",
         pace: "Lectura guiada",
         status: formatClubStartDate(dbClub.start_date),
         badges: dbClub.tags?.slice(0, 3) || ["Sin spoilers", "Checkpoints"],
         description: dbClub.description || "Un club para leer con calma, contexto y conversación cuidada.",
-        hookQuestion: dbClub.hook_question || dbClub.description || "¿Qué conversación abriría este libro?",
+        hookQuestion: normalizedBookTitle
+            ? hookQuestionByBook[normalizedBookTitle]
+            : dbClub.hook_question || dbClub.description || "¿Qué conversación abriría este libro?",
         priceLabel: formatClubPrice(dbClub.price, dbClub.currency || "EUR"),
     };
 }
@@ -148,6 +169,8 @@ export function ClubsGrid({ initialClubs }: ClubsGridProps) {
     const displayClubs = initialClubs && initialClubs.length > 0
         ? initialClubs.map(mapDbClub)
         : fallbackClubs;
+    const featuredClub = displayClubs[0];
+    const upcomingClubs = displayClubs.slice(1, 4);
 
     const handleClubClick = (club: Club) => {
         if (isLoggedIn && club.id) {
@@ -168,86 +191,138 @@ export function ClubsGrid({ initialClubs }: ClubsGridProps) {
             <div className="mx-auto mb-10 max-w-3xl space-y-4 text-center md:mb-14">
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">Clubs de lectura</p>
                 <h2 className="text-3xl leading-tight text-teal md:text-5xl">
-                    Conversaciones con ritmo, contexto y cero spoilers
+                    Lecturas guiadas para conversaciones más profundas
                 </h2>
                 <p className="mx-auto max-w-2xl text-base leading-relaxed text-grey md:text-lg">
-                    Únete a clubs guiados por checkpoints, mapas emocionales y preguntas que respetan tu avance.
+                    Guías de discusión basadas en checkpoints, conversaciones sin spoilers y registro de emociones.
                 </p>
             </div>
 
-            <div className="mb-10 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4 lg:gap-6">
-                {displayClubs.map((club, idx) => (
-                    <article
-                        key={`${club.title}-${club.book}`}
-                        className={`group rounded-2xl border border-teal/5 bg-offwhite p-4 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:bg-white hover:shadow-md ${idx > 1 ? "hidden md:block" : "block"}`}
-                    >
-                        <div className="flex gap-4 lg:block">
-                            <div className="relative h-36 w-24 shrink-0 overflow-hidden rounded-xl bg-grey/10 shadow-inner lg:mb-4 lg:h-auto lg:w-full lg:aspect-[2/3]">
-                                <Image
-                                    src={club.cover}
-                                    alt={`Portada de ${club.book}`}
-                                    fill
-                                    className="object-cover transition-transform duration-500 group-hover:scale-105"
-                                    sizes="(min-width: 1024px) 22vw, 96px"
-                                />
+            {featuredClub && (
+                <div className="mb-10 grid gap-5 lg:grid-cols-[1.25fr_0.75fr]">
+                    <article className="overflow-hidden rounded-3xl border border-teal/10 bg-offwhite shadow-sm">
+                        <div className="grid gap-0 md:grid-cols-[240px_1fr]">
+                            <div className="bg-cream p-6 md:p-7">
+                                <div className="relative mx-auto aspect-[2/3] w-40 overflow-hidden rounded-2xl shadow-md md:w-full">
+                                    <Image
+                                        src={featuredClub.cover}
+                                        alt={`Portada de ${featuredClub.book}`}
+                                        fill
+                                        className="object-cover"
+                                        sizes="(min-width: 768px) 210px, 160px"
+                                    />
+                                </div>
                             </div>
 
-                            <div className="min-w-0 flex-1 space-y-3">
-                                <div>
-                                    <h3 className="line-clamp-1 text-lg font-bold text-teal">{club.title}</h3>
-                                    <p className="line-clamp-2 text-sm text-grey">Leyendo: {club.book}</p>
-                                </div>
+                            <div className="flex flex-col justify-between gap-7 p-6 md:p-8">
+                                <div className="space-y-5">
+                                    <div>
+                                        <p className="mb-2 inline-flex items-center gap-2 rounded-full bg-coral/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-coral">
+                                            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                                            Club destacado
+                                        </p>
+                                        <h3 className="text-3xl leading-tight text-teal md:text-4xl">{featuredClub.title}</h3>
+                                        <p className="mt-1 text-sm font-semibold text-grey">
+                                            Leyendo: {featuredClub.book} · {featuredClub.author}
+                                        </p>
+                                    </div>
 
-                                <div className="grid grid-cols-2 gap-2 text-xs font-semibold text-grey lg:grid-cols-[1.2fr_0.8fr]">
-                                    <span className="inline-flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-full bg-white/70 px-2.5 py-1">
-                                        <Gauge className="h-3.5 w-3.5 text-teal" aria-hidden="true" />
-                                        {club.pace}
-                                    </span>
-                                    <span className="inline-flex min-w-0 items-center justify-center gap-1 whitespace-nowrap rounded-full bg-white/70 px-2.5 py-1">
-                                        <Users className="h-3.5 w-3.5 text-teal" aria-hidden="true" />
-                                        {club.status}
-                                    </span>
-                                </div>
+                                    <div className="rounded-2xl border border-teal/10 bg-white p-5">
+                                        <div className="mb-3 flex items-center gap-2 text-sm font-bold text-teal-dark">
+                                            <MessageCircle className="h-4 w-4 text-coral" aria-hidden="true" />
+                                            Pregunta de apertura
+                                        </div>
+                                        <p className="font-serif text-xl leading-snug text-teal-dark">
+                                            “{featuredClub.hookQuestion}”
+                                        </p>
+                                    </div>
 
-                                <div className="flex flex-wrap gap-2 text-xs font-semibold">
-                                    <span className="rounded-full bg-coral/10 px-2.5 py-1 text-coral">
-                                        Valor {club.priceLabel}
-                                    </span>
-                                    <span className="rounded-full bg-teal/10 px-2.5 py-1 text-teal">
-                                        Gratis para fundadores
-                                    </span>
-                                </div>
+                                    <p className="text-sm leading-relaxed text-grey md:text-base">
+                                        {featuredClub.description}
+                                    </p>
 
-                                <p className="hidden text-sm leading-relaxed text-grey md:line-clamp-3">
-                                    {club.description}
-                                </p>
-
-                                <div className="flex flex-wrap gap-2">
-                                    {club.badges.map((badge) => (
-                                        <span
-                                            key={badge}
-                                            className="rounded-full border border-teal/10 bg-cream px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-teal"
-                                        >
-                                            {badge}
+                                    <div className="flex flex-wrap gap-2 text-xs font-semibold">
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-teal-dark">
+                                            <Gauge className="h-3.5 w-3.5 text-teal" aria-hidden="true" />
+                                            {featuredClub.pace}
                                         </span>
-                                    ))}
+                                        <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1.5 text-teal-dark">
+                                            <CalendarDays className="h-3.5 w-3.5 text-teal" aria-hidden="true" />
+                                            {featuredClub.status}
+                                        </span>
+                                        <span className="rounded-full bg-coral/10 px-3 py-1.5 text-coral">
+                                            Valor {featuredClub.priceLabel}
+                                        </span>
+                                        <span className="rounded-full bg-teal/10 px-3 py-1.5 text-teal">
+                                            Gratis para fundadores
+                                        </span>
+                                    </div>
                                 </div>
-                            </div>
-                        </div>
 
-                        <div className="mt-4 border-t border-black/5 pt-4">
-                            <button
-                                type="button"
-                                onClick={() => handleClubClick(club)}
-                                className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-coral px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#C25852]"
-                            >
-                                {isLoggedIn && club.id ? "Ir al club" : "Vista previa"}
-                                <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                            </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleClubClick(featuredClub)}
+                                    className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-coral px-6 font-semibold text-white transition-colors hover:bg-[#C25852] sm:w-auto"
+                                >
+                                    {isLoggedIn && featuredClub.id ? "Ir al club" : "Vista previa"}
+                                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                                </button>
+                            </div>
                         </div>
                     </article>
-                ))}
-            </div>
+
+                    <aside className="grid gap-4">
+                        <div className="rounded-3xl border border-teal/10 bg-white/65 p-5 shadow-sm">
+                            <h3 className="mb-4 text-2xl font-semibold text-teal">Próximos clubs</h3>
+                            <div className="space-y-3">
+                                {upcomingClubs.map((club) => (
+                                    <button
+                                        key={`${club.title}-${club.book}`}
+                                        type="button"
+                                        onClick={() => handleClubClick(club)}
+                                        className="group flex w-full gap-4 rounded-2xl border border-teal/10 bg-offwhite p-3 text-left transition-colors hover:bg-white"
+                                    >
+                                        <div className="relative h-24 w-16 shrink-0 overflow-hidden rounded-xl bg-grey/10">
+                                            <Image
+                                                src={club.cover}
+                                                alt={`Portada de ${club.book}`}
+                                                fill
+                                                className="object-cover"
+                                                sizes="64px"
+                                            />
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <div className="mb-1 flex items-center justify-between gap-2">
+                                                <h4 className="line-clamp-1 font-semibold text-teal-dark">{club.title}</h4>
+                                                <ArrowRight className="h-4 w-4 shrink-0 text-coral opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
+                                            </div>
+                                            <p className="line-clamp-1 text-sm text-grey">{club.book}</p>
+                                            <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-teal">
+                                                <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+                                                {club.status}
+                                            </p>
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="rounded-3xl border border-teal/10 bg-teal p-5 text-white shadow-sm">
+                            <p className="mb-3 text-sm font-semibold uppercase tracking-[0.14em] text-cream">
+                                Cada club incluye
+                            </p>
+                            <div className="grid gap-2">
+                                {clubIncludes.map((item) => (
+                                    <div key={item} className="flex items-center gap-2 text-sm text-white/90">
+                                        <ShieldCheck className="h-4 w-4 text-cream" aria-hidden="true" />
+                                        {item}
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    </aside>
+                </div>
+            )}
 
             <div className="mx-auto flex max-w-xl flex-col gap-3 sm:flex-row sm:justify-center">
                 <Button variant="secondary" onClick={() => router.push("/clubes")} className="w-full sm:w-auto">
@@ -296,7 +371,7 @@ export function ClubsGrid({ initialClubs }: ClubsGridProps) {
                                     Pregunta de apertura
                                 </div>
                                 <p className="text-lg leading-snug text-teal-dark">
-                                    &ldquo;{selectedClub.hookQuestion}&rdquo;
+                                    “{selectedClub.hookQuestion}”
                                 </p>
                             </div>
 

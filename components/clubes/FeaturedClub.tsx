@@ -5,12 +5,14 @@ import Image from "next/image";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
-import { Calendar, Users, Sparkles, BookOpen } from "lucide-react";
+import { Calendar, Users, Sparkles, BookOpen, MessageCircle } from "lucide-react";
 
 interface FeaturedClubProps {
     club: OfficialClub;
     onViewDetails: () => void;
 }
+
+const openingQuestion = "Lo más aterrador de Gilead es que no se construyó de la noche a la mañana, sino mediante la pérdida gradual de pequeños derechos que la gente normal justificó \"por seguridad\". ¿Qué derechos o libertades creen que damos por sentados hoy y que podrían desaparecer si la sociedad entrara en pánico?";
 
 function formatStartDate(value?: string | null) {
     if (!value) return "Próximamente";
@@ -40,95 +42,99 @@ export function FeaturedClub({ club, onViewDetails }: FeaturedClubProps) {
     if (!bookData) return null;
 
     return (
-        <div className="relative overflow-hidden bg-white rounded-2xl shadow-xl mb-12 border-2 border-coral/20">
-            {/* Decorative gradient background - subtle */}
+        <div className="relative mb-12 overflow-hidden rounded-2xl border-2 border-coral/20 bg-white shadow-xl">
             <div className="absolute inset-0 bg-gradient-to-br from-coral/5 via-transparent to-red-50/30" />
 
             <div className="relative z-10 p-6 md:p-8">
-                {/* Badge */}
-                <div className="flex items-center gap-2 mb-6">
-                    <Sparkles className="w-5 h-5 text-coral" />
-                    <Badge className="bg-coral text-white font-bold border-none text-sm">
+                <div className="mb-6 flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-coral" />
+                    <Badge className="border-none bg-coral text-sm font-bold text-white">
                         CLUB DEL MES
                     </Badge>
                 </div>
 
-                <div className="grid md:grid-cols-[200px,1fr] gap-6 md:gap-8">
-                    {/* Book Cover - More compact */}
-                    <div className="shrink-0">
-                        <div
-                            onClick={onViewDetails}
-                            className="relative w-full max-w-[200px] mx-auto aspect-[2/3] bg-grey/10 rounded-lg overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer group"
-                        >
-                            {bookData.cover_url ? (
-                                <Image
-                                    src={bookData.cover_url}
-                                    alt={bookData.title}
-                                    fill
-                                    className="object-cover group-hover:scale-105 transition-transform duration-300"
-                                />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-grey/20 to-grey/5 p-4">
-                                    <p className="text-xs text-grey/60 text-center font-serif">
-                                        {bookData.title}
-                                    </p>
-                                </div>
-                            )}
-                        </div>
+                <div className="grid gap-8 lg:grid-cols-[260px_1fr] lg:items-start">
+                    <div
+                        onClick={onViewDetails}
+                        className="relative mx-auto aspect-[2/3] w-full max-w-[220px] cursor-pointer overflow-hidden rounded-xl bg-grey/10 shadow-lg transition-all duration-300 hover:shadow-2xl lg:mx-0"
+                    >
+                        {bookData.cover_url ? (
+                            <Image
+                                src={bookData.cover_url}
+                                alt={bookData.title}
+                                fill
+                                className="object-cover transition-transform duration-300 hover:scale-105"
+                            />
+                        ) : (
+                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-grey/20 to-grey/5 p-4">
+                                <p className="text-center font-serif text-xs text-grey/60">
+                                    {bookData.title}
+                                </p>
+                            </div>
+                        )}
                     </div>
 
-                    {/* Club Info */}
-                    <div className="flex flex-col justify-center">
-                        <h2 className="text-2xl md:text-3xl font-serif text-grey mb-2">
-                            {bookData.title}
-                        </h2>
-                        <p className="text-lg text-grey/70 mb-4">
-                            por {bookData.authors?.join(", ") || "Autor desconocido"}
-                        </p>
+                    <div className="space-y-6">
+                        <div>
+                            <h2 className="mb-2 text-2xl text-teal md:text-3xl">
+                                {bookData.title}
+                            </h2>
+                            <p className="text-lg text-grey/70">
+                                por {bookData.authors?.join(", ") || "Autor desconocido"}
+                            </p>
+                        </div>
 
-                        <p className="text-base text-grey/80 mb-6 leading-relaxed">
+                        <div className="rounded-2xl border border-teal/10 bg-white p-5 shadow-sm">
+                            <div className="mb-3 flex items-center gap-2 text-sm font-bold text-teal-dark">
+                                <MessageCircle className="h-4 w-4 text-coral" />
+                                Pregunta de apertura
+                            </div>
+                            <p className="font-serif text-lg leading-relaxed text-teal-dark">
+                                “{openingQuestion}”
+                            </p>
+                        </div>
+
+                        <p className="text-base leading-relaxed text-grey/80">
                             {club.description}
                         </p>
 
-                        <div className="flex flex-wrap gap-3 mb-6">
-                            <div className="flex items-center gap-2 bg-coral/10 text-coral rounded-lg px-3 py-2 border border-coral/20">
-                                <Calendar className="w-4 h-4" />
+                        <div className="flex flex-wrap gap-3">
+                            <div className="flex items-center gap-2 rounded-lg border border-coral/20 bg-coral/10 px-3 py-2 text-coral">
+                                <Calendar className="h-4 w-4" />
                                 <span className="text-sm font-semibold">{formatStartDate(club.start_date)}</span>
                             </div>
-                            <div className="flex items-center gap-2 bg-teal/10 text-teal rounded-lg px-3 py-2 border border-teal/20">
-                                <Users className="w-4 h-4" />
+                            <div className="flex items-center gap-2 rounded-lg border border-teal/20 bg-teal/10 px-3 py-2 text-teal">
+                                <Users className="h-4 w-4" />
                                 <span className="text-sm font-semibold">Club Oficial</span>
                             </div>
-                            <div className="flex items-center gap-2 bg-coral/10 text-coral rounded-lg px-3 py-2 border border-coral/20">
-                                <Sparkles className="w-4 h-4" />
+                            <div className="flex items-center gap-2 rounded-lg border border-coral/20 bg-coral/10 px-3 py-2 text-coral">
+                                <Sparkles className="h-4 w-4" />
                                 <span className="text-sm font-semibold">Valor {formatPrice(club.price_cents, club.currency || "EUR")}</span>
                             </div>
                         </div>
 
-                        <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="flex flex-col gap-3 sm:flex-row">
                             <a
                                 href="/guides/guia_el_cuento_de_la_criada.pdf"
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 className="w-full sm:w-auto"
                             >
-                                <Button
-                                    className="bg-teal hover:bg-teal-dark text-white font-semibold shadow-md hover:shadow-lg transition-all flex items-center gap-2 w-full justify-center"
-                                >
-                                    <BookOpen className="w-4 h-4" />
+                                <Button className="flex w-full items-center justify-center gap-2 bg-teal font-semibold text-white shadow-md transition-all hover:bg-teal-dark hover:shadow-lg">
+                                    <BookOpen className="h-4 w-4" />
                                     Ver Guía Gratuita
                                 </Button>
                             </a>
                             <Button
                                 onClick={onViewDetails}
-                                className="bg-coral hover:bg-coral/90 text-white font-semibold shadow-md hover:shadow-lg transition-all"
+                                className="bg-coral font-semibold text-white shadow-md transition-all hover:bg-coral/90 hover:shadow-lg"
                             >
                                 Ver detalles del club
                             </Button>
                             <Link href="/register">
                                 <Button
                                     variant="outline"
-                                    className="border-2 border-coral/30 text-coral hover:bg-coral/5 font-semibold transition-all"
+                                    className="border-2 border-coral/30 font-semibold text-coral transition-all hover:bg-coral/5"
                                 >
                                     Únete gratis
                                 </Button>

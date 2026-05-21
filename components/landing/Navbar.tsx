@@ -46,6 +46,7 @@ export function Navbar({ mode = "auto" }: NavbarProps) {
         { label: "ADN literario", href: "/app/adn", requiresAuth: true },
         { label: "Beta", href: "/register?source=beta", requiresAuth: false },
     ];
+    const showPublicLinks = mode !== "public";
 
     return (
         <nav className="fixed top-0 z-50 w-full border-b border-black/5 bg-cream/95 backdrop-blur-md">
@@ -63,17 +64,19 @@ export function Navbar({ mode = "auto" }: NavbarProps) {
                     </div>
                 </Link>
 
-                <div className="absolute left-1/2 hidden h-full -translate-x-1/2 items-center gap-5 lg:flex xl:gap-7">
-                    {links.map((link) => (
-                        <button
-                            key={link.label}
-                            onClick={() => handleNavigation(link.href, link.requiresAuth)}
-                            className="text-sm font-medium text-grey transition-colors hover:text-teal hover:underline hover:decoration-teal/50 hover:underline-offset-4"
-                        >
-                            {link.label}
-                        </button>
-                    ))}
-                </div>
+                {showPublicLinks && (
+                    <div className="absolute left-1/2 hidden h-full -translate-x-1/2 items-center gap-5 lg:flex xl:gap-7">
+                        {links.map((link) => (
+                            <button
+                                key={link.label}
+                                onClick={() => handleNavigation(link.href, link.requiresAuth)}
+                                className="text-sm font-medium text-grey transition-colors hover:text-teal hover:underline hover:decoration-teal/50 hover:underline-offset-4"
+                            >
+                                {link.label}
+                            </button>
+                        ))}
+                    </div>
+                )}
 
                 <div className="hidden lg:block">
                     <div className="flex items-center gap-4">
@@ -120,7 +123,7 @@ export function Navbar({ mode = "auto" }: NavbarProps) {
 
             {isOpen && (
                 <div className="absolute left-0 top-[68px] flex w-full flex-col gap-3 border-b border-black/5 bg-cream/98 px-5 py-4 shadow-lg md:top-[72px] lg:hidden">
-                    {links.map((link) => (
+                    {showPublicLinks && links.map((link) => (
                         <button
                             key={link.label}
                             onClick={() => handleNavigation(link.href, link.requiresAuth)}

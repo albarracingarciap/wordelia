@@ -29,6 +29,7 @@
   --font-serif: var(--font-playfair);
   --font-sans: var(--font-outfit);
   --font-pinyon: var(--font-pinyon), cursive;
+  --font-handwritten: var(--font-dancing), cursive;
 
   --radius-xl: 1rem;
   /* 16px */
@@ -64,6 +65,10 @@ h5,
 h6 {
   font-family: var(--font-serif);
   color: var(--color-teal);
+}
+
+.wordelia-handwritten {
+  font-family: var(--font-dancing), cursive !important;
 }
 
 /* Animations for Explorar page */
