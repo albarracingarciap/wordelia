@@ -11,7 +11,13 @@
 
 import { BookSearchResult, searchISBNdbStructured } from "@/lib/isbndb";
 import { OpenLibraryWork, searchOpenLibraryWorks } from "@/lib/openlibrary";
+import { readingExperiences } from "@/lib/reading-experiences";
 import { createClient as createServerSupabaseClient } from "@/utils/supabase/server";
+
+// Tipo del resultado de la RPC `find_books_by_experience`. Hasta que regeneres
+// `types/supabase.ts` tras aplicar la migración 20260529, los tipos auto-gen
+// no la incluyen, así que la declaramos manualmente y casteamos al consumir.
+type FindBooksByExperienceRow = { book_id: string; score: number };
 
 type SearchBooksOptions = {
     query?: string;
@@ -466,28 +472,49 @@ async function searchByExperience(
 ): Promise<BookSearchResult[]> {
     try {
         const supabase = await createServerSupabaseClient();
-        const { data } = await supabase
-            .from("books")
-            .select(BOOK_SELECT_FIELDS)
-            .eq("experience", experienceLabel)
-            .limit(limit);
+        const experience = readingExperiences.find((e) => e.label === experienceLabel);
+        const mappedGenres = experience?.mappedGenres ?? [];
 
-        const localResults = ((data ?? []) as unknown as LocalBookRow[]).map(mapLocalBook);
+        // RPC: combina match exacto en books.experience + books.genre + book_genres,
+        // ranking ponderado. Devuelve ids + score; luego cargamos detalles completos.
+        // Cast a `never` en el nombre del RPC porque los auto-gen types aún no la
+        // incluyen (hay que aplicar la migración y regenerar tipos).
+        const { data: rankedRaw, error: rpcError } = await supabase.rpc(
+            "find_books_by_experience" as never,
+            {
+                p_experience_label: experienceLabel,
+                p_genres: mappedGenres,
+                p_limit: Math.max(limit * 2, 40),
+            } as never,
+        );
+        const ranked = (rankedRaw ?? []) as FindBooksByExperienceRow[];
 
-        // Solo si la caché local no llena el cupo y hay términos de respaldo,
-        // intentamos OL con la lista de términos.
-        if (localResults.length >= LOCAL_RESULT_TARGET || experienceTerms.length === 0) {
-            return localResults.slice(0, limit);
+        if (rpcError) {
+            console.warn("[Search] find_books_by_experience RPC failed:", rpcError);
         }
 
-        const olBatches = await Promise.all(
-            experienceTerms.slice(0, 4).map((term) =>
-                searchOpenLibraryWorks(term, { limit: 8 }),
-            ),
-        );
-        const olResults = olBatches.flatMap((batch) => batch.works).map(mapOpenLibraryWork);
+        const bookIds = ranked.map((row) => row.book_id);
+        const scoreById = new Map(ranked.map((row) => [row.book_id, row.score]));
 
-        return dedupeByWork([...localResults, ...olResults]).slice(0, limit);
+        let localResults: BookSearchResult[] = [];
+        if (bookIds.length > 0) {
+            const { data } = await supabase
+                .from("books")
+                .select(BOOK_SELECT_FIELDS)
+                .in("id", bookIds);
+            const rows = (data ?? []) as unknown as LocalBookRow[];
+            localResults = rows
+                .map(mapLocalBook)
+                // Preservamos el ranking que devolvió la RPC.
+                .sort((a, b) => (scoreById.get(b.id) ?? 0) - (scoreById.get(a.id) ?? 0));
+        }
+
+        // En modo experiencia NO complementamos con OpenLibrary: sus búsquedas
+        // por keyword sobre términos vagos como "novela emocional" o "prosa
+        // poética" devuelven libros que solo contienen esas palabras en título
+        // o subjects, no obras que encarnen la experiencia. La curaduría tiene
+        // que venir del catálogo local (books.experience + book_genres).
+        return localResults.slice(0, limit);
     } catch (error) {
         console.warn("[Search] Experience search failed:", error);
         return [];

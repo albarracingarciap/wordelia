@@ -114,11 +114,23 @@ export default async function PublicSearchPage({ searchParams }: SearchPageProps
                 {hasSearch && results.length === 0 && (
                     <div className="rounded-3xl border border-teal/10 bg-offwhite p-10 text-center">
                         <BookOpen className="mx-auto mb-4 h-10 w-10 text-teal/50" aria-hidden="true" />
-                        <h2 className="text-2xl text-teal">Prueba con otra búsqueda</h2>
-                        <p className="mx-auto mt-2 max-w-xl text-grey">
-                            Puedes buscar por ISBN, título completo, nombre de la autora o autor, o volver a
-                            explorar por experiencias.
-                        </p>
+                        {experience ? (
+                            <>
+                                <h2 className="text-2xl text-teal">Aún estamos preparando esta experiencia</h2>
+                                <p className="mx-auto mt-2 max-w-xl text-grey">
+                                    Pronto encontrarás aquí una selección curada de libros para “{experience.label.toLowerCase()}”.
+                                    Mientras tanto puedes buscar por título, autora o autor.
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <h2 className="text-2xl text-teal">Prueba con otra búsqueda</h2>
+                                <p className="mx-auto mt-2 max-w-xl text-grey">
+                                    Puedes buscar por ISBN, título completo, nombre de la autora o autor, o volver a
+                                    explorar por experiencias.
+                                </p>
+                            </>
+                        )}
                     </div>
                 )}
 
