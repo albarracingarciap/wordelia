@@ -84,18 +84,14 @@ type LibraryCounts = {
     abandoned: number;
 };
 
+type LibraryEditionPick = { cover_url: string | null };
+type LibraryBookEntry = {
+    id: string;
+    title: string;
+    preferred_edition: LibraryEditionPick | LibraryEditionPick[] | null;
+};
 type LibraryBookRow = {
-    book:
-    | {
-        id: string;
-        title: string;
-        cover_url: string | null;
-    }
-    | {
-        id: string;
-        title: string;
-        cover_url: string | null;
-    }[];
+    book: LibraryBookEntry | LibraryBookEntry[];
 };
 
 const LIBRARY_TABS = [
@@ -377,7 +373,7 @@ export default function UserProfile({
                     book:books (
                         id,
                         title,
-                        cover_url
+                        preferred_edition:editions!books_preferred_edition_fk (cover_url)
                     )
                 `)
                 .eq("user_id", profile.id)
@@ -387,10 +383,13 @@ export default function UserProfile({
             if (data) {
                 setLibraryBooks((data as LibraryBookRow[]).map((row) => {
                     const book = Array.isArray(row.book) ? row.book[0] : row.book;
+                    const edition = Array.isArray(book.preferred_edition)
+                        ? book.preferred_edition[0]
+                        : book.preferred_edition;
                     return {
                         id: book.id,
                         title: book.title,
-                        cover: book.cover_url
+                        cover: edition?.cover_url ?? null
                     };
                 }));
             }

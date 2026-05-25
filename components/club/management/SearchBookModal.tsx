@@ -184,6 +184,7 @@ export function SearchBookModal({ isOpen, onClose, onSelectBook, initialQuery = 
                 cover_url: uploadedCoverUrl || manualCoverUrl.trim() || null,
                 description: manualDescription.trim() || null,
                 isbn: manualIsbn.trim() || null,
+                isbn13: manualIsbn.trim().replace(/[^0-9Xx]/g, "").length === 13 ? manualIsbn.trim() : null,
                 page_count: Number.isFinite(pages) && pages > 0 ? pages : null,
                 published_date: null,
                 publisher: null,

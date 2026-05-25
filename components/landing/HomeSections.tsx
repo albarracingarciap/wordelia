@@ -1,22 +1,8 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Award, EyeOff, Gauge, Gift, Library, MessageSquareHeart, Search, Sparkles } from "lucide-react";
+import { readingExperiences } from "@/lib/reading-experiences";
 import { Section } from "../ui/Section";
-
-const experienceCategories = [
-    "No apto para leer antes de dormir",
-    "Para perderse en otro mundo",
-    "Libros que dejan resaca emocional",
-    "Para subrayar sin prisa",
-    "Cuando quieres una trama adictiva",
-    "Historias que abrazan",
-    "Universos con mapa mental",
-    "Para leer con el corazón encogido",
-    "Libros que se leen como un secreto",
-    "Para conversaciones largas",
-    "Cuando necesitas belleza en cada frase",
-    "Más experiencias",
-];
 
 const dnaMetrics = [
     { label: "Tensión narrativa", value: "78%" },
@@ -57,7 +43,7 @@ export function HomeExploreSection() {
             </div>
 
             <form
-                action="/app/search"
+                action="/buscar"
                 className="mx-auto mb-10 grid max-w-5xl gap-3 rounded-2xl border border-teal/10 bg-white p-3 shadow-sm md:grid-cols-[1fr_auto_auto] md:p-4"
             >
                 <div className="flex min-h-14 items-center gap-3 rounded-xl bg-cream px-4 text-grey">
@@ -88,13 +74,13 @@ export function HomeExploreSection() {
 
             <div className="mx-auto max-w-5xl rounded-3xl border border-teal/10 bg-offwhite p-5 shadow-sm md:p-7">
                 <div className="grid gap-x-10 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {experienceCategories.map((category) => (
+                    {readingExperiences.map((experience) => (
                         <Link
-                            key={category}
-                            href="/explorar"
+                            key={experience.slug}
+                            href={`/buscar?experience=${experience.slug}`}
                             className="group inline-flex items-center justify-between gap-3 border-b border-teal/10 py-2 text-left text-sm font-medium text-teal-dark transition-colors last:border-b-0 hover:text-coral sm:last:border-b sm:[&:nth-last-child(-n+2)]:border-b-0 lg:[&:nth-last-child(-n+3)]:border-b-0"
                         >
-                            <span>{category}</span>
+                            <span>{experience.label}</span>
                             <ArrowRight
                                 className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100"
                                 aria-hidden="true"

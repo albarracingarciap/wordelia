@@ -1,6 +1,7 @@
 import { Navbar } from "@/components/landing/Navbar";
 import { Hero } from "@/components/landing/Hero";
 import { ClubsGrid } from "@/components/landing/ClubsGrid";
+import { GuidesSection } from "@/components/landing/GuidesSection";
 import {
   HomeAdnSection,
   HomeBetaSection,
@@ -45,6 +46,7 @@ export default async function Home() {
       <Hero founderCount={founderCount} />
       <HomeExploreSection />
       <ClubsGrid initialClubs={officialClubs} />
+      <GuidesSection />
       <HomeAdnSection />
       <HomeWishlistSection />
       <HomeBetaSection />

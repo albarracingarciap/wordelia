@@ -165,7 +165,7 @@ export async function exportMyProfileData() {
         giftRecipients
     ] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", user.id).single(),
-        supabase.from("user_books").select("*, book:books(title, isbn, cover_url)").eq("user_id", user.id),
+        supabase.from("user_books").select("*, book:books(title, preferred_edition:editions!books_preferred_edition_fk(isbn, isbn13, cover_url))").eq("user_id", user.id),
         supabase.from("reading_sessions").select("*").eq("user_id", user.id),
         supabase.from("user_badges").select("awarded_at, badge:badges(name, description, category)").eq("user_id", user.id),
         supabase.from("wishlists").select("*").eq("user_id", user.id),

@@ -2,8 +2,8 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
-import { getBookByISBN } from "@/lib/isbndb"; // Updated import
-import { ensureBookInDb } from "@/app/app/search/actions";
+import { getBookByISBN } from "@/lib/isbndb";
+import { resolveBookFromResult } from "@/lib/book-resolution";
 
 export type ReviewState = {
     success?: boolean;
@@ -25,12 +25,14 @@ export async function saveReview(bookId: string, rating: number, review: string)
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(bookId);
 
         if (!isUuid) {
-            // It's likely an ISBN (from ISBNdb). Fetch details and ensure it's in DB.
+            // Es un ISBN (la página /libros/[id] acepta ISBN como ruta).
+            // Lo persistimos vía EditionMatchingService para obtener un book_id real.
             const isbnBook = await getBookByISBN(bookId);
             if (!isbnBook) {
                 return { error: "El libro no se pudo encontrar en ISBNdb." };
             }
-            realBookId = await ensureBookInDb(isbnBook);
+            const resolved = await resolveBookFromResult(isbnBook);
+            realBookId = resolved.bookId;
         }
 
         // Check if the book is already in user_books

@@ -2,18 +2,19 @@
 
 import { createClient } from "@/utils/supabase/server";
 
+type BookWithEdition = {
+    title: string | null;
+    author: { name: string | null } | { name: string | null }[] | null;
+    preferred_edition:
+        | { cover_url: string | null }
+        | { cover_url: string | null }[]
+        | null;
+};
+
 type OfficialClubBookRelation = {
     status: string | null;
     start_date: string | null;
-    book: {
-        title: string | null;
-        cover_url: string | null;
-        author: { name: string | null } | { name: string | null }[] | null;
-    } | {
-        title: string | null;
-        cover_url: string | null;
-        author: { name: string | null } | { name: string | null }[] | null;
-    }[] | null;
+    book: BookWithEdition | BookWithEdition[] | null;
 };
 
 export async function getRegisteredUsersCount() {
@@ -56,7 +57,7 @@ export async function getOfficialClubs() {
                     book:books (
                         title,
                         author:authors(name),
-                        cover_url
+                        preferred_edition:editions!books_preferred_edition_fk(cover_url)
                     )
                 )
             `)
@@ -77,11 +78,18 @@ export async function getOfficialClubs() {
                 ? currentBookRel.book[0]
                 : currentBookRel?.book;
 
+            const edition = bookData
+                ? (Array.isArray(bookData.preferred_edition)
+                    ? bookData.preferred_edition[0]
+                    : bookData.preferred_edition)
+                : null;
+
             return {
                 ...club,
                 start_date: currentBookRel?.start_date || null,
                 book: bookData ? {
-                    ...bookData,
+                    title: bookData.title,
+                    cover_url: edition?.cover_url ?? null,
                     author: Array.isArray(bookData.author)
                         ? bookData.author[0]?.name
                         : (bookData.author?.name || 'Autor Desconocido')

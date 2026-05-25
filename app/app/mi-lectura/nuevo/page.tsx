@@ -168,6 +168,7 @@ function AddBookContent() {
             cover_url: manualData.coverUrl || null,
             description: null,
             isbn: manualData.isbn || null,
+            isbn13: manualData.isbn?.replace(/[^0-9Xx]/g, "").length === 13 ? manualData.isbn : null,
             page_count: manualData.pages ? parseInt(manualData.pages, 10) : null,
             published_date: null,
             publisher: null,

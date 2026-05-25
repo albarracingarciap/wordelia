@@ -3,13 +3,14 @@
 import { createClient } from '@/utils/supabase/server';
 import { Club } from '@/types/clubs';
 import { revalidatePath } from 'next/cache';
-import { searchISBNdb, BookSearchResult } from '@/lib/isbndb';
+import { BookSearchResult } from '@/lib/isbndb';
+import { searchBooks as searchBooksCascade } from '@/lib/book-search';
+import { resolveBookFromResult } from '@/lib/book-resolution';
 
 export async function searchBooks(query: string): Promise<BookSearchResult[]> {
     if (!query || query.length < 3) return [];
     try {
-        const results = await searchISBNdb(query, 1, 10);
-        return results;
+        return await searchBooksCascade({ query, limit: 10 });
     } catch (error) {
         console.error("Search error:", error);
         return [];
@@ -92,50 +93,34 @@ export async function createClub(data: any) {
 
         if (memberError) console.error("Error adding admin:", memberError);
 
-        // 3. Add Book if selected
+        // 3. Add Book if selected — delega en EditionMatchingService vía resolveBookFromResult
         if (data.book) {
-            let bookId = data.book.id;
+            try {
+                // Normaliza el objeto a BookSearchResult: el modo manual del modal
+                // a veces pasa `author` (string) en vez de `authors` (string[]).
+                const normalizedBook: BookSearchResult = {
+                    id: data.book.id || `manual-${Date.now()}`,
+                    title: data.book.title,
+                    authors: data.book.authors && data.book.authors.length > 0
+                        ? data.book.authors
+                        : (data.book.author ? [data.book.author] : []),
+                    cover_url: data.book.cover_url ?? null,
+                    description: data.book.description ?? null,
+                    isbn: data.book.isbn ?? null,
+                    isbn13: data.book.isbn13 ?? null,
+                    page_count: data.book.page_count ?? null,
+                    published_date: data.book.published_date ?? null,
+                    publisher: data.book.publisher ?? null,
+                    categories: data.book.categories ?? [],
+                    average_rating: data.book.average_rating ?? null,
+                    ratings_count: data.book.ratings_count ?? null,
+                    language: data.book.language ?? null,
+                    price: null,
+                    source: data.book.source ?? "manual",
+                };
 
-            // Handle ISBNdb results which don't exist in our DB yet
-            if (data.book.isbn) {
-                const { data: existingBook } = await supabase.from('books').select('id').eq('isbn', data.book.isbn).single();
-                if (existingBook) {
-                    bookId = existingBook.id;
-                } else {
-                    // Handle Author creation/lookup
-                    let authorId = null;
-                    const authorName = data.book.authors && data.book.authors.length > 0 ? data.book.authors[0] : (data.book.author || null);
+                const { bookId } = await resolveBookFromResult(normalizedBook);
 
-                    if (authorName) {
-                        const { data: existingAuthor } = await supabase.from('authors').select('id').eq('name', authorName).single();
-                        if (existingAuthor) {
-                            authorId = existingAuthor.id;
-                        } else {
-                            const { data: newAuthor, error: authorError } = await supabase.from('authors').insert({ name: authorName }).select().single();
-                            if (newAuthor) authorId = newAuthor.id;
-                            if (authorError) console.error("Error creating author:", authorError);
-                        }
-                    }
-
-                    // Insert new book
-                    const { data: newBook, error: bookInsertError } = await supabase.from('books').insert({
-                        title: data.book.title,
-                        author_id: authorId,
-                        cover_url: data.book.cover_url,
-                        description: data.book.description,
-                        isbn: data.book.isbn,
-                        page_count: data.book.page_count,
-                    }).select().single();
-
-                    if (newBook) bookId = newBook.id;
-                    else if (bookInsertError) {
-                        console.error("Error inserting book:", bookInsertError);
-                        // Usually failing to insert book shouldn't fail club creation entirely, but good to know
-                    }
-                }
-            }
-
-            if (bookId) {
                 const { error: bookLinkError } = await supabase.from('club_books').insert({
                     club_id: club.id,
                     book_id: bookId,
@@ -144,6 +129,9 @@ export async function createClub(data: any) {
                     checkpoints: data.checkpoints || [],
                 });
                 if (bookLinkError) console.error("Error linking book:", bookLinkError);
+            } catch (bookError) {
+                console.error("Could not resolve/persist book for club:", bookError);
+                // No bloqueamos la creación del club si falla la asignación del libro.
             }
         }
 
@@ -286,3 +274,4 @@ export async function getExploreClubs(search?: string, tags?: string[]) {
 
     return clubs;
 }
+

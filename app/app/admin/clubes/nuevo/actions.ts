@@ -2,6 +2,8 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { revalidatePath } from 'next/cache';
+import { BookSearchResult } from '@/lib/isbndb';
+import { resolveBookFromResult } from '@/lib/book-resolution';
 
 export async function createOriginalClub(data: any) {
     const supabase = await createClient();
@@ -72,37 +74,33 @@ export async function createOriginalClub(data: any) {
 
         // 3. Add Book if selected (using existing logic pattern)
         if (data.book) {
-            let bookId = data.book.id;
+            let bookId: string | null = null;
 
-            if (data.book.isbn) {
-                const { data: existingBook } = await supabase.from('books').select('id').eq('isbn', data.book.isbn).single();
-                if (existingBook) {
-                    bookId = existingBook.id;
-                } else {
-                    let authorId = null;
-                    const authorName = data.book.authors && data.book.authors.length > 0 ? data.book.authors[0] : (data.book.author || null);
-
-                    if (authorName) {
-                        const { data: existingAuthor } = await supabase.from('authors').select('id').eq('name', authorName).single();
-                        if (existingAuthor) {
-                            authorId = existingAuthor.id;
-                        } else {
-                            const { data: newAuthor, error: authorError } = await supabase.from('authors').insert({ name: authorName }).select().single();
-                            if (newAuthor) authorId = newAuthor.id;
-                        }
-                    }
-
-                    const { data: newBook, error: bookInsertError } = await supabase.from('books').insert({
-                        title: data.book.title,
-                        author_id: authorId,
-                        cover_url: data.book.cover_url,
-                        description: data.book.description,
-                        isbn: data.book.isbn,
-                        page_count: data.book.page_count,
-                    }).select().single();
-
-                    if (newBook) bookId = newBook.id;
-                }
+            try {
+                const normalizedBook: BookSearchResult = {
+                    id: data.book.id || `manual-${Date.now()}`,
+                    title: data.book.title,
+                    authors: data.book.authors && data.book.authors.length > 0
+                        ? data.book.authors
+                        : (data.book.author ? [data.book.author] : []),
+                    cover_url: data.book.cover_url ?? null,
+                    description: data.book.description ?? null,
+                    isbn: data.book.isbn ?? null,
+                    isbn13: data.book.isbn13 ?? null,
+                    page_count: data.book.page_count ?? null,
+                    published_date: data.book.published_date ?? null,
+                    publisher: data.book.publisher ?? null,
+                    categories: data.book.categories ?? [],
+                    average_rating: null,
+                    ratings_count: null,
+                    language: data.book.language ?? null,
+                    price: null,
+                    source: data.book.source ?? "manual",
+                };
+                const resolved = await resolveBookFromResult(normalizedBook);
+                bookId = resolved.bookId;
+            } catch (bookError) {
+                console.error("Could not resolve book for admin club:", bookError);
             }
 
             if (bookId) {
@@ -128,3 +126,4 @@ export async function createOriginalClub(data: any) {
         return { success: true, clubId };
     }
 }
+

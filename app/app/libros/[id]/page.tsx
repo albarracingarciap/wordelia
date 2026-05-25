@@ -47,30 +47,44 @@ function BookHelper() {
                 const supabase = createClient();
 
                 if (isUuid) {
-                    // Fetch from Supabase
+                    // Fetch from Supabase: book (obra) + preferred_edition (con datos de edición).
                     const { data: dbBook, error: dbError } = await supabase
                         .from("books")
-                        .select(`*, authors (name)`)
+                        .select(`
+                            id, title, description,
+                            authors (name),
+                            preferred_edition:editions!books_preferred_edition_fk (
+                                isbn, isbn13, cover_url, page_count, published_date, language, publisher
+                            )
+                        `)
                         .eq("id", id)
                         .single();
 
                     if (dbError) throw dbError;
 
                     if (dbBook) {
+                        // PostgREST devuelve embeds como objeto (no array) en queries con FK 1:1.
+                        const ed = Array.isArray(dbBook.preferred_edition)
+                            ? dbBook.preferred_edition[0]
+                            : dbBook.preferred_edition;
+                        const author = Array.isArray(dbBook.authors)
+                            ? dbBook.authors[0]
+                            : dbBook.authors;
                         setBook({
                             id: dbBook.id,
                             title: dbBook.title,
-                            authors: dbBook.authors ? [dbBook.authors.name] : [],
-                            cover_url: dbBook.cover_url,
+                            authors: author?.name ? [author.name] : [],
+                            cover_url: ed?.cover_url ?? null,
                             description: dbBook.description,
-                            isbn: dbBook.isbn,
-                            page_count: dbBook.page_count,
-                            published_date: dbBook.published_date,
-                            publisher: dbBook.publisher,
+                            isbn: ed?.isbn13 ?? ed?.isbn ?? null,
+                            isbn13: ed?.isbn13 ?? null,
+                            page_count: ed?.page_count ?? null,
+                            published_date: ed?.published_date ?? null,
+                            publisher: ed?.publisher ?? null,
                             categories: [],
                             average_rating: null,
                             ratings_count: null,
-                            language: dbBook.language,
+                            language: ed?.language ?? null,
                             price: null,
                             source: 'db'
                         });
@@ -79,20 +93,21 @@ function BookHelper() {
                     }
 
                 } else {
-                    // Fetch from ISBNdb
+                    // Fetch from ISBNdb. La existencia en BD ahora se chequea contra `editions`,
+                    // no `books` (los ISBN viven en editions).
                     const isbnBook = await getBookDetailsAction(id);
                     if (isbnBook) {
                         setBook(isbnBook);
-                        // Check if we already have this book in our library by ISBN
-                        if (isbnBook.isbn) {
-                            const { data: existing } = await supabase
-                                .from("books")
-                                .select("id")
-                                .eq("isbn", isbnBook.isbn)
-                                .single();
+                        const canonicalIsbn = getCanonicalIsbn(isbnBook);
+                        if (canonicalIsbn) {
+                            const { data: existingEdition } = await supabase
+                                .from("editions")
+                                .select("book_id")
+                                .or(`isbn13.eq.${canonicalIsbn},isbn.eq.${canonicalIsbn}`)
+                                .maybeSingle();
 
-                            if (existing) {
-                                setDbBookId(existing.id);
+                            if (existingEdition?.book_id) {
+                                setDbBookId(existingEdition.book_id);
                             }
                         }
                     } else {
@@ -112,7 +127,10 @@ function BookHelper() {
                         // No, in standard react, yes. But here we can use a temp variable or structure logic differently.
                         // Ideally we chain promises. But let's assume if isUuid is true, id is dbBookId.
 
-                        const targetId = isUuid ? id : (await supabase.from("books").select("id").eq("isbn", book?.isbn || "").single()).data?.id;
+                        const canonicalIsbn = book ? getCanonicalIsbn(book) : "";
+                        const targetId = isUuid
+                            ? id
+                            : (await supabase.from("editions").select("book_id").or(`isbn13.eq.${canonicalIsbn},isbn.eq.${canonicalIsbn}`).maybeSingle()).data?.book_id;
 
                         // Refetching existing ID just to be safe if local variables aren't handy
                         // Ideally the code block above for ISBN already found it. 
@@ -158,10 +176,11 @@ function BookHelper() {
                 setIsAdded(true);
                 setUserStatus(initialStatus);
                 // We should also try to setDbBookId here by querying based on ISBN
-                if (book.isbn) {
+                const canonicalIsbn = getCanonicalIsbn(book);
+                if (canonicalIsbn) {
                     const supabase = createClient();
-                    const { data: existing } = await supabase.from("books").select("id").eq("isbn", book.isbn).single();
-                    if (existing) setDbBookId(existing.id);
+                    const { data: existing } = await supabase.from("editions").select("book_id").or(`isbn13.eq.${canonicalIsbn},isbn.eq.${canonicalIsbn}`).maybeSingle();
+                    if (existing?.book_id) setDbBookId(existing.book_id);
                 }
 
                 // Redirect if Reading
@@ -374,6 +393,14 @@ function BookHelper() {
     );
 }
 
+function getCanonicalIsbn(book: Pick<BookSearchResult, "isbn" | "isbn13">) {
+    return book.isbn13 || (book.isbn && normalizeISBN(book.isbn)?.length === 13 ? normalizeISBN(book.isbn) : null) || book.isbn || "";
+}
+
+function normalizeISBN(value: string) {
+    const normalized = value.replace(/[^0-9Xx]/g, "").toUpperCase();
+    return normalized.length === 10 || normalized.length === 13 ? normalized : null;
+}
 
 export default function BookPage() {
     return <BookHelper />;

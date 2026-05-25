@@ -3,6 +3,8 @@
 import { createClient } from '@/utils/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
+import { BookSearchResult } from '@/lib/isbndb';
+import { resolveBookFromResult } from '@/lib/book-resolution';
 
 const CLUB_VOICE_BUCKET = 'club-voice-messages';
 const CLUB_VOICE_MAX_BYTES = 20 * 1024 * 1024;
@@ -283,75 +285,35 @@ export async function startReading(clubId: string, bookData: any, config: any) {
     }
 
     try {
-        let bookId = bookData.id; // If it came from our DB
+        // 2. Resolve Book ID — delega en EditionMatchingService vía resolveBookFromResult.
+        const normalizedBook: BookSearchResult = {
+            id: bookData.id || `manual-${Date.now()}`,
+            title: bookData.title,
+            authors: bookData.authors && bookData.authors.length > 0
+                ? bookData.authors
+                : (bookData.author ? [bookData.author] : []),
+            cover_url: bookData.cover_url ?? null,
+            description: bookData.description ?? null,
+            isbn: bookData.isbn ?? null,
+            isbn13: bookData.isbn13 ?? null,
+            page_count: bookData.page_count ?? null,
+            published_date: bookData.published_date ?? null,
+            publisher: bookData.publisher ?? null,
+            categories: bookData.categories ?? [],
+            average_rating: null,
+            ratings_count: null,
+            language: bookData.language ?? null,
+            price: null,
+            source: bookData.source ?? "manual",
+        };
 
-        // 2. Resolve Book ID (Find or Create)
-        if (bookData.isbn) {
-            const { data: existingBook } = await supabase.from('books').select('id').eq('isbn', bookData.isbn).single();
-            if (existingBook) {
-                bookId = existingBook.id;
-            } else {
-                // Create Author
-                let authorId = null;
-                const authorName = bookData.authors?.[0] || bookData.author || "Autor desconocido";
-
-                const { data: existingAuthor } = await supabase.from('authors').select('id').eq('name', authorName).single();
-                if (existingAuthor) {
-                    authorId = existingAuthor.id;
-                } else {
-                    const { data: newAuthor } = await supabase.from('authors').insert({ name: authorName }).select().single();
-                    if (newAuthor) authorId = newAuthor.id;
-                }
-
-                // Create Book
-                const { data: newBook } = await supabase.from('books').insert({
-                    title: bookData.title,
-                    author_id: authorId,
-                    cover_url: bookData.cover_url,
-                    description: bookData.description || "",
-                    isbn: bookData.isbn,
-                    page_count: bookData.page_count,
-                }).select().single();
-
-                if (newBook) bookId = newBook.id;
-            }
-        } else if (!bookId) {
-            const authorName = bookData.authors?.[0] || bookData.author || "Autor desconocido";
-            let authorId = null;
-
-            const { data: existingAuthor } = await supabase
-                .from('authors')
-                .select('id')
-                .eq('name', authorName)
-                .single();
-
-            if (existingAuthor) {
-                authorId = existingAuthor.id;
-            } else {
-                const { data: newAuthor } = await supabase
-                    .from('authors')
-                    .insert({ name: authorName })
-                    .select()
-                    .single();
-                if (newAuthor) authorId = newAuthor.id;
-            }
-
-            const { data: newBook, error: manualBookError } = await supabase.from('books').insert({
-                title: bookData.title,
-                author_id: authorId,
-                cover_url: bookData.cover_url || null,
-                description: bookData.description || "",
-                isbn: null,
-                page_count: bookData.page_count || null,
-                language: bookData.language || "es",
-            }).select().single();
-
-            if (manualBookError) {
-                console.error("Error creating manual book:", manualBookError);
-                return { error: "No se pudo crear la ficha manual del libro." };
-            }
-
-            if (newBook) bookId = newBook.id;
+        let bookId: string;
+        try {
+            const resolved = await resolveBookFromResult(normalizedBook);
+            bookId = resolved.bookId;
+        } catch (resolveError) {
+            console.error("Error resolving book in startReading:", resolveError);
+            return { error: resolveError instanceof Error ? resolveError.message : "No se pudo identificar el libro." };
         }
 
         if (!bookId) return { error: "No se pudo identificar el libro." };
@@ -440,38 +402,109 @@ export async function updateClubBookDetails(
             ? data.pageCount
             : null;
 
-        const updatePayload = {
+        const cleanIsbn = data.isbn?.trim() || null;
+        const cleanIsbnDigits = cleanIsbn ? cleanIsbn.replace(/[^0-9Xx]/g, "") : "";
+        const isbn13 = cleanIsbnDigits.length === 13 ? cleanIsbnDigits : null;
+        const isbn10 = cleanIsbnDigits.length === 10 ? cleanIsbnDigits : null;
+        const coverUrl = data.coverUrl?.trim() || null;
+        const description = data.description?.trim() || null;
+        const publisher = data.publisher?.trim() || null;
+
+        // 1. Actualizar la obra (work-level fields).
+        const { error: bookUpdateError } = await supabase
+            .from("books")
+            .update({ title: cleanTitle, description })
+            .eq("id", bookId);
+
+        if (bookUpdateError) {
+            console.error("[updateClubBookDetails] book update error:", bookUpdateError);
+            return { error: "No se pudo actualizar la ficha." };
+        }
+
+        // 2. Actualizar (o crear) la edición preferida con los datos de edición.
+        const { data: bookRow } = await supabase
+            .from("books")
+            .select("preferred_edition_id")
+            .eq("id", bookId)
+            .maybeSingle();
+
+        const editionFields = {
             title: cleanTitle,
-            author: cleanAuthor,
-            cover_url: data.coverUrl?.trim() || null,
-            description: data.description?.trim() || "",
+            cover_url: coverUrl,
             page_count: pageCount,
-            isbn: data.isbn?.trim() || null,
-            publisher: data.publisher?.trim() || null,
+            isbn: isbn10,
+            isbn13,
+            publisher,
         };
 
-        const { data: updatedBook, error } = await supabase
-            .rpc("update_club_book_details_for_admin", {
-                target_club_id: clubId,
-                target_book_id: bookId,
-                book_title: cleanTitle,
-                book_author: cleanAuthor,
-                book_cover_url: data.coverUrl?.trim() || null,
-                book_description: data.description?.trim() || "",
-                book_page_count: pageCount,
-                book_isbn: data.isbn?.trim() || null,
-                book_publisher: data.publisher?.trim() || null,
-            })
-            .single();
+        if (bookRow?.preferred_edition_id) {
+            const { error: editionUpdateError } = await supabase
+                .from("editions")
+                .update(editionFields)
+                .eq("id", bookRow.preferred_edition_id);
+            if (editionUpdateError) {
+                console.warn("[updateClubBookDetails] edition update error:", editionUpdateError);
+            }
+        } else if (coverUrl || pageCount || cleanIsbn || publisher) {
+            const { data: newEdition, error: editionInsertError } = await supabase
+                .from("editions")
+                .insert({
+                    ...editionFields,
+                    book_id: bookId,
+                    is_abridged: false,
+                    source: "manual",
+                })
+                .select("id")
+                .single();
+            if (editionInsertError) {
+                console.warn("[updateClubBookDetails] edition insert error:", editionInsertError);
+            } else if (newEdition?.id) {
+                await supabase
+                    .from("books")
+                    .update({ preferred_edition_id: newEdition.id })
+                    .eq("id", bookId);
+            }
+        }
 
-        if (error) {
-            console.error("[updateClubBookDetails] book error:", error);
-            return { error: "No se pudo actualizar la ficha." };
+        // 3. Si cambió el nombre del autor, intentamos actualizarlo o reapuntar.
+        if (cleanAuthor && cleanAuthor !== "Autor desconocido") {
+            const { data: existingAuthor } = await supabase
+                .from("authors")
+                .select("id")
+                .ilike("name", cleanAuthor)
+                .limit(1)
+                .maybeSingle();
+
+            let authorId = existingAuthor?.id;
+            if (!authorId) {
+                const { data: newAuthor } = await supabase
+                    .from("authors")
+                    .insert({ name: cleanAuthor })
+                    .select("id")
+                    .single();
+                authorId = newAuthor?.id;
+            }
+            if (authorId) {
+                await supabase.from("books").update({ author_id: authorId }).eq("id", bookId);
+            }
         }
 
         revalidatePath(`/app/clubs/${clubId}`);
         revalidatePath(`/app/libros/${bookId}`);
-        return { success: true, book: updatedBook || { id: bookId, ...updatePayload, author: { name: cleanAuthor } } };
+        return {
+            success: true,
+            book: {
+                id: bookId,
+                title: cleanTitle,
+                author: { name: cleanAuthor },
+                cover_url: coverUrl,
+                description,
+                page_count: pageCount,
+                isbn: cleanIsbn,
+                isbn13,
+                publisher,
+            },
+        };
     } catch (e: any) {
         return { error: e.message || "No se pudo actualizar la ficha." };
     }
@@ -2022,12 +2055,14 @@ type WeeklyReviewRow = {
 type RecommendationBookRow = {
     id: string;
     title: string;
-    cover_url?: string | null;
     description?: string | null;
-    page_count?: number | null;
-    published_date?: string | null;
     created_at?: string | null;
     author?: { name?: string | null } | { name?: string | null }[] | null;
+    preferred_edition?: {
+        cover_url?: string | null;
+        page_count?: number | null;
+        published_date?: string | null;
+    } | { cover_url?: string | null; page_count?: number | null; published_date?: string | null }[] | null;
 };
 
 type RecommendationClubBookRow = {
@@ -2257,6 +2292,13 @@ function getRecommendationAuthor(author?: RecommendationBookRow["author"]) {
     return profile?.name || "Autor desconocido";
 }
 
+function getRecommendationEdition(book?: RecommendationBookRow | null) {
+    if (!book) return null;
+    const edition = book.preferred_edition;
+    if (!edition) return null;
+    return Array.isArray(edition) ? edition[0] ?? null : edition;
+}
+
 function getRecommendationBook(book?: RecommendationClubBookRow["book"]) {
     return Array.isArray(book) ? book[0] : book;
 }
@@ -2281,11 +2323,9 @@ export async function getClubNextReadingRecommendations(clubId: string) {
                 book:books(
                     id,
                     title,
-                    cover_url,
                     description,
-                    page_count,
-                    published_date,
-                    author:authors(name)
+                    author:authors(name),
+                    preferred_edition:editions!books_preferred_edition_fk(cover_url, page_count, published_date)
                 )
             `)
             .eq("club_id", clubId),
@@ -2294,12 +2334,10 @@ export async function getClubNextReadingRecommendations(clubId: string) {
             .select(`
                 id,
                 title,
-                cover_url,
                 description,
-                page_count,
-                published_date,
                 created_at,
-                author:authors(name)
+                author:authors(name),
+                preferred_edition:editions!books_preferred_edition_fk(cover_url, page_count, published_date)
             `)
             .order("created_at", { ascending: false })
             .limit(240),
@@ -2352,7 +2390,7 @@ export async function getClubNextReadingRecommendations(clubId: string) {
 
     const interestTerms = Array.from(new Set(historicalText.split(" ").filter((term) => term.length > 4 && !stopWords.has(term)))).slice(0, 24);
     const readPageCounts = history
-        .map((item) => item.book?.page_count)
+        .map((item) => getRecommendationEdition(item.book)?.page_count)
         .filter((pageCount): pageCount is number => typeof pageCount === "number" && pageCount > 0);
     const averagePages = readPageCounts.length
         ? Math.round(readPageCounts.reduce((sum, pageCount) => sum + pageCount, 0) / readPageCounts.length)
@@ -2369,20 +2407,23 @@ export async function getClubNextReadingRecommendations(clubId: string) {
     const recommendations = ((books || []) as RecommendationBookRow[])
         .filter((book) => book.title && !usedBookIds.has(book.id) && !usedTitles.has(normalizeRecommendationText(book.title)))
         .map((book) => {
+            const edition = getRecommendationEdition(book);
             const title = normalizeRecommendationText(book.title);
             const author = getRecommendationAuthor(book.author);
             const searchable = normalizeRecommendationText(`${book.title} ${author} ${book.description || ""}`);
             const matchingTerms = interestTerms.filter((term) => searchable.includes(term)).slice(0, 4);
-            const pageCount = book.page_count || null;
+            const pageCount = edition?.page_count ?? null;
+            const coverUrl = edition?.cover_url ?? null;
+            const publishedDate = edition?.published_date ?? null;
             const pageFit = pageCount
                 ? Math.max(0, 24 - Math.round(Math.abs(pageCount - averagePages) / 18))
                 : 8;
             const momentumVotes = pollMomentum.get(title) || 0;
 
             let score = 18 + pageFit + Math.min(32, matchingTerms.length * 9) + Math.min(18, momentumVotes * 4);
-            if (book.cover_url) score += 5;
+            if (coverUrl) score += 5;
             if (book.description) score += 4;
-            if (book.published_date && Number.parseInt(book.published_date.slice(0, 4), 10) < 1980) score += clubTags.includes("clasicos") ? 8 : 0;
+            if (publishedDate && Number.parseInt(publishedDate.slice(0, 4), 10) < 1980) score += clubTags.includes("clasicos") ? 8 : 0;
 
             const reasons = [
                 matchingTerms.length ? `Conecta con ${matchingTerms.slice(0, 2).join(", ")}` : "Aporta una línea nueva al club",
@@ -2394,7 +2435,7 @@ export async function getClubNextReadingRecommendations(clubId: string) {
                 id: book.id,
                 title: book.title,
                 author,
-                coverUrl: book.cover_url || null,
+                coverUrl,
                 pageCount,
                 score: Math.min(99, Math.max(1, score)),
                 reasons,
@@ -3429,3 +3470,4 @@ export async function getUpcomingMilestones() {
         location: p.event_location,
     }));
 }
+

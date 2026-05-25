@@ -103,8 +103,8 @@ export default async function ProfilePage() {
             updated_at,
             book:books (
                 title,
-                cover_url,
-                authors (name)
+                authors (name),
+                preferred_edition:editions!books_preferred_edition_fk (cover_url)
             )
         `)
         .eq("user_id", user.id)
@@ -120,9 +120,8 @@ export default async function ProfilePage() {
             current_page,
             book:books (
                 title,
-                cover_url,
-                page_count,
-                authors (name)
+                authors (name),
+                preferred_edition:editions!books_preferred_edition_fk (cover_url, page_count)
             )
         `)
         .eq("user_id", user.id)
@@ -135,22 +134,34 @@ export default async function ProfilePage() {
     const lastBookRaw = lastReadData ? (Array.isArray(lastReadData.book) && lastReadData.book.length > 0 ? lastReadData.book[0] : lastReadData.book) : null;
     const currentBookRaw = currentReadData ? (Array.isArray(currentReadData.book) && currentReadData.book.length > 0 ? currentReadData.book[0] : currentReadData.book) : null;
 
-    type BookType = { title: any; cover_url: any; authors: { name: any; }[] | { name: any }; page_count?: any };
+    type EditionPick = { cover_url: any; page_count?: any };
+    type BookType = {
+        title: any;
+        authors: { name: any; }[] | { name: any };
+        preferred_edition?: EditionPick | EditionPick[] | null;
+    };
     const lastBook = lastBookRaw as BookType | null;
     const currentBook = currentBookRaw as BookType | null;
+
+    const pickEdition = (b: BookType | null): EditionPick | null => {
+        if (!b?.preferred_edition) return null;
+        return Array.isArray(b.preferred_edition) ? b.preferred_edition[0] ?? null : b.preferred_edition;
+    };
+    const lastEdition = pickEdition(lastBook);
+    const currentEdition = pickEdition(currentBook);
 
     const activity = {
         lastRead: lastBook && lastReadData ? {
             title: lastBook.title,
             author: Array.isArray(lastBook.authors) ? lastBook.authors[0]?.name || "Autor Desconocido" : (lastBook.authors?.name || "Autor Desconocido"),
-            timeAgo: new Date(lastReadData.updated_at).toLocaleDateString(), // Simplification
-            cover: lastBook.cover_url
+            timeAgo: new Date(lastReadData.updated_at).toLocaleDateString(),
+            cover: lastEdition?.cover_url ?? null
         } : null,
         current: currentBook && currentReadData ? {
             title: currentBook.title,
             author: Array.isArray(currentBook.authors) ? currentBook.authors[0]?.name || "Autor Desconocido" : (currentBook.authors?.name || "Autor Desconocido"),
-            progress: currentBook.page_count ? Math.round((currentReadData.current_page || 0) / currentBook.page_count * 100) : 0,
-            cover: currentBook.cover_url
+            progress: currentEdition?.page_count ? Math.round((currentReadData.current_page || 0) / currentEdition.page_count * 100) : 0,
+            cover: currentEdition?.cover_url ?? null
         } : null
     };
 
@@ -172,18 +183,23 @@ export default async function ProfilePage() {
             book:books (
                 id,
                 title,
-                cover_url
+                preferred_edition:editions!books_preferred_edition_fk (cover_url)
             )
         `)
         .eq("user_id", user.id)
         .eq("status", "READ")
         .limit(5);
 
-    const initialLibrary = readBooks?.map((b: any) => ({
-        id: b.book.id,
-        title: b.book.title,
-        cover: b.book.cover_url
-    })) || [];
+    const initialLibrary = readBooks?.map((b: any) => {
+        const edition = Array.isArray(b.book?.preferred_edition)
+            ? b.book.preferred_edition[0]
+            : b.book?.preferred_edition;
+        return {
+            id: b.book.id,
+            title: b.book.title,
+            cover: edition?.cover_url ?? null
+        };
+    }) || [];
 
     // Fetch ALL badges for the modal/explainer
     const { data: allBadges } = await supabase

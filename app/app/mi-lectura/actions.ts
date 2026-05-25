@@ -274,8 +274,7 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
             books (
                 id,
                 title,
-                cover_url,
-                page_count,
+                preferred_edition:editions!books_preferred_edition_fk (cover_url, page_count),
                 authors (name)
             )
         `)
@@ -408,12 +407,12 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
             id: ub.book_id,
             title: ub.books.title,
             author: ub.books.authors?.name || "Autor Desconocido",
-            coverUrl: ub.books.cover_url,
+            coverUrl: ub.books.preferred_edition?.cover_url ?? null,
             status: ub.status,
             progress: {
                 current: ub.current_page || 0, // Now using real data
-                total: ub.books.page_count,
-                label: `${ub.current_page || 0}/${ub.books.page_count || '?'}`,
+                total: ub.books.preferred_edition?.page_count ?? null,
+                label: `${ub.current_page || 0}/${ub.books.preferred_edition?.page_count || '?'}`,
                 unit: 'PAGES'
             },
             lastSession: ub.updated_at ? new Date(ub.updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : null,
@@ -602,8 +601,8 @@ export async function getEmotionBookGroups(): Promise<EmotionBookGroup[]> {
             created_at,
             books (
                 title,
-                cover_url,
-                authors (name)
+                authors (name),
+                preferred_edition:editions!books_preferred_edition_fk (cover_url)
             )
         `)
         .eq("user_id", user.id)
@@ -620,7 +619,7 @@ export async function getEmotionBookGroups(): Promise<EmotionBookGroup[]> {
     const groups: Record<string, EmotionBookGroup> = {};
     const seen = new Set<string>();
 
-    for (const row of (data || []) as any[]) {
+    for (const row of data ?? []) {
         const key = `${row.emotion}-${row.book_id}`;
         if (seen.has(key)) continue;
         seen.add(key);
@@ -633,12 +632,21 @@ export async function getEmotionBookGroups(): Promise<EmotionBookGroup[]> {
             };
         }
 
+        // PostgREST puede devolver embeds como objeto o como array; normalizamos.
+        const book = Array.isArray(row.books) ? row.books[0] : row.books;
+        const author = book?.authors
+            ? (Array.isArray(book.authors) ? book.authors[0] : book.authors)
+            : null;
+        const edition = book?.preferred_edition
+            ? (Array.isArray(book.preferred_edition) ? book.preferred_edition[0] : book.preferred_edition)
+            : null;
+
         groups[row.emotion].count += 1;
         groups[row.emotion].books.push({
             id: row.book_id,
-            title: row.books?.title || "Libro",
-            author: row.books?.authors?.name || "Autor desconocido",
-            coverUrl: row.books?.cover_url || null,
+            title: book?.title || "Libro",
+            author: author?.name || "Autor desconocido",
+            coverUrl: edition?.cover_url || null,
             intensity: row.intensity || 3,
         });
     }
@@ -779,22 +787,27 @@ export async function getRecommendedBook(): Promise<RecommendedBook | null> {
 
     const { data: books } = await supabase
         .from("user_books")
-        .select(`created_at, book_id, books (title, cover_url, authors (name))`)
+        .select(`created_at, book_id, books (title, preferred_edition:editions!books_preferred_edition_fk(cover_url), authors (name))`)
         .eq("user_id", user.id)
         .eq("status", "WANT_TO_READ")
         .limit(10);
 
     if (!books || books.length === 0) return null;
     const randomEntry = books[Math.floor(Math.random() * books.length)];
-    const bookData = Array.isArray(randomEntry.books) ? randomEntry.books[0] : randomEntry.books as any;
+    const bookData = Array.isArray(randomEntry.books) ? randomEntry.books[0] : randomEntry.books;
 
     if (!bookData) return null;
+
+    const author = Array.isArray(bookData.authors) ? bookData.authors[0] : bookData.authors;
+    const edition = Array.isArray(bookData.preferred_edition)
+        ? bookData.preferred_edition[0]
+        : bookData.preferred_edition;
 
     return {
         id: randomEntry.book_id,
         title: bookData.title,
-        author: bookData.authors?.name || (bookData.authors && bookData.authors[0]?.name) || "Autor Desconocido",
-        coverUrl: bookData.cover_url,
+        author: author?.name || "Autor Desconocido",
+        coverUrl: edition?.cover_url ?? null,
         addedDate: new Date(randomEntry.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
     };
 }
@@ -1259,11 +1272,14 @@ type ReviewProfileRow = {
     username?: string | null;
 };
 
+type ReviewEditionRow = {
+    cover_url?: string | null;
+};
 type ReviewBookRow = {
     id: string;
     title: string;
-    cover_url?: string | null;
     authors?: { name?: string | null } | Array<{ name?: string | null }> | null;
+    preferred_edition?: ReviewEditionRow | ReviewEditionRow[] | null;
 };
 
 type ReviewRow = {
@@ -1440,8 +1456,8 @@ export async function getRecentCommunityReviews(limit = 6): Promise<ReviewWithBo
             books (
                 id,
                 title,
-                cover_url,
-                authors (name)
+                authors (name),
+                preferred_edition:editions!books_preferred_edition_fk (cover_url)
             )
         `)
         .order("created_at", { ascending: false })
@@ -1455,13 +1471,14 @@ export async function getRecentCommunityReviews(limit = 6): Promise<ReviewWithBo
     const formatted = (data as unknown as ReviewRow[]).map((row) => {
         const book = firstRelation(row.books);
         const author = firstRelation(book?.authors);
+        const edition = firstRelation(book?.preferred_edition);
 
         return {
             ...formatReview(row, user?.id),
             book: {
                 id: book?.id || row.book_id,
                 title: book?.title || "Libro",
-                coverUrl: book?.cover_url || null,
+                coverUrl: edition?.cover_url || null,
                 author: author?.name || null,
             },
         };
@@ -1514,8 +1531,8 @@ export async function getHelpfulCommunityReviews(limit = 4): Promise<ReviewWithB
             books (
                 id,
                 title,
-                cover_url,
-                authors (name)
+                authors (name),
+                preferred_edition:editions!books_preferred_edition_fk (cover_url)
             )
         `)
         .in("id", rankedIds);
@@ -1530,13 +1547,14 @@ export async function getHelpfulCommunityReviews(limit = 4): Promise<ReviewWithB
         .map((row) => {
             const book = firstRelation(row.books);
             const author = firstRelation(book?.authors);
+            const edition = firstRelation(book?.preferred_edition);
 
             return {
                 ...formatReview(row, user?.id),
                 book: {
                     id: book?.id || row.book_id,
                     title: book?.title || "Libro",
-                    coverUrl: book?.cover_url || null,
+                    coverUrl: edition?.cover_url || null,
                     author: author?.name || null,
                 },
             };
