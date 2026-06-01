@@ -1,19 +1,96 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowRight, BookOpenCheck, CheckCircle2, Layers, Sparkles } from "lucide-react";
+import { ArrowRight, CheckCircle2, Layers, Sparkles } from "lucide-react";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
 import { discussionGuides, getGuidesBySlug, guidePacks } from "@/lib/guides";
+import { createClient } from "@/utils/supabase/server";
+import { GuidesCatalogTable, type CatalogGuide } from "./GuidesCatalogTable";
 
 export const metadata: Metadata = {
     title: "Guías de discusión | Wordelia",
-    description: "Guías de discusión Wordelia para clubs de lectura, aulas y lectores que quieren profundizar en cada obra.",
+    description:
+        "Guías de discusión Wordelia para clubs de lectura, aulas y lectores que quieren profundizar en cada obra.",
 };
 
-export default function GuidesPage() {
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
+type BookGuideRow = {
+    book_id: string;
+};
+
+type BookRow = {
+    id: string;
+    title: string;
+    author: string | null;
+    genre: string | null;
+    first_publication_year: number | null;
+};
+
+type SupabaseTableClient = {
+    from: (table: string) => {
+        select: (columns: string) => {
+            order: (
+                column: string,
+                options: { ascending: boolean }
+            ) => Promise<{ data: BookGuideRow[] | BookRow[] | null; error: { message: string } | null }>;
+            in: (
+                column: string,
+                values: string[]
+            ) => {
+                order: (
+                    column: string,
+                    options: { ascending: boolean }
+                ) => Promise<{ data: BookRow[] | null; error: { message: string } | null }>;
+            };
+        };
+    };
+};
+
+async function getDiscussionGuideBooks(): Promise<CatalogGuide[]> {
+    const supabase = (await createClient()) as unknown as SupabaseTableClient;
+
+    const { data: guideRows, error: guideError } = await supabase
+        .from("book_guides")
+        .select("book_id")
+        .order("book_id", { ascending: true });
+
+    if (guideError) {
+        console.error("[Guias] Error fetching book guides:", guideError.message);
+        return [];
+    }
+
+    const bookIds = Array.from(new Set(((guideRows || []) as BookGuideRow[]).map((row) => row.book_id)));
+
+    if (bookIds.length === 0) {
+        return [];
+    }
+
+    const { data: books, error: booksError } = await supabase
+        .from("books")
+        .select("id, title, author, genre, first_publication_year")
+        .in("id", bookIds)
+        .order("title", { ascending: true });
+
+    if (booksError) {
+        console.error("[Guias] Error fetching books for guides:", booksError.message);
+        return [];
+    }
+
+    return (books || []).map((book) => ({
+        id: book.id,
+        title: book.title,
+        author: book.author,
+        genre: book.genre,
+        firstPublicationYear: book.first_publication_year,
+    }));
+}
+
+export default async function GuidesPage() {
     const freeGuide = discussionGuides.find((guide) => guide.isFree) || discussionGuides[0];
-    const paidGuides = discussionGuides.filter((guide) => !guide.isFree);
+    const guideBooks = await getDiscussionGuideBooks();
 
     return (
         <main className="min-h-screen bg-cream">
@@ -74,20 +151,12 @@ export default function GuidesPage() {
 
                             <div className="flex flex-col gap-3 sm:flex-row">
                                 <Link
-                                    href="/register?source=free-guide&guide=el-cuento-de-la-criada"
-                                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-coral px-6 font-semibold text-white transition-colors hover:bg-[#C25852]"
+                                    href="/demo-guia"
+                                    className="inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-coral px-6 font-semibold text-white transition-colors hover:bg-[#C25852]"
                                 >
-                                    Conseguir guía gratuita
+                                    Ver muestra gratuita
                                     <ArrowRight className="h-4 w-4" aria-hidden="true" />
                                 </Link>
-                                {freeGuide.pdfUrl && (
-                                    <Link
-                                        href={freeGuide.pdfUrl}
-                                        className="inline-flex h-12 items-center justify-center rounded-2xl border border-coral px-6 font-semibold text-coral transition-colors hover:bg-coral/10"
-                                    >
-                                        Ver muestra PDF
-                                    </Link>
-                                )}
                             </div>
                         </div>
                     </div>
@@ -141,57 +210,7 @@ export default function GuidesPage() {
                     </div>
                 </section>
 
-                <section>
-                    <div className="mb-6 flex items-center gap-3">
-                        <BookOpenCheck className="h-6 w-6 text-coral" aria-hidden="true" />
-                        <h2 className="text-3xl text-teal">Guías individuales</h2>
-                    </div>
-                    <div className="grid gap-5 md:grid-cols-3">
-                        {paidGuides.map((guide) => (
-                            <article
-                                key={guide.slug}
-                                id={guide.slug}
-                                className="flex h-full flex-col rounded-3xl border border-teal/10 bg-offwhite p-5 shadow-sm"
-                            >
-                                <div className="relative mb-5 aspect-[2/3] w-full overflow-hidden rounded-2xl bg-grey/10 shadow-sm">
-                                    <Image
-                                        src={guide.cover}
-                                        alt={`Portada de ${guide.bookTitle}`}
-                                        fill
-                                        className="object-cover"
-                                        sizes="(min-width: 768px) 30vw, 90vw"
-                                    />
-                                </div>
-                                <div className="flex flex-1 flex-col">
-                                    <p className="text-xs font-bold uppercase tracking-[0.14em] text-coral">{guide.badge}</p>
-                                    <h3 className="mt-2 text-2xl font-semibold text-teal">{guide.bookTitle}</h3>
-                                    <p className="mt-1 text-sm text-grey">{guide.author}</p>
-                                    <p className="mt-4 text-sm leading-relaxed text-grey">{guide.description}</p>
-                                    <div className="mt-4 flex flex-wrap gap-2">
-                                        {guide.themes.map((theme) => (
-                                            <span key={theme} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-teal">
-                                                {theme}
-                                            </span>
-                                        ))}
-                                    </div>
-                                    <div className="mt-5 grid grid-cols-2 gap-2 text-xs font-semibold text-grey">
-                                        <span>{guide.sessions}</span>
-                                        <span>{guide.checkpoints} checkpoints</span>
-                                        <span>{guide.level}</span>
-                                        <span className="text-coral">{guide.priceLabel}</span>
-                                    </div>
-                                    <Link
-                                        href={`/register?source=guide&guide=${guide.slug}`}
-                                        className="mt-6 inline-flex h-11 items-center justify-center gap-2 rounded-2xl bg-coral px-5 font-semibold text-white transition-colors hover:bg-[#C25852]"
-                                    >
-                                        Comprar guía
-                                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                                    </Link>
-                                </div>
-                            </article>
-                        ))}
-                    </div>
-                </section>
+                <GuidesCatalogTable guides={guideBooks} />
             </div>
 
             <Footer />

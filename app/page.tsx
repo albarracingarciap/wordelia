@@ -10,7 +10,7 @@ import {
 } from "@/components/landing/HomeSections";
 import { Footer } from "@/components/landing/Footer";
 import { createClient } from "@/utils/supabase/server";
-import { getOfficialClubs } from "@/app/actions";
+import { getOfficialClubs } from "@/app/clubes/actions";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";

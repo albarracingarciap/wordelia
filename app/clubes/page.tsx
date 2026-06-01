@@ -1,6 +1,8 @@
 import { getFeaturedClub, getRegularClubs } from "./actions";
 import ClubesPageClient from "./ClubesPageClient";
 import type { Metadata } from "next";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
 
@@ -28,7 +30,14 @@ export default async function ClubesPage() {
 
             {/* Main Content */}
             <main className="flex-1 pt-[72px]">
-                <div className="mx-auto max-w-6xl px-12 pt-12 pb-6">
+                <div className="mx-auto max-w-6xl px-12 pt-6 pb-6">
+                    <Link
+                        href="/"
+                        className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-teal transition-colors hover:text-coral"
+                    >
+                        <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                        Volver
+                    </Link>
                     <ClubesPageClient
                         featuredClub={featuredClub}
                         regularClubs={regularClubs}

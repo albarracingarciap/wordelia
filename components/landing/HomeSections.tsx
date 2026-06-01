@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Award, EyeOff, Gauge, Gift, Library, MessageSquareHeart, Search, Sparkles } from "lucide-react";
+import { Award, EyeOff, Gauge, Gift, Library, MessageSquareHeart, Search, Sparkles } from "lucide-react";
 import { readingExperiences } from "@/lib/reading-experiences";
 import { Section } from "../ui/Section";
 
@@ -68,7 +68,6 @@ export function HomeExploreSection() {
                     className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl bg-teal px-6 font-semibold text-white transition-colors hover:bg-teal-dark"
                 >
                     Explorar libros
-                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
             </form>
 
@@ -81,10 +80,6 @@ export function HomeExploreSection() {
                             className="group inline-flex items-center justify-between gap-3 border-b border-teal/10 py-2 text-left text-sm font-medium text-teal-dark transition-colors last:border-b-0 hover:text-coral sm:last:border-b sm:[&:nth-last-child(-n+2)]:border-b-0 lg:[&:nth-last-child(-n+3)]:border-b-0"
                         >
                             <span>{experience.label}</span>
-                            <ArrowRight
-                                className="h-3.5 w-3.5 opacity-0 transition-opacity group-hover:opacity-100"
-                                aria-hidden="true"
-                            />
                         </Link>
                     ))}
                 </div>
@@ -95,10 +90,10 @@ export function HomeExploreSection() {
 
 export function HomeAdnSection() {
     return (
-        <Section id="adn-literario" className="bg-cream py-16 md:py-24">
+        <Section id="adn-literario" className="bg-cream pb-16 pt-8 md:pb-24 md:pt-10">
             <div className="grid gap-8 md:grid-cols-[0.9fr_1.1fr] md:items-center">
                 <div className="space-y-5">
-                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">ADN literario</p>
+                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">Genoma literario</p>
                     <h2 className="text-3xl leading-tight text-teal md:text-5xl">
                         ¿Amor a primera vista?
                     </h2>
@@ -106,13 +101,20 @@ export function HomeAdnSection() {
                         Cada ficha puede ayudarte a comprender mejor la obra: ritmo, temas, estilo, dificultad
                         y carga emocional.
                     </p>
-                    <Link
-                        href="/register?source=beta&intent=adn"
-                        className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-coral px-6 font-semibold text-coral transition-colors hover:bg-coral hover:text-white"
-                    >
-                        Probar en beta
-                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                    </Link>
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <Link
+                            href="/demo-adn"
+                            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-coral px-6 font-semibold text-white transition-colors hover:bg-[#C25852]"
+                        >
+                            Muestra gratuita
+                        </Link>
+                        <Link
+                            href="/genomas"
+                            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-teal/20 px-6 font-semibold text-teal transition-colors hover:bg-teal hover:text-white"
+                        >
+                            Ver todos los genomas
+                        </Link>
+                    </div>
                 </div>
 
                 <div className="rounded-3xl border border-teal/10 bg-white p-5 shadow-sm md:p-7">
@@ -183,7 +185,6 @@ export function HomeWishlistSection() {
                         className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-teal px-6 font-semibold text-white transition-colors hover:bg-teal-dark"
                     >
                         Probar lista de deseos
-                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
                     </Link>
                 </div>
 
@@ -241,7 +242,6 @@ export function HomeBetaSection() {
                             className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-coral px-8 text-lg font-semibold text-white shadow-sm shadow-coral/20 transition-all hover:bg-[#C25852]"
                         >
                             Solicitar acceso
-                            <ArrowRight className="h-5 w-5" aria-hidden="true" />
                         </Link>
                     </div>
                 </div>

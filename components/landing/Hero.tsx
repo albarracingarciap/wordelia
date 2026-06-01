@@ -1,6 +1,6 @@
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { Section } from "../ui/Section";
 
 const BETA_TOTAL_SPOTS = 200;
@@ -55,7 +55,6 @@ export function Hero({ founderCount = 38 }: HeroProps) {
                             className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-coral px-8 text-lg font-semibold text-white shadow-sm shadow-coral/20 transition-all hover:bg-[#C25852] hover:shadow-md"
                         >
                             Solicitar acceso beta
-                            <ArrowRight className="h-5 w-5" aria-hidden="true" />
                         </Link>
                         <Link
                             href="#explorar"

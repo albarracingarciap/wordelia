@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, BookOpenCheck, Layers, Sparkles } from "lucide-react";
+import { BookOpenCheck, Layers, Sparkles } from "lucide-react";
 import { discussionGuides, guidePacks } from "@/lib/guides";
 import { Section } from "../ui/Section";
 
@@ -10,9 +10,9 @@ export function GuidesSection() {
     const featuredPack = guidePacks[0];
 
     return (
-        <Section id="guias" className="bg-cream py-16 md:py-24">
+        <Section id="guias" className="bg-cream pb-8 pt-16 md:pb-10 md:pt-24">
             <div className="mx-auto mb-10 max-w-3xl space-y-4 text-center md:mb-14">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">Guías de discusión</p>
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">Guías de discusión y Genoma literario premium</p>
                 <h2 className="text-3xl leading-tight text-teal md:text-5xl">
                     Material listo para llevar una lectura a conversación
                 </h2>
@@ -56,22 +56,19 @@ export function GuidesSection() {
                                 </div>
                             </div>
 
-                            <div className="flex flex-col gap-3 sm:flex-row">
+                            <div className="grid gap-3 sm:grid-cols-2">
                                 <Link
-                                    href="/register?source=free-guide&guide=el-cuento-de-la-criada"
-                                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-coral px-6 font-semibold text-white transition-colors hover:bg-[#C25852]"
+                                    href="/demo-guia"
+                                    className="inline-flex h-12 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-coral px-5 font-semibold text-white transition-colors hover:bg-[#C25852]"
                                 >
-                                    Conseguir guía gratuita
-                                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                                    Muestra gratuita
                                 </Link>
-                                {freeGuide.pdfUrl && (
-                                    <Link
-                                        href={freeGuide.pdfUrl}
-                                        className="inline-flex h-12 items-center justify-center rounded-2xl border border-coral px-6 font-semibold text-coral transition-colors hover:bg-coral/10"
-                                    >
-                                        Ver muestra
-                                    </Link>
-                                )}
+                                <Link
+                                    href="/guias"
+                                    className="inline-flex h-12 min-w-0 items-center justify-center gap-2 whitespace-nowrap rounded-2xl border border-teal/30 px-5 font-semibold text-teal transition-colors hover:bg-teal hover:text-white"
+                                >
+                                    Ver todas las guías
+                                </Link>
                             </div>
                         </div>
                     </div>
@@ -94,7 +91,6 @@ export function GuidesSection() {
                                         <p className="font-semibold text-teal-dark">{guide.bookTitle}</p>
                                         <p className="text-sm text-grey">{guide.sessions} · {guide.priceLabel}</p>
                                     </div>
-                                    <ArrowRight className="h-4 w-4 text-coral opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
                                 </Link>
                             ))}
                         </div>
@@ -125,15 +121,6 @@ export function GuidesSection() {
                 </div>
             </div>
 
-            <div className="mt-8 flex justify-center">
-                <Link
-                    href="/guias"
-                    className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl border border-teal/30 px-6 font-semibold text-teal transition-colors hover:bg-teal hover:text-white"
-                >
-                    Ver todas las guías
-                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                </Link>
-            </div>
         </Section>
     );
 }

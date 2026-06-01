@@ -2,12 +2,13 @@
 
 import * as React from "react";
 import Image from "next/image";
-import { ArrowRight, BookOpen, CalendarDays, Gauge, MessageCircle, ShieldCheck, Sparkles } from "lucide-react";
+import { BookOpen, CalendarDays, Gauge, MessageCircle, ShieldCheck, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { Section } from "../ui/Section";
 import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";
 import { useAuth } from "@/contexts/AuthContext";
+import type { BookSearchResult } from "@/lib/isbndb";
 
 interface Club {
     id?: string;
@@ -25,13 +26,16 @@ interface Club {
 
 interface InitialClub {
     id?: string;
+    slug?: string;
     name?: string;
     description?: string | null;
     tags?: string[] | null;
     start_date?: string | null;
     hook_question?: string | null;
     price?: number | null;
+    price_cents?: number | null;
     currency?: string | null;
+    book_data?: BookSearchResult | null;
     book?: {
         title?: string | null;
         author?: string | null;
@@ -137,8 +141,20 @@ function formatClubPrice(price?: number | null, currency = "EUR") {
     }).format(price);
 }
 
+function formatClubPriceFromCents(priceCents?: number | null, currency = "EUR") {
+    if (typeof priceCents !== "number" || priceCents <= 0) {
+        return "Incluido";
+    }
+
+    return new Intl.NumberFormat("es-ES", {
+        style: "currency",
+        currency,
+    }).format(priceCents / 100);
+}
+
 function mapDbClub(dbClub: InitialClub): Club {
-    const bookTitle = dbClub.book?.title || "Libro por confirmar";
+    const bookData = dbClub.book_data;
+    const bookTitle = bookData?.title || dbClub.book?.title || "Libro por confirmar";
     const normalizedBookTitle = Object.keys(hookQuestionByBook).find((title) =>
         bookTitle.toLowerCase().includes(title.toLowerCase())
     );
@@ -147,16 +163,18 @@ function mapDbClub(dbClub: InitialClub): Club {
         id: dbClub.id,
         title: dbClub.name || "Club de lectura",
         book: bookTitle,
-        author: dbClub.book?.author || "Autor por confirmar",
-        cover: dbClub.book?.cover_url || "/assets/images/default_cover.jpg",
+        author: bookData?.authors?.join(", ") || dbClub.book?.author || "Autor por confirmar",
+        cover: bookData?.cover_url || dbClub.book?.cover_url || "/assets/images/default_cover.jpg",
         pace: "Lectura guiada",
         status: formatClubStartDate(dbClub.start_date),
-        badges: dbClub.tags?.slice(0, 3) || ["Sin spoilers", "Checkpoints"],
+        badges: dbClub.tags?.slice(0, 3) || bookData?.categories?.slice(0, 3) || ["Sin spoilers", "Checkpoints"],
         description: dbClub.description || "Un club para leer con calma, contexto y conversación cuidada.",
         hookQuestion: normalizedBookTitle
             ? hookQuestionByBook[normalizedBookTitle]
             : dbClub.hook_question || dbClub.description || "¿Qué conversación abriría este libro?",
-        priceLabel: formatClubPrice(dbClub.price, dbClub.currency || "EUR"),
+        priceLabel: typeof dbClub.price_cents === "number"
+            ? formatClubPriceFromCents(dbClub.price_cents, dbClub.currency || "EUR")
+            : formatClubPrice(dbClub.price, dbClub.currency || "EUR"),
     };
 }
 
@@ -265,7 +283,6 @@ export function ClubsGrid({ initialClubs }: ClubsGridProps) {
                                     className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-2xl bg-coral px-6 font-semibold text-white transition-colors hover:bg-[#C25852] sm:w-auto"
                                 >
                                     {isLoggedIn && featuredClub.id ? "Ir al club" : "Vista previa"}
-                                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
                                 </button>
                             </div>
                         </div>
@@ -294,7 +311,6 @@ export function ClubsGrid({ initialClubs }: ClubsGridProps) {
                                         <div className="min-w-0 flex-1">
                                             <div className="mb-1 flex items-center justify-between gap-2">
                                                 <h4 className="line-clamp-1 font-semibold text-teal-dark">{club.title}</h4>
-                                                <ArrowRight className="h-4 w-4 shrink-0 text-coral opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
                                             </div>
                                             <p className="line-clamp-1 text-sm text-grey">{club.book}</p>
                                             <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-teal">
