@@ -15,9 +15,9 @@ import { CreateNoteModal } from "@/components/notes/CreateNoteModal";
 import { ReviewModal } from "@/components/reviews/ReviewModal";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
-import { getCurrentBooks, getReadingStats, getRecentNotes, CurrentBook, ReadingStats, Note, deleteBook, getRecommendedBook, RecommendedBook, startReadingBook, convertBookEmotionToNote, getEmotionBookGroups, EmotionBookGroup } from "@/app/app/mi-lectura/actions";
+import { getCurrentBooks, getReadingStats, getRecentNotes, CurrentBook, ReadingStats, Note, deleteBook, getRecommendedBook, RecommendedBook, startReadingBook, convertBookEmotionToNote, getEmotionBookGroups, EmotionBookGroup, getReaderResourceContext, ReaderResourceContext } from "@/app/app/mi-lectura/actions";
 import { getUpcomingMilestones } from "@/app/app/clubs/[id]/actions";
-import { Search, BookOpen, CalendarDays, AlertCircle, Plus, Timer, Library, Users, StickyNote } from "lucide-react";
+import { Search, BookOpen, CalendarDays, AlertCircle, Plus, Timer, Library, Users, StickyNote, BookOpenText, Dna, ShieldCheck, Lock } from "lucide-react";
 
 type Milestone = {
     id: string;
@@ -53,10 +53,12 @@ function QuickActions({
     hasBooks,
     onRegister,
     onNote,
+    isAdmin,
 }: {
     hasBooks: boolean;
     onRegister: () => void;
     onNote: () => void;
+    isAdmin: boolean;
 }) {
     const actionClass = "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-teal/10 bg-white px-3 py-3 text-center text-xs font-semibold text-grey shadow-sm transition-all hover:border-teal/25 hover:text-teal";
     const primaryActionClass = "flex min-h-12 items-center justify-center gap-2 rounded-xl border border-coral bg-coral px-3 py-3 text-center text-xs font-bold text-white shadow-md transition-all hover:bg-[#C25852] hover:shadow-lg";
@@ -86,7 +88,69 @@ function QuickActions({
                 <Link href="/app/clubs" className={actionClass}>
                     <Users className="h-4 w-4" /> Explorar clubs
                 </Link>
+                {isAdmin && (
+                    <>
+                        <Link href="/app/recursos/guias" className={actionClass}>
+                            <BookOpenText className="h-4 w-4" /> Guías
+                        </Link>
+                        <Link href="/app/recursos/genomas" className={actionClass}>
+                            <Dna className="h-4 w-4" /> Genomas
+                        </Link>
+                    </>
+                )}
             </div>
+        </section>
+    );
+}
+
+type SidebarResource = {
+    bookId: string;
+    bookTitle: string;
+    bookAuthor: string;
+    kind: "guide" | "genome";
+    label: string;
+    href: string;
+    access: "granted" | "admin" | "requires_purchase" | "requires_plan";
+};
+
+function ReadingResourcesPanel({ resources }: { resources: SidebarResource[] }) {
+    if (resources.length === 0) return null;
+
+    return (
+        <section className="order-2 lg:order-2">
+            <div className="mb-3">
+                <h2 className={sectionTitleClass}>Recursos de tus lecturas</h2>
+            </div>
+            <Card className="space-y-3">
+                {resources.slice(0, 3).map((resource) => {
+                    const Icon = resource.kind === "guide" ? BookOpenText : Dna;
+                    const unlocked = resource.access === "admin" || resource.access === "granted";
+                    return (
+                        <Link
+                            key={`${resource.bookId}-${resource.kind}`}
+                            href={resource.href}
+                            className="block rounded-lg border border-teal/5 px-3 py-3 transition-colors hover:border-teal/20 hover:bg-teal/5"
+                        >
+                            <div className="flex items-start gap-3">
+                                <span className={`mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${unlocked ? "bg-teal/10 text-teal" : "bg-grey/10 text-grey"}`}>
+                                    <Icon className="h-4 w-4" />
+                                </span>
+                                <div className="min-w-0 flex-1">
+                                    <div className="flex items-center justify-between gap-2">
+                                        <p className="truncate text-xs font-bold text-teal-dark">{resource.label}</p>
+                                        <span className="inline-flex shrink-0 items-center gap-1 text-[10px] font-bold uppercase tracking-wide text-grey/50">
+                                            {resource.access === "admin" ? <ShieldCheck className="h-3 w-3 text-teal" /> : unlocked ? null : <Lock className="h-3 w-3" />}
+                                            {resource.access === "admin" ? "Admin" : unlocked ? "Abrir" : "Plan"}
+                                        </span>
+                                    </div>
+                                    <p className="mt-1 line-clamp-1 text-xs font-semibold text-grey-dark">{resource.bookTitle}</p>
+                                    <p className="line-clamp-1 text-[11px] text-grey/45">{resource.bookAuthor}</p>
+                                </div>
+                            </div>
+                        </Link>
+                    );
+                })}
+            </Card>
         </section>
     );
 }
@@ -105,6 +169,12 @@ export default function MiLecturaPage() {
     const [recommendedBook, setRecommendedBook] = React.useState<RecommendedBook | null>(null);
     const [emotionGroups, setEmotionGroups] = React.useState<EmotionBookGroup[]>([]);
     const [milestones, setMilestones] = React.useState<Milestone[]>([]);
+    const [resourceContext, setResourceContext] = React.useState<ReaderResourceContext>({
+        isAdmin: false,
+        plan: null,
+        canAccessGuides: false,
+        canAccessGenomes: false,
+    });
     const [isLoading, setIsLoading] = React.useState(true);
     const [loadError, setLoadError] = React.useState("");
     const [actionError, setActionError] = React.useState("");
@@ -139,13 +209,14 @@ export default function MiLecturaPage() {
         if (showSkeleton) setIsLoading(true);
         setLoadError("");
 
-        const [booksResult, statsResult, notesResult, recommendationResult, milestonesResult, emotionGroupsResult] = await Promise.allSettled([
+        const [booksResult, statsResult, notesResult, recommendationResult, milestonesResult, emotionGroupsResult, resourceContextResult] = await Promise.allSettled([
             getCurrentBooks(),
             getReadingStats(),
             getRecentNotes(),
             getRecommendedBook(),
             getUpcomingMilestones(),
-            getEmotionBookGroups()
+            getEmotionBookGroups(),
+            getReaderResourceContext()
         ]);
 
         let hasError = false;
@@ -168,6 +239,9 @@ export default function MiLecturaPage() {
         if (emotionGroupsResult.status === "fulfilled") setEmotionGroups(emotionGroupsResult.value);
         else hasError = true;
 
+        if (resourceContextResult.status === "fulfilled") setResourceContext(resourceContextResult.value);
+        else hasError = true;
+
         if (hasError) {
             setLoadError("No hemos podido cargar todos tus datos. Algunas secciones pueden estar incompletas.");
         }
@@ -180,6 +254,17 @@ export default function MiLecturaPage() {
     }, [loadDashboardData]);
 
     const hasBooks = books.length > 0;
+    const readingResources = React.useMemo<SidebarResource[]>(() => {
+        return books.flatMap((book) => (book.resources || []).map((resource) => ({
+            bookId: book.id,
+            bookTitle: book.title,
+            bookAuthor: book.author,
+            kind: resource.kind,
+            label: resource.label,
+            href: resource.href,
+            access: resource.access,
+        })));
+    }, [books]);
 
     const handleNewSession = () => {
         setIsTimerOpen(true);
@@ -309,6 +394,7 @@ export default function MiLecturaPage() {
                     hasBooks={hasBooks}
                     onRegister={() => handleManualRegister()}
                     onNote={() => handleOpenNoteModal()}
+                    isAdmin={resourceContext.isAdmin}
                 />
             </div>
 
@@ -549,16 +635,28 @@ export default function MiLecturaPage() {
                                     Explorar clubs
                                 </Link>
                             </div>
+                            {resourceContext.isAdmin && (
+                                <div className="grid grid-cols-2 gap-3 pt-2">
+                                    <Link href="/app/recursos/guias" className="p-3 bg-teal/5 border border-teal/10 rounded-lg text-xs font-bold text-teal hover:border-teal/25 hover:bg-teal/10 transition-all text-center shadow-sm flex items-center justify-center gap-2 h-full">
+                                        <BookOpenText className="h-4 w-4" /> Guías
+                                    </Link>
+                                    <Link href="/app/recursos/genomas" className="p-3 bg-teal/5 border border-teal/10 rounded-lg text-xs font-bold text-teal hover:border-teal/25 hover:bg-teal/10 transition-all text-center shadow-sm flex items-center justify-center gap-2 h-full">
+                                        <Dna className="h-4 w-4" /> Genomas
+                                    </Link>
+                                </div>
+                            )}
                         </div>
                     </section>
 
+                    <ReadingResourcesPanel resources={readingResources} />
+
                     {/* Section: Activity Feed */}
-                    <section className="order-3 lg:order-2">
+                    <section className="order-3 lg:order-3">
                         <ActivityFeed />
                     </section>
 
                     {emotionGroups.length > 0 && (
-                        <section className="order-2 lg:order-3">
+                        <section className="order-2 lg:order-4">
                             <h2 className={`${sectionTitleClass} mb-3`}>Lecturas que te hicieron sentir</h2>
                             <Card className="space-y-4">
                                 {emotionGroups.map((group) => (
@@ -587,7 +685,7 @@ export default function MiLecturaPage() {
                     )}
 
                     {/* Section 5: Recommended */}
-                    <section className="order-2 lg:order-4">
+                    <section className="order-2 lg:order-5">
                         <div className="flex items-center justify-between mb-4">
                             <h2 className={sectionTitleClass}>Recomendado hoy</h2>
                             {/* Filter hidden as requested */}
@@ -612,7 +710,7 @@ export default function MiLecturaPage() {
                     </section>
 
                     {/* Section 6: Weekly Summary */}
-                    <section className="order-4">
+                    <section className="order-4 lg:order-6">
                         <Card className="bg-[#D8E2DC]/30 border-none">
                             <div className="flex items-center justify-between mb-4">
                                 <h3 className="font-serif text-teal">Tu semana en calma</h3>
@@ -658,6 +756,10 @@ export default function MiLecturaPage() {
             <RegisterReadingModal
                 isOpen={isRegisterModalOpen}
                 onClose={() => setIsRegisterModalOpen(false)}
+                onSuccess={async () => {
+                    await loadDashboardData();
+                    router.refresh();
+                }}
                 // bookTitle can be removed or kept as fallback logic inside modal, but passing books is key
                 books={books.map(b => ({ ...b, coverUrl: b.coverUrl || "" }))}
                 initialBookId={registerBookId || (books.length > 0 ? books[0].id : undefined)}

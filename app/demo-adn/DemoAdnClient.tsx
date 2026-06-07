@@ -18,6 +18,14 @@ import {
     type ThematicCompositionChromosome,
 } from "./adn-data";
 
+type GenomeBookHeader = {
+    titulo: string;
+    autor: string;
+    año: string | number | null;
+};
+
+type GenomeChromosomes = Partial<Record<ChromosomeKey, unknown>>;
+
 function formatKey(value: string) {
     return value
         .replaceAll("_", " ")
@@ -169,25 +177,31 @@ const chromosomeIntro: Record<ChromosomeKey, string> = {
         "En esta pestaña se situará la obra en su contexto histórico, literario y cultural, además de sus ecos e influencia posterior.",
 };
 
-function getActiveChromosomeData(key: ChromosomeKey) {
-    return demoChromosomes[key as keyof typeof demoChromosomes];
+function getActiveChromosomeData(key: ChromosomeKey, chromosomes: GenomeChromosomes = demoChromosomes) {
+    return chromosomes[key as keyof typeof chromosomes];
 }
 
-function getActiveCard(key: ChromosomeKey) {
-    const data = getActiveChromosomeData(key);
+function getActiveCard(key: ChromosomeKey, chromosomes: GenomeChromosomes = demoChromosomes) {
+    const data = getActiveChromosomeData(key, chromosomes) as {
+        nombre?: string;
+        visualizacion?: {
+            descripcion_corta?: string;
+            puntuacion_global?: number;
+        };
+    } | undefined;
     const fallback = chromosomeTabs.find((tab) => tab.key === key);
 
     return {
         title: data?.nombre || fallback?.label || "Cromosoma literario",
         description:
-            data?.visualizacion.descripcion_corta ||
+            data?.visualizacion?.descripcion_corta ||
             "Este cromosoma está preparado para mostrar el análisis cuando el libro tenga datos asociados.",
-        score: data?.visualizacion.puntuacion_global,
+        score: data?.visualizacion?.puntuacion_global,
     };
 }
 
-function ChromosomePanel({ activeTab }: { activeTab: ChromosomeKey }) {
-    const data = getActiveChromosomeData(activeTab);
+function ChromosomePanel({ activeTab, chromosomes = demoChromosomes }: { activeTab: ChromosomeKey; chromosomes?: GenomeChromosomes }) {
+    const data = getActiveChromosomeData(activeTab, chromosomes);
     const activeLabel = chromosomeTabs.find((tab) => tab.key === activeTab)?.label || "Cromosoma literario";
 
     if (activeTab === "narrative_structure" && data) {
@@ -1878,10 +1892,31 @@ function EmptyChromosomeTab({ label, chromosomeKey }: { label: string; chromosom
     );
 }
 
-export function DemoAdnClient() {
+function getBookHeader(chromosomes: GenomeChromosomes, fallbackBook?: GenomeBookHeader): GenomeBookHeader {
+    const firstChromosome = chromosomeTabs
+        .map((tab) => chromosomes[tab.key])
+        .find((chromosome): chromosome is { libro?: Partial<GenomeBookHeader> } => Boolean(chromosome) && typeof chromosome === "object");
+    const book = firstChromosome?.libro || {};
+
+    return {
+        titulo: fallbackBook?.titulo || book.titulo || "Genoma literario",
+        autor: fallbackBook?.autor || book.autor || "Autor desconocido",
+        año: fallbackBook?.año ?? book.año ?? null,
+    };
+}
+
+export function DemoAdnClient({
+    chromosomes = demoChromosomes,
+    book: fallbackBook,
+    badgeLabel = "ADN demo",
+}: {
+    chromosomes?: GenomeChromosomes;
+    book?: GenomeBookHeader;
+    badgeLabel?: string;
+}) {
     const [activeTab, setActiveTab] = useState<ChromosomeKey>("narrative_structure");
-    const book = demoChromosomes.narrative_structure.libro;
-    const activeCard = getActiveCard(activeTab);
+    const book = getBookHeader(chromosomes, fallbackBook);
+    const activeCard = getActiveCard(activeTab, chromosomes);
 
     return (
         <section className="relative overflow-hidden pt-8 md:pt-10">
@@ -1892,7 +1927,7 @@ export function DemoAdnClient() {
                         <div className="mb-5 flex flex-wrap gap-2">
                             <span className="inline-flex items-center gap-2 bg-teal px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-white">
                                 <Dna className="h-3.5 w-3.5" aria-hidden="true" />
-                                ADN demo
+                                {badgeLabel}
                             </span>
                             <span className="inline-flex items-center gap-2 border border-coral/25 bg-coral/10 px-3 py-1.5 text-xs font-bold uppercase tracking-[0.16em] text-coral">
                                 <LockKeyhole className="h-3.5 w-3.5" aria-hidden="true" />
@@ -1907,7 +1942,7 @@ export function DemoAdnClient() {
                             {book.titulo}
                         </h1>
                         <p className="mt-4 text-xl font-medium text-teal-dark">
-                            {book.autor} · {book.año}
+                            {book.autor}{book.año ? ` · ${book.año}` : ""}
                         </p>
                         <p className="mt-5 max-w-2xl text-base leading-relaxed text-grey md:text-lg">
                             {chromosomeIntro[activeTab]}
@@ -1955,7 +1990,7 @@ export function DemoAdnClient() {
                 </aside>
 
                 <div className="min-w-0 animate-fade-in">
-                    <ChromosomePanel activeTab={activeTab} />
+                    <ChromosomePanel activeTab={activeTab} chromosomes={chromosomes} />
                 </div>
                 </div>
             </div>

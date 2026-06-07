@@ -54,8 +54,9 @@ export type MatchOutcome =
 interface CandidateRow {
     book_id: string;
     title: string;
-    title_normalized: string;
-    author_id: string;
+    title_normalized: string | null;
+    author_id: string | null;
+    author?: string | null;
     similarity: number;
     is_exact: boolean;
 }
@@ -118,11 +119,12 @@ export async function matchAndPersistEdition(
     }
 
     // 3. Candidatos.
-    const candidates = await findCandidates(supabase, input.title, authorId);
+    const candidates = await findCandidates(supabase, input.title, authorId, input.authorName);
 
     // 4. Decisión + persistencia.
     if (candidates.length === 1) {
         const candidate = candidates[0];
+        await ensureBookAuthor(supabase, candidate, authorId, input.authorName);
         const editionId = await insertEdition(supabase, input, candidate.book_id, quality.score);
         if (!editionId) return { kind: "rejected", reasons: ["could_not_insert_edition"] };
         await maybePromotePreferredEdition(supabase, candidate.book_id);
@@ -141,6 +143,7 @@ export async function matchAndPersistEdition(
         // confirme o reasigne. La BD exige `editions.book_id` NOT NULL, así
         // que no podemos dejarlo a null.
         const tentativeBookId = candidates[0].book_id;
+        await ensureBookAuthor(supabase, candidates[0], authorId, input.authorName);
         const editionId = await insertEdition(supabase, input, tentativeBookId, quality.score);
         if (!editionId) return { kind: "rejected", reasons: ["could_not_insert_edition"] };
         await enqueueForReview(supabase, editionId, candidates);
@@ -225,7 +228,11 @@ async function findCandidates(
     supabase: AdminClient,
     title: string,
     authorId: string,
+    authorName: string,
 ): Promise<CandidateRow[]> {
+    const fallbackCandidates = await findFallbackCandidatesByTitle(supabase, title, authorName);
+    if (fallbackCandidates.length > 0) return fallbackCandidates;
+
     const { data, error } = await supabase.rpc("find_book_candidates_for_edition", {
         p_title: title,
         p_author_id: authorId,
@@ -233,12 +240,89 @@ async function findCandidates(
         p_max_results: MAX_CANDIDATES,
     });
 
+    if (!error && data) {
+        const rpcCandidates = data as CandidateRow[];
+        if (rpcCandidates.length > 0) return rpcCandidates;
+    }
+
     if (error) {
-        console.warn("[EditionMatching] Candidate RPC failed:", error);
+        if (error.code !== "42883") {
+            console.warn("[EditionMatching] Candidate RPC failed:", error);
+        }
+    }
+
+    return [];
+}
+
+async function findFallbackCandidatesByTitle(
+    supabase: AdminClient,
+    title: string,
+    authorName: string,
+): Promise<CandidateRow[]> {
+    const titleKeys = getTitleMatchKeys(title);
+    if (titleKeys.length === 0) return [];
+
+    const { data, error } = await supabase
+        .from("books")
+        .select("id, title, title_normalized, author_id, author, created_at")
+        .in("title_normalized", titleKeys)
+        .order("created_at", { ascending: true })
+        .limit(MAX_CANDIDATES);
+
+    if (error || !data) {
+        if (error) console.warn("[EditionMatching] Fallback title lookup failed:", error);
         return [];
     }
 
-    return (data as CandidateRow[] | null) ?? [];
+    const normalizedAuthor = normalizeAuthorForMatch(authorName);
+    const rows = data as unknown as Array<{
+        id: string;
+        title: string;
+        title_normalized: string | null;
+        author_id: string | null;
+        author?: string | null;
+    }>;
+
+    const authorMatches = rows.filter((row) => {
+        if (!row.author) return true;
+        return areLikelySameAuthor(row.author, authorName, normalizedAuthor);
+    });
+    const candidates = authorMatches.length > 0 ? authorMatches : rows.filter((row) => !row.author);
+
+    return candidates.map((row) => ({
+        book_id: row.id,
+        title: row.title,
+        title_normalized: row.title_normalized,
+        author_id: row.author_id,
+        author: row.author ?? null,
+        similarity: 1,
+        is_exact: true,
+    }));
+}
+
+async function ensureBookAuthor(
+    supabase: AdminClient,
+    candidate: CandidateRow,
+    authorId: string,
+    authorName: string,
+): Promise<void> {
+    if (candidate.author_id && candidate.author) return;
+
+    const updatePayload = {
+        ...(candidate.author_id ? {} : { author_id: authorId }),
+        ...(candidate.author ? {} : { author: authorName }),
+    };
+
+    if (Object.keys(updatePayload).length === 0) return;
+
+    const { error } = await supabase
+        .from("books")
+        .update(updatePayload as never)
+        .eq("id", candidate.book_id);
+
+    if (error) {
+        console.warn("[EditionMatching] Could not complete book author fields:", error);
+    }
 }
 
 async function createBookFromEdition(
@@ -253,14 +337,15 @@ async function createBookFromEdition(
     const { data, error } = await supabase
         .from("books")
         .insert({
-            title: input.title,
+            title: canonicalWorkTitle(input.title),
             author_id: authorId,
+            author: input.authorName,
             description: input.description,
             original_language: input.language,
             first_publication_year: input.firstPublicationYear ?? extractYear(input.publishedDate),
             external_ids: externalIds,
             // title_normalized lo rellena el trigger BEFORE INSERT.
-        })
+        } as never)
         .select("id")
         .single();
 
@@ -375,4 +460,98 @@ function extractYear(value: string | null): number | null {
     if (!value) return null;
     const match = value.match(/\b(1[5-9]\d{2}|20\d{2})\b/);
     return match ? Number(match[1]) : null;
+}
+
+function canonicalWorkTitle(title: string): string {
+    return title
+        .replace(/\s+\/\s+.*$/, "")
+        .replace(/\s*\|\s*.*$/, "")
+        .trim() || title.trim();
+}
+
+function getTitleMatchKeys(title: string): string[] {
+    return Array.from(new Set([
+        normalizeTitleForMatch(title),
+        normalizeTitleForMatch(canonicalWorkTitle(title)),
+    ].filter(Boolean)));
+}
+
+function normalizeTitleForMatch(title: string): string {
+    return title
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/\s+\/\s+.*$/, "")
+        .replace(/\s*\|\s*.*$/, "")
+        .replace(/\s*[:\-–—].*$/, "")
+        .replace(/\s*[\(\[]\s*(tomo|libro|vol(?:umen)?\.?|parte|ed(?:icion)?\.?|edition|ilustrad[ao])\b[^\)\]]*[\)\]]/gi, "")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function normalizeAuthorForMatch(author: string): string {
+    return author
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/\b(fyodor|feodor)\b/g, "fiodor")
+        .replace(/\b(fedor)\b/g, "fiodor")
+        .replace(/\b([a-z])\.\s*/g, "")
+        .replace(/\b(y|i)\b/g, "")
+        .replace(/[^a-z\s]/g, " ")
+        .replace(/y/g, "i")
+        .replace(/\s+/g, " ")
+        .trim();
+}
+
+function areLikelySameAuthor(existingAuthor: string, incomingAuthor: string, normalizedIncoming?: string): boolean {
+    const existing = normalizeAuthorForMatch(existingAuthor);
+    const incoming = normalizedIncoming ?? normalizeAuthorForMatch(incomingAuthor);
+    if (!existing || !incoming) return false;
+    if (existing === incoming) return true;
+
+    const existingParts = existing.split(" ").filter(Boolean);
+    const incomingParts = incoming.split(" ").filter(Boolean);
+    const existingLast = existingParts.at(-1) || "";
+    const incomingLast = incomingParts.at(-1) || "";
+    const existingFirst = existingParts[0] || "";
+    const incomingFirst = incomingParts[0] || "";
+
+    if (existingLast && incomingLast && existingFirst && incomingFirst) {
+        const firstCompatible = existingFirst === incomingFirst || stringSimilarity(existingFirst, incomingFirst) >= 0.8;
+        const lastCompatible = existingLast === incomingLast || stringSimilarity(existingLast, incomingLast) >= 0.82;
+        if (firstCompatible && lastCompatible) return true;
+    }
+
+    return stringSimilarity(existing, incoming) >= 0.86;
+}
+
+function stringSimilarity(a: string, b: string): number {
+    if (a === b) return 1;
+    if (!a || !b) return 0;
+
+    const distance = levenshteinDistance(a, b);
+    return 1 - distance / Math.max(a.length, b.length);
+}
+
+function levenshteinDistance(a: string, b: string): number {
+    const previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+    const current = Array.from({ length: b.length + 1 }, () => 0);
+
+    for (let i = 1; i <= a.length; i++) {
+        current[0] = i;
+        for (let j = 1; j <= b.length; j++) {
+            const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+            current[j] = Math.min(
+                current[j - 1] + 1,
+                previous[j] + 1,
+                previous[j - 1] + cost,
+            );
+        }
+        for (let j = 0; j <= b.length; j++) {
+            previous[j] = current[j];
+        }
+    }
+
+    return previous[b.length];
 }

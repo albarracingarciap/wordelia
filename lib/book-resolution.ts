@@ -1,11 +1,5 @@
-// Capa de resolución book ⇄ resultado de búsqueda.
-// Convierte un BookSearchResult (de la cascada de búsqueda) en un `book_id` y
-// `edition_id` persistidos en BD. Delega en EditionMatchingService.
-//
-// Se usa desde:
-// - app/app/search/actions.ts        (mi-lectura/nuevo)
-// - app/app/clubs/crear/actions.ts   (creación de club con libro)
-// - app/app/admin/catalogo/actions.ts (importación manual de catálogo)
+// Resolves a search result into persisted `books` and `editions` ids.
+// Used by user-facing flows that add a concrete edition to a library.
 
 import { matchAndPersistEdition, type EditionInput, type MatchOutcome } from "@/lib/edition-matching";
 import { BookSearchResult } from "@/lib/isbndb";
@@ -19,12 +13,9 @@ export interface ResolvedBook {
 }
 
 /**
- * Resuelve un BookSearchResult a sus IDs en BD.
- * - UUID local existente → reusa.
- * - Cualquier otra fuente → matchAndPersistEdition con bypassQuality:true
- *   (es un alta explícita del usuario, no descubrimiento automático).
- *
- * Lanza si el outcome es `queued` (necesita revisión humana) o `rejected`.
+ * Resolves a BookSearchResult to database ids.
+ * - Existing local UUID: reuse the book and its preferred edition.
+ * - External/manual result: persist or match the concrete edition.
  */
 export async function resolveBookFromResult(book: BookSearchResult): Promise<ResolvedBook> {
     if (UUID_RE.test(book.id)) {
@@ -77,14 +68,13 @@ function outcomeToIds(outcome: MatchOutcome): ResolvedBook {
     switch (outcome.kind) {
         case "matched":
         case "created":
+        case "queued":
             return { bookId: outcome.bookId, editionId: outcome.editionId };
         case "duplicate":
             if (!outcome.bookId) {
-                throw new Error("Edición duplicada sin obra asignada; necesita revisión manual.");
+                throw new Error("Edicion duplicada sin obra asignada; necesita revision manual.");
             }
             return { bookId: outcome.bookId, editionId: outcome.editionId };
-        case "queued":
-            throw new Error("Este libro tiene varias coincidencias y un editor lo revisará pronto.");
         case "rejected":
             throw new Error(`No se pudo guardar el libro: ${outcome.reasons.join(", ")}`);
     }

@@ -351,7 +351,7 @@ function ShelvesPageContent() {
                     {!isLoading && activeFilter === "all" && books.length === 0 && !searchQuery ? (
                         <EmptyLibrary />
                     ) : isLoading ? (
-                        <div className="grid grid-cols-1 gap-5 animate-pulse sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                        <div className="grid grid-cols-1 gap-5 animate-pulse sm:grid-cols-2 xl:grid-cols-3">
                             {[1, 2, 3, 4].map((item) => (
                                 <div key={item} className="h-64 rounded-xl bg-grey/5" />
                             ))}
@@ -359,7 +359,7 @@ function ShelvesPageContent() {
                     ) : books.length > 0 ? (
                         <div className={cn(
                             "grid animate-fade-in",
-                            viewMode === "grid" ? "grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4" : "grid-cols-1 gap-4"
+                            viewMode === "grid" ? "grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3" : "grid-cols-1 gap-4"
                         )}>
                             {books.map((book) => (
                                 <div key={book.id} className="relative group">
@@ -423,6 +423,7 @@ function ShelvesPageContent() {
             <RegisterReadingModal
                 isOpen={isRegisterModalOpen}
                 onClose={() => setIsRegisterModalOpen(false)}
+                onSuccess={fetchData}
                 books={books.map((book) => ({ ...book, coverUrl: book.coverUrl || "" }))}
                 initialBookId={selectedBookId}
                 initialDuration={sessionDuration}

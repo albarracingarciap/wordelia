@@ -43,6 +43,25 @@ export interface CurrentBook {
             createdAt: string;
         }>;
     };
+    resources?: BookResourceAccess[];
+}
+
+export type ResourceKind = "guide" | "genome";
+
+export type ResourceAccessState = "granted" | "admin" | "requires_purchase" | "requires_plan";
+
+export interface BookResourceAccess {
+    kind: ResourceKind;
+    label: string;
+    href: string;
+    access: ResourceAccessState;
+}
+
+export interface ReaderResourceContext {
+    isAdmin: boolean;
+    plan: string | null;
+    canAccessGuides: boolean;
+    canAccessGenomes: boolean;
 }
 
 export interface Note {
@@ -248,6 +267,29 @@ export async function getCurrentBooks(): Promise<CurrentBook[]> {
     return getLibraryBooks({ status: 'READING' });
 }
 
+export async function getReaderResourceContext(): Promise<ReaderResourceContext> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) {
+        return {
+            isAdmin: false,
+            plan: null,
+            canAccessGuides: false,
+            canAccessGenomes: false,
+        };
+    }
+
+    const { isAdmin, plan, hasGuidePlan, hasGenomePlan } = await getAccessContext(supabase, user.id);
+
+    return {
+        isAdmin,
+        plan,
+        canAccessGuides: isAdmin || hasGuidePlan,
+        canAccessGenomes: isAdmin || hasGenomePlan,
+    };
+}
+
 // --- NEW SMART SHELVES ACTIONS ---
 
 type FilterOptions = {
@@ -255,6 +297,56 @@ type FilterOptions = {
     shelfId?: string; // UUID of a specific list
     query?: string;
     sort?: 'recent' | 'title' | 'author';
+};
+
+type Relation<T> = T | T[] | null | undefined;
+
+type LibraryEditionRelation = {
+    id?: string | null;
+    isbn13?: string | null;
+    isbn?: string | null;
+    cover_url?: string | null;
+    page_count?: number | null;
+};
+
+type LibraryAuthorRelation = {
+    name?: string | null;
+};
+
+type LibraryBookRelation = {
+    id?: string | null;
+    title?: string | null;
+    authors?: Relation<LibraryAuthorRelation>;
+    preferred_edition?: Relation<LibraryEditionRelation>;
+};
+
+type LibraryUserBookRow = {
+    book_id: string;
+    edition_id?: string | null;
+    status?: string | null;
+    current_page?: number | null;
+    updated_at?: string | null;
+    created_at?: string | null;
+    user_edition?: Relation<LibraryEditionRelation>;
+    books?: Relation<LibraryBookRelation>;
+};
+
+type ShelfItemRow = {
+    list_id: string;
+};
+
+type ProfileAccessRow = {
+    role?: string | null;
+};
+
+type FounderMembershipAccessRow = {
+    requested_plan?: string | null;
+    status?: string | null;
+};
+
+type ResourceGrantRow = {
+    book_id: string;
+    resource_kind: ResourceKind;
 };
 
 export async function getLibraryBooks(filters: FilterOptions = {}): Promise<CurrentBook[]> {
@@ -267,14 +359,16 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
         .from("user_books")
         .select(`
             book_id,
+            edition_id,
             status,
             current_page,
             updated_at,
             created_at,
+            user_edition:editions!user_books_edition_id_fkey (id, isbn13, isbn, cover_url, page_count),
             books (
                 id,
                 title,
-                preferred_edition:editions!books_preferred_edition_fk (cover_url, page_count),
+                preferred_edition:editions!books_preferred_edition_fk (id, isbn13, isbn, cover_url, page_count),
                 authors (name)
             )
         `)
@@ -324,8 +418,12 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
     }
     if (!userBooks) return [];
 
-    const bookIds = userBooks.map((ub: any) => ub.book_id).filter(Boolean);
+    const userBookRows = userBooks as unknown as LibraryUserBookRow[];
+    const bookIds = userBookRows.map((ub) => ub.book_id).filter(Boolean);
     const emotionSummaries: Record<string, CurrentBook["emotionSummary"]> = {};
+    const resourceAccessByBook = bookIds.length > 0
+        ? await getBookResourceAccessForUser(supabase, user.id, bookIds)
+        : {};
 
     if (bookIds.length > 0) {
         const { data: emotions, error: emotionsError } = await supabase
@@ -376,48 +474,63 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
 
     // Client-side filtering for Search (Title/Author) 
     // Ideally we do this in DB with text search, but for <1000 books client/server filter is fine
-    let filteredResults = userBooks;
+    let filteredResults = userBookRows;
     if (filters.query) {
         const q = filters.query.toLowerCase();
-        filteredResults = userBooks.filter((ub: any) =>
-            ub.books.title.toLowerCase().includes(q) ||
-            (ub.books.authors?.name || "").toLowerCase().includes(q)
-        );
+        filteredResults = userBookRows.filter((ub) => {
+            const book = firstRelation(ub.books);
+            const author = firstRelation(book?.authors);
+            return (
+                (book?.title || "").toLowerCase().includes(q) ||
+                (author?.name || "").toLowerCase().includes(q)
+            );
+        });
     }
 
     // Sorting
     if (filters.sort === 'title') {
-        filteredResults.sort((a: any, b: any) => a.books.title.localeCompare(b.books.title));
+        filteredResults.sort((a, b) => (firstRelation(a.books)?.title || "").localeCompare(firstRelation(b.books)?.title || ""));
     } else if (filters.sort === 'author') {
-        filteredResults.sort((a: any, b: any) => (a.books.authors?.name || "").localeCompare(b.books.authors?.name || ""));
+        filteredResults.sort((a, b) => {
+            const authorA = firstRelation(firstRelation(a.books)?.authors)?.name || "";
+            const authorB = firstRelation(firstRelation(b.books)?.authors)?.name || "";
+            return authorA.localeCompare(authorB);
+        });
     } else {
         // Default: Recent (updated_at)
-        filteredResults.sort((a: any, b: any) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+        filteredResults.sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime());
     }
 
     // Map to CurrentBook
-    const books: CurrentBook[] = await Promise.all(filteredResults.map(async (ub: any) => {
+    const books: CurrentBook[] = await Promise.all(filteredResults.map(async (ub) => {
         // TODO: optimize creating a map of shelves for all books in one go instead of N+1
         const { data: myShelves } = await supabase
             .from("list_items")
             .select("list_id")
             .eq("book_id", ub.book_id);
 
+        const book = firstRelation(ub.books);
+        const author = firstRelation(book?.authors);
+        const preferredEdition = firstRelation(book?.preferred_edition);
+        const userEdition = firstRelation(ub.user_edition);
+        const edition = userEdition || preferredEdition;
+        const pageCount = edition?.page_count ?? null;
+
         return {
             id: ub.book_id,
-            title: ub.books.title,
-            author: ub.books.authors?.name || "Autor Desconocido",
-            coverUrl: ub.books.preferred_edition?.cover_url ?? null,
-            status: ub.status,
+            title: book?.title || "Libro",
+            author: author?.name || "Autor Desconocido",
+            coverUrl: edition?.cover_url ?? null,
+            status: ub.status || undefined,
             progress: {
                 current: ub.current_page || 0, // Now using real data
-                total: ub.books.preferred_edition?.page_count ?? null,
-                label: `${ub.current_page || 0}/${ub.books.preferred_edition?.page_count || '?'}`,
+                total: pageCount,
+                label: `${ub.current_page || 0}/${pageCount || '?'}`,
                 unit: 'PAGES'
             },
             lastSession: ub.updated_at ? new Date(ub.updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : null,
             club: null,
-            shelves: myShelves?.map((s: any) => s.list_id) || [],
+            shelves: (myShelves as ShelfItemRow[] | null)?.map((s) => s.list_id) || [],
             emotionSummary: emotionSummaries[ub.book_id] || {
                 lastEmotion: null,
                 lastIntensity: null,
@@ -425,11 +538,137 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
                 count: 0,
                 dominantEmotion: null,
                 timeline: [],
-            }
+            },
+            resources: resourceAccessByBook[ub.book_id] || [],
         };
     }));
 
     return books;
+}
+
+async function getBookResourceAccessForUser(
+    supabase: Awaited<ReturnType<typeof createClient>>,
+    userId: string,
+    bookIds: string[]
+): Promise<Record<string, BookResourceAccess[]>> {
+    const uniqueBookIds = Array.from(new Set(bookIds.filter(Boolean)));
+    if (uniqueBookIds.length === 0) return {};
+
+    const [accessContext, guidesResult, genomesResult, grantsResult] = await Promise.all([
+        getAccessContext(supabase, userId),
+        (supabase.from("book_guides" as never) as never as {
+            select: (columns: string) => {
+                in: (column: string, values: string[]) => Promise<{
+                    data: Array<{ book_id: string }> | null;
+                    error: { code?: string; message?: string } | null;
+                }>;
+            };
+        })
+            .select("book_id")
+            .in("book_id", uniqueBookIds),
+        (supabase.from("book_literary_chromosomes" as never) as never as {
+            select: (columns: string) => {
+                in: (column: string, values: string[]) => Promise<{
+                    data: Array<{ book_id: string }> | null;
+                    error: { code?: string; message?: string } | null;
+                }>;
+            };
+        })
+            .select("book_id")
+            .in("book_id", uniqueBookIds),
+        (supabase.from("user_book_resource_access" as never) as never as {
+            select: (columns: string) => {
+                eq: (column: string, value: string) => {
+                    in: (column: string, values: string[]) => Promise<{
+                        data: ResourceGrantRow[] | null;
+                        error: { code?: string; message?: string } | null;
+                    }>;
+                };
+            };
+        })
+            .select("book_id, resource_kind")
+            .eq("user_id", userId)
+            .in("book_id", uniqueBookIds),
+    ]);
+
+    if (guidesResult.error && guidesResult.error.code !== "42P01" && guidesResult.error.code !== "PGRST205") {
+        console.error("[Resources] Error fetching discussion guides:", guidesResult.error.message);
+    }
+
+    if (genomesResult.error && genomesResult.error.code !== "42P01" && genomesResult.error.code !== "PGRST205") {
+        console.error("[Resources] Error fetching literary genomes:", genomesResult.error.message);
+    }
+
+    if (grantsResult.error && grantsResult.error.code !== "42P01" && grantsResult.error.code !== "PGRST205") {
+        console.error("[Resources] Error fetching resource grants:", grantsResult.error.message);
+    }
+
+    const { isAdmin, hasGuidePlan, hasGenomePlan } = accessContext;
+    const guideBookIds = new Set((guidesResult.data || []).map((row) => row.book_id));
+    const genomeBookIds = new Set((genomesResult.data || []).map((row) => row.book_id));
+    const grantedResources = new Set((grantsResult.data || []).map((row) => `${row.book_id}:${row.resource_kind}`));
+    const resourcesByBook: Record<string, BookResourceAccess[]> = {};
+
+    for (const bookId of uniqueBookIds) {
+        const resources: BookResourceAccess[] = [];
+        const hasGuideGrant = grantedResources.has(`${bookId}:guide`);
+        const hasGenomeGrant = grantedResources.has(`${bookId}:genome`);
+
+        if (guideBookIds.has(bookId)) {
+            resources.push({
+                kind: "guide",
+                label: "Guia de discusion",
+                href: isAdmin || hasGuideGrant || hasGuidePlan ? `/app/recursos/guias/${bookId}` : `/app/recursos/desbloquear?resource=guide&book=${bookId}`,
+                access: isAdmin ? "admin" : hasGuideGrant || hasGuidePlan ? "granted" : "requires_plan",
+            });
+        }
+
+        if (genomeBookIds.has(bookId)) {
+            resources.push({
+                kind: "genome",
+                label: "Genoma literario",
+                href: isAdmin || hasGenomeGrant || hasGenomePlan ? `/app/recursos/genomas/${bookId}` : `/app/recursos/desbloquear?resource=genome&book=${bookId}`,
+                access: isAdmin ? "admin" : hasGenomeGrant || hasGenomePlan ? "granted" : "requires_plan",
+            });
+        }
+
+        if (resources.length > 0) {
+            resourcesByBook[bookId] = resources;
+        }
+    }
+
+    return resourcesByBook;
+}
+
+async function getAccessContext(
+    supabase: Awaited<ReturnType<typeof createClient>>,
+    userId: string
+): Promise<{ isAdmin: boolean; plan: string | null; hasGuidePlan: boolean; hasGenomePlan: boolean }> {
+    const [profileResult, founderResult] = await Promise.all([
+        supabase
+            .from("profiles")
+            .select("role")
+            .eq("id", userId)
+            .maybeSingle(),
+        supabase
+            .from("founder_memberships")
+            .select("requested_plan, status")
+            .eq("user_id", userId)
+            .eq("status", "active")
+            .maybeSingle(),
+    ]);
+
+    const profile = profileResult.data as ProfileAccessRow | null;
+    const founderMembership = founderResult.data as FounderMembershipAccessRow | null;
+    const isAdmin = profile?.role === "admin" || profile?.role === "editor";
+    const plan = founderMembership?.requested_plan || null;
+
+    return {
+        isAdmin,
+        plan,
+        hasGuidePlan: plan === "ai",
+        hasGenomePlan: plan === "voraz" || plan === "ai",
+    };
 }
 
 export async function getUserShelves(): Promise<Shelf[]> {
@@ -787,7 +1026,17 @@ export async function getRecommendedBook(): Promise<RecommendedBook | null> {
 
     const { data: books } = await supabase
         .from("user_books")
-        .select(`created_at, book_id, books (title, preferred_edition:editions!books_preferred_edition_fk(cover_url), authors (name))`)
+        .select(`
+            created_at,
+            book_id,
+            edition_id,
+            user_edition:editions!user_books_edition_id_fkey(cover_url, isbn13, isbn),
+            books (
+                title,
+                preferred_edition:editions!books_preferred_edition_fk(cover_url, isbn13, isbn),
+                authors (name)
+            )
+        `)
         .eq("user_id", user.id)
         .eq("status", "WANT_TO_READ")
         .limit(10);
@@ -802,12 +1051,16 @@ export async function getRecommendedBook(): Promise<RecommendedBook | null> {
     const edition = Array.isArray(bookData.preferred_edition)
         ? bookData.preferred_edition[0]
         : bookData.preferred_edition;
+    const userEdition = Array.isArray(randomEntry.user_edition)
+        ? randomEntry.user_edition[0]
+        : randomEntry.user_edition;
+    const displayEdition = userEdition || edition;
 
     return {
         id: randomEntry.book_id,
         title: bookData.title,
         author: author?.name || "Autor Desconocido",
-        coverUrl: edition?.cover_url ?? null,
+        coverUrl: displayEdition?.cover_url ?? null,
         addedDate: new Date(randomEntry.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
     };
 }
@@ -895,12 +1148,20 @@ export async function logReadingSession(
     if (!user) return { error: "User not authenticated" };
 
     try {
+        const { data: userBook } = await supabase
+            .from("user_books")
+            .select("current_page, edition_id")
+            .eq("user_id", user.id)
+            .eq("book_id", bookId)
+            .single();
+
         // 1. Insert Session
         const { data: sessionData, error: sessionError } = await supabase
             .from("reading_sessions")
             .insert({
                 user_id: user.id,
                 book_id: bookId,
+                edition_id: userBook?.edition_id || null,
                 start_time: new Date(Date.now() - durationMinutes * 60000).toISOString(), // Estimated start
                 end_time: new Date().toISOString(),
                 duration_seconds: durationMinutes * 60,
@@ -917,22 +1178,14 @@ export async function logReadingSession(
         };
 
         if (pagesRead) {
-            // We need to fetch current page to increment
-            const { data: currentBook } = await supabase
-                .from("user_books")
-                .select("current_page")
-                .eq("user_id", user.id)
-                .eq("book_id", bookId)
-                .single();
-
-            const newPage = (currentBook?.current_page || 0) + pagesRead;
+            const newPage = (userBook?.current_page || 0) + pagesRead;
             updates.current_page = newPage;
         }
 
         if (isFinished) {
             updates.status = "READ";
             if (rating) updates.rating = rating;
-            updates.finished_at = new Date().toISOString();
+            updates.finish_date = new Date().toISOString().split("T")[0];
         }
 
         const { error: updateError } = await supabase
@@ -1227,7 +1480,7 @@ export async function getBookReviews(bookId: string, page = 1, limit = 5): Promi
         .from("reviews")
         .select(`
             *,
-            profiles (full_name, avatar_url, username)
+            profiles!reviews_user_id_fkey (full_name, avatar_url, username)
         `, { count: 'exact' })
         .eq("book_id", bookId)
         .order("created_at", { ascending: false })
@@ -1387,7 +1640,7 @@ export async function getBookReviewOverview(bookId: string): Promise<BookReviewO
             recommended_for,
             tags,
             created_at,
-            profiles (full_name, avatar_url, username)
+            profiles!reviews_user_id_fkey (full_name, avatar_url, username)
         `)
         .eq("book_id", bookId)
         .order("created_at", { ascending: false })
@@ -1452,7 +1705,7 @@ export async function getRecentCommunityReviews(limit = 6): Promise<ReviewWithBo
             recommended_for,
             tags,
             created_at,
-            profiles (full_name, avatar_url, username),
+            profiles!reviews_user_id_fkey (full_name, avatar_url, username),
             books (
                 id,
                 title,
@@ -1527,7 +1780,7 @@ export async function getHelpfulCommunityReviews(limit = 4): Promise<ReviewWithB
             recommended_for,
             tags,
             created_at,
-            profiles (full_name, avatar_url, username),
+            profiles!reviews_user_id_fkey (full_name, avatar_url, username),
             books (
                 id,
                 title,

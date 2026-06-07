@@ -5,12 +5,13 @@ import { ReadingForm, ReadingFormBook } from "@/components/registration/ReadingF
 export interface RegisterReadingModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onSuccess?: () => void | Promise<void>;
     initialDuration?: number;
     books: ReadingFormBook[];
     initialBookId?: string; // To pre-select
 }
 
-export function RegisterReadingModal({ isOpen, onClose, initialDuration, books, initialBookId }: RegisterReadingModalProps) {
+export function RegisterReadingModal({ isOpen, onClose, onSuccess, initialDuration, books, initialBookId }: RegisterReadingModalProps) {
     return (
         <Modal
             isOpen={isOpen}
@@ -22,9 +23,9 @@ export function RegisterReadingModal({ isOpen, onClose, initialDuration, books, 
                 books={books}
                 initialBookId={initialBookId} // Pass it down
                 onCancel={onClose}
-                onSuccess={() => {
-                    // Show success toast?
+                onSuccess={async () => {
                     onClose();
+                    await onSuccess?.();
                 }}
                 isModal
                 initialDuration={initialDuration}

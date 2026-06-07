@@ -89,14 +89,16 @@ function AddBookContent() {
         coverUrl: "",
     });
 
-    const handleSearch = React.useCallback(async () => {
+    const lastSearchRef = React.useRef<string | null>(null);
+
+    const handleSearch = React.useCallback(async (query: string) => {
         setIsSearching(true);
         setShowManualForm(false);
         setActionError("");
         setStatusMessage("");
 
         try {
-            const data = await searchBooksAction(searchQuery);
+            const data = await searchBooksAction(query);
             setResults(data);
         } catch (error) {
             console.error("Search failed:", error);
@@ -105,29 +107,41 @@ function AddBookContent() {
         } finally {
             setIsSearching(false);
         }
-    }, [searchQuery]);
+    }, []);
 
     React.useEffect(() => {
         const timeoutId = window.setTimeout(() => {
-            const params = new URLSearchParams(searchParams.toString());
+            const trimmedQuery = searchQuery.trim();
+            const params = new URLSearchParams(window.location.search);
+            const currentUrlQuery = params.get("q") || "";
 
-            if (searchQuery.length > 2) {
-                params.set("q", searchQuery);
-                router.replace(`${pathname}?${params.toString()}`);
-                void handleSearch();
+            if (trimmedQuery.length > 2) {
+                if (currentUrlQuery !== trimmedQuery) {
+                    params.set("q", trimmedQuery);
+                    const nextSearch = params.toString();
+                    router.replace(nextSearch ? `${pathname}?${nextSearch}` : pathname, { scroll: false });
+                }
+
+                if (lastSearchRef.current !== trimmedQuery) {
+                    lastSearchRef.current = trimmedQuery;
+                    void handleSearch(trimmedQuery);
+                }
                 return;
             }
 
-            if (searchQuery.length === 0) {
+            lastSearchRef.current = null;
+
+            if (currentUrlQuery) {
                 params.delete("q");
-                router.replace(`${pathname}?${params.toString()}`);
+                const nextSearch = params.toString();
+                router.replace(nextSearch ? `${pathname}?${nextSearch}` : pathname, { scroll: false });
             }
 
             setResults([]);
         }, 600);
 
         return () => window.clearTimeout(timeoutId);
-    }, [handleSearch, pathname, router, searchParams, searchQuery]);
+    }, [handleSearch, pathname, router, searchQuery]);
 
     const handleAddBook = async (book: BookSearchResult, status: "READING" | "READ" | "WANT_TO_READ") => {
         if (isAdding) return;

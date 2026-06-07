@@ -2,7 +2,14 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "./Button";
 import { Badge } from "./Badge";
-import { HeartPulse, Trash2 } from "lucide-react";
+import { BookOpenText, Dna, HeartPulse, Lock, ShieldCheck, Trash2 } from "lucide-react";
+
+export type BookResourceAccess = {
+    kind: "guide" | "genome";
+    label: string;
+    href: string;
+    access: "granted" | "admin" | "requires_purchase" | "requires_plan";
+};
 
 export interface BookCardProps {
     title: string;
@@ -46,6 +53,7 @@ export interface BookCardProps {
     onReviewClick?: () => void;
     reviewLabel?: string;
     status?: string;
+    resources?: BookResourceAccess[];
 }
 
 const emotionLabels: Record<string, string> = {
@@ -72,7 +80,21 @@ const emotionColors: Record<string, string> = {
     esperanza: "bg-emerald-400",
 };
 
-export function BookCard({ title, author, coverUrl, progress, lastSession, club, emotionSummary, compact, onRegisterClick, actionLabel, onActionClick, tag, onDelete, onNotesClick, onEmotionClick, onEmotionToNoteClick, onReviewClick, reviewLabel, status }: BookCardProps) {
+function getResourceMeta(resource: BookResourceAccess) {
+    const unlocked = resource.access === "granted" || resource.access === "admin";
+    const Icon = resource.kind === "guide" ? BookOpenText : Dna;
+    const statusLabel = resource.access === "admin"
+        ? "Admin"
+        : unlocked
+            ? "Abrir"
+            : resource.access === "requires_purchase"
+                ? "Comprar"
+                : "Plan";
+
+    return { Icon, statusLabel, unlocked };
+}
+
+export function BookCard({ title, author, coverUrl, progress, lastSession, club, emotionSummary, compact, onRegisterClick, actionLabel, onActionClick, tag, onDelete, onNotesClick, onEmotionClick, onEmotionToNoteClick, onReviewClick, reviewLabel, status, resources }: BookCardProps) {
     // Calculate percentage for progress bar
     const percentage = progress
         ? progress.unit === "PERCENT"
@@ -96,11 +118,11 @@ export function BookCard({ title, author, coverUrl, progress, lastSession, club,
 
             {/* Content */}
             <div className="flex-1 flex flex-col min-w-0">
-                <div className="mb-1">
-                    <h3 className={`font-serif text-teal leading-tight truncate ${compact ? "text-base font-semibold" : "text-xl font-bold"}`}>
+                <div className="mb-1 min-w-0">
+                    <h3 className={`font-serif text-teal leading-tight ${compact ? "line-clamp-2 text-base font-semibold" : "truncate text-xl font-bold"}`}>
                         {title}
                     </h3>
-                    <p className="text-coral text-sm font-medium truncate">{author}</p>
+                    <p className="line-clamp-1 text-sm font-medium text-coral">{author}</p>
                 </div>
 
                 {/* Progress Section */}
@@ -154,6 +176,36 @@ export function BookCard({ title, author, coverUrl, progress, lastSession, club,
                                 Convertir en nota
                             </button>
                         )}
+                    </div>
+                )}
+
+                {resources && resources.length > 0 && !compact && (
+                    <div className="mb-4 flex flex-wrap gap-2">
+                        {resources.map((resource) => {
+                            const { Icon, statusLabel, unlocked } = getResourceMeta(resource);
+                            return (
+                                <Link
+                                    key={`${resource.kind}-${resource.href}`}
+                                    href={resource.href}
+                                    className={`inline-flex min-h-8 items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-bold transition-colors ${
+                                        unlocked
+                                            ? "border-teal/15 bg-teal/5 text-teal-dark hover:border-teal/30 hover:bg-teal/10"
+                                            : "border-grey/15 bg-grey/5 text-grey hover:border-coral/25 hover:text-coral"
+                                    }`}
+                                >
+                                    <Icon className="h-3.5 w-3.5 shrink-0" />
+                                    <span>{resource.label}</span>
+                                    <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-wide opacity-70">
+                                        {resource.access === "admin" ? (
+                                            <ShieldCheck className="h-3 w-3" />
+                                        ) : unlocked ? null : (
+                                            <Lock className="h-3 w-3" />
+                                        )}
+                                        {statusLabel}
+                                    </span>
+                                </Link>
+                            );
+                        })}
                     </div>
                 )}
 

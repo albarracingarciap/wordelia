@@ -41,9 +41,12 @@ function InlineMarkdown({ text }: { text: string }) {
     );
 }
 
-function TextBlock({ text, className = "" }: { text: string; className?: string }) {
-    const quote = text.trim().startsWith(">");
-    const cleanText = quote ? text.trim().replace(/^>\s?/, "") : text;
+function TextBlock({ text, className = "" }: { text?: string | null; className?: string }) {
+    const safeText = typeof text === "string" ? text : "";
+    if (!safeText.trim()) return null;
+
+    const quote = safeText.trim().startsWith(">");
+    const cleanText = quote ? safeText.trim().replace(/^>\s?/, "") : safeText;
 
     if (quote) {
         return (
@@ -128,8 +131,8 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                                     <h3 className="text-xl font-semibold text-teal">Antes de empezar</h3>
                                 </div>
                                 <ul className="space-y-3">
-                                    {guide.como_usar_guia.antes_de_empezar.temas_sensibles.map((tema) => (
-                                        <li key={tema} className="border-b border-teal/10 pb-3 text-sm text-grey last:border-0 last:pb-0">
+                                    {guide.como_usar_guia.antes_de_empezar.temas_sensibles.map((tema, index) => (
+                                        <li key={`tema-${index}-${tema || "vacio"}`} className="border-b border-teal/10 pb-3 text-sm text-grey last:border-0 last:pb-0">
                                             {tema}
                                         </li>
                                     ))}
@@ -143,8 +146,8 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                                     <span className="hidden sm:block">Tiempo</span>
                                     <span>Dinámica</span>
                                 </div>
-                                {guide.como_usar_guia.ficha_rapida_sesion.map((item) => (
-                                    <div key={item.momento} className="grid grid-cols-[96px_1fr] gap-4 border-b border-teal/10 px-4 py-4 last:border-0 sm:grid-cols-[130px_90px_1fr]">
+                                {guide.como_usar_guia.ficha_rapida_sesion.map((item, index) => (
+                                    <div key={`sesion-${index}-${item.momento || "momento"}`} className="grid grid-cols-[96px_1fr] gap-4 border-b border-teal/10 px-4 py-4 last:border-0 sm:grid-cols-[130px_90px_1fr]">
                                         <div>
                                             <p className="font-semibold text-teal-dark">{item.momento}</p>
                                             <p className="mt-1 text-xs text-coral sm:hidden">{item.duracion}</p>
@@ -166,8 +169,8 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                             <GuideCard>
                                 <h3 className="mb-4 text-xl font-semibold text-teal">Resumen analítico</h3>
                                 <div className="space-y-4">
-                                    {guide.obra_y_contexto.resumen_analitico.map((paragraph) => (
-                                        <TextBlock key={paragraph} text={paragraph} />
+                                    {guide.obra_y_contexto.resumen_analitico.map((paragraph, index) => (
+                                        <TextBlock key={`resumen-${index}-${paragraph || "vacio"}`} text={paragraph} />
                                     ))}
                                 </div>
                             </GuideCard>
@@ -176,8 +179,8 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                                 <TextBlock text={guide.obra_y_contexto.clave_de_lectura} />
                             </GuideCard>
                             <div className="grid gap-4 md:grid-cols-2">
-                                {guide.obra_y_contexto.contexto_creacion_ecos_historicos.map((item) => (
-                                    <GuideCard key={item}>
+                                {guide.obra_y_contexto.contexto_creacion_ecos_historicos.map((item, index) => (
+                                    <GuideCard key={`contexto-${index}-${item || "vacio"}`}>
                                         <TextBlock text={item} />
                                     </GuideCard>
                                 ))}
@@ -188,8 +191,8 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                     <TabsContent value="rutas">
                         <SectionTitle eyebrow="Mapa de discusión" title="Cinco rutas para profundizar" />
                         <div className="grid gap-4">
-                            {guide.mapa_discusion_rutas.map((ruta) => (
-                                <GuideCard key={ruta.eje_numero}>
+                            {guide.mapa_discusion_rutas.map((ruta, index) => (
+                                <GuideCard key={`ruta-${index}-${ruta.eje_numero || ruta.titulo || "eje"}`}>
                                     <div className="flex flex-col gap-4 md:flex-row">
                                         <div className="flex h-12 w-12 shrink-0 items-center justify-center bg-teal text-lg font-bold text-white">
                                             {ruta.eje_numero}
@@ -198,8 +201,8 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                                             <h3 className="text-2xl font-semibold leading-tight text-teal">{ruta.titulo}</h3>
                                             <TextBlock text={ruta.linea_conceptual} className="mt-2" />
                                             <div className="mt-4 grid gap-3 md:grid-cols-2">
-                                                {ruta.preguntas_analiticas.map((pregunta) => (
-                                                    <div key={pregunta} className="border-l-2 border-coral bg-offwhite px-4 py-3 text-sm leading-relaxed text-grey">
+                                                {ruta.preguntas_analiticas.map((pregunta, questionIndex) => (
+                                                    <div key={`ruta-${index}-pregunta-${questionIndex}-${pregunta || "vacia"}`} className="border-l-2 border-coral bg-offwhite px-4 py-3 text-sm leading-relaxed text-grey">
                                                         {pregunta}
                                                     </div>
                                                 ))}
@@ -221,8 +224,8 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                                         <h3 className="text-xl font-semibold text-teal">{block.titulo_bloque}</h3>
                                     </div>
                                     <div className="space-y-3">
-                                        {block.preguntas.map((pregunta) => (
-                                            <p key={pregunta} className="border-b border-teal/10 pb-3 text-sm leading-relaxed text-grey last:border-0 last:pb-0">
+                                    {block.preguntas.map((pregunta, index) => (
+                                            <p key={`${key}-pregunta-${index}-${pregunta || "vacia"}`} className="border-b border-teal/10 pb-3 text-sm leading-relaxed text-grey last:border-0 last:pb-0">
                                                 {pregunta}
                                             </p>
                                         ))}
@@ -235,8 +238,8 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                     <TabsContent value="personajes">
                         <SectionTitle eyebrow="Tarjetas de personajes" title="Perfiles para discutir motivaciones" />
                         <div className="grid gap-4 md:grid-cols-2">
-                            {guide.personajes_tarjetas.map((personaje) => (
-                                <GuideCard key={personaje.nombre}>
+                            {guide.personajes_tarjetas.map((personaje, index) => (
+                                <GuideCard key={`personaje-${index}-${personaje.nombre || "sin-nombre"}`}>
                                     <h3 className="text-2xl font-semibold text-teal">{personaje.nombre}</h3>
                                     <TextBlock text={personaje.analisis} className="mt-3" />
                                     <div className="mt-5 bg-teal/5 p-4">
@@ -251,8 +254,8 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                     <TabsContent value="simbolos">
                         <SectionTitle eyebrow="Símbolos y motivos" title="Lecturas posibles para sostener el análisis" />
                         <div className="grid gap-4 md:grid-cols-2">
-                            {guide.simbolos_y_motivos.map((simbolo) => (
-                                <GuideCard key={simbolo.simbolo}>
+                            {guide.simbolos_y_motivos.map((simbolo, index) => (
+                                <GuideCard key={`simbolo-${index}-${simbolo.simbolo || "sin-simbolo"}`}>
                                     <p className="text-xs font-bold uppercase tracking-[0.14em] text-coral">Símbolo</p>
                                     <h3 className="mt-2 text-2xl font-semibold text-teal">{simbolo.simbolo}</h3>
                                     <TextBlock text={simbolo.lectura_posible} className="mt-3" />
@@ -268,8 +271,8 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                             <TextBlock text={guide.estructura_y_final.arquitectura_narrativa} />
                         </GuideCard>
                         <div className="grid gap-4 lg:grid-cols-3">
-                            {guide.estructura_y_final.tres_lecturas_final.map((lectura) => (
-                                <GuideCard key={lectura.enfoque}>
+                            {guide.estructura_y_final.tres_lecturas_final.map((lectura, index) => (
+                                <GuideCard key={`lectura-final-${index}-${lectura.enfoque || "sin-enfoque"}`}>
                                     <h3 className="text-xl font-semibold leading-tight text-teal">{lectura.enfoque}</h3>
                                     <TextBlock text={lectura.explicacion} className="mt-3" />
                                 </GuideCard>
@@ -286,7 +289,7 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                         <SectionTitle eyebrow="Conexiones actuales" title="Por que sigue incomodando hoy" />
                         <div className="grid gap-4">
                             {guide.conexiones_mundo_actual.map((conexion, index) => (
-                                <GuideCard key={conexion}>
+                                <GuideCard key={`conexion-${index}-${conexion || "vacia"}`}>
                                     <div className="flex gap-4">
                                         <span className="flex h-9 w-9 shrink-0 items-center justify-center bg-coral text-sm font-bold text-white">
                                             {index + 1}
@@ -301,8 +304,8 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                     <TabsContent value="actividades">
                         <SectionTitle eyebrow="Dinamizacion" title="Actividades para activar al club" />
                         <div className="grid gap-5 md:grid-cols-2">
-                            {guide.actividades_dinamizar.map((actividad) => (
-                                <GuideCard key={actividad.nombre_actividad}>
+                            {guide.actividades_dinamizar.map((actividad, index) => (
+                                <GuideCard key={`actividad-${index}-${actividad.nombre_actividad || "sin-nombre"}`}>
                                     <Sparkles className="mb-4 h-6 w-6 text-coral" aria-hidden="true" />
                                     <h3 className="text-2xl font-semibold text-teal">{actividad.nombre_actividad}</h3>
                                     <TextBlock text={actividad.descripcion_detallada} className="mt-3" />
@@ -314,8 +317,8 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                     <TabsContent value="moderador">
                         <SectionTitle eyebrow="Notas del moderador" title="Salvavidas para reconducir la sesion" />
                         <div className="space-y-4">
-                            {guide.notas_moderador_salvavidas.map((nota) => (
-                                <GuideCard key={nota.situacion}>
+                            {guide.notas_moderador_salvavidas.map((nota, index) => (
+                                <GuideCard key={`nota-${index}-${nota.situacion || "sin-situacion"}`}>
                                     <p className="text-sm font-bold uppercase tracking-[0.12em] text-coral">{nota.situacion}</p>
                                     <p className="mt-3 text-lg leading-relaxed text-teal-dark">{nota.intervencion_sugerida}</p>
                                 </GuideCard>
