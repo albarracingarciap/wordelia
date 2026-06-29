@@ -1,30 +1,32 @@
+import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowLeft, ArrowRight, Dna, Sparkles } from "lucide-react";
-import { Footer } from "@/components/landing/Footer";
+import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
 import { Navbar } from "@/components/landing/Navbar";
+import { Footer } from "@/components/landing/Footer";
+import { discussionGuides } from "@/lib/guides";
 import { createClient } from "@/utils/supabase/server";
+import { GuidesCatalogTable, type CatalogGuide } from "../guias/GuidesCatalogTable";
 
 export const metadata: Metadata = {
     title: "Genomas literarios | Wordelia",
-    description: "Catálogo de obras con análisis literario premium en Wordelia.",
+    description:
+        "Genoma literario Wordelia: estructura, estilo, emociones, temas y contexto de cada obra en ocho cromosomas.",
 };
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-const PAGE_SIZE = 10;
-
-type ChromosomeRow = {
+type BookGuideRow = {
     book_id: string;
 };
 
 type BookRow = {
     id: string;
     title: string;
-    first_publication_year: number | null;
-    genre: string | null;
     author: string | null;
+    genre: string | null;
+    first_publication_year: number | null;
 };
 
 type SupabaseTableClient = {
@@ -33,7 +35,7 @@ type SupabaseTableClient = {
             order: (
                 column: string,
                 options: { ascending: boolean }
-            ) => Promise<{ data: ChromosomeRow[] | null; error: { message: string } | null }>;
+            ) => Promise<{ data: BookGuideRow[] | BookRow[] | null; error: { message: string } | null }>;
             in: (
                 column: string,
                 values: string[]
@@ -47,20 +49,20 @@ type SupabaseTableClient = {
     };
 };
 
-async function getGenomeBooks(): Promise<BookRow[]> {
+async function getCatalogBooks(): Promise<CatalogGuide[]> {
     const supabase = (await createClient()) as unknown as SupabaseTableClient;
 
-    const { data: chromosomeRows, error: chromosomeError } = await supabase
-        .from("book_literary_chromosomes")
+    const { data: guideRows, error: guideError } = await supabase
+        .from("book_guides")
         .select("book_id")
         .order("book_id", { ascending: true });
 
-    if (chromosomeError) {
-        console.error("[Genomas] Error fetching literary chromosomes:", chromosomeError.message);
+    if (guideError) {
+        console.error("[Genomas] Error fetching book guides:", guideError.message);
         return [];
     }
 
-    const bookIds = Array.from(new Set((chromosomeRows || []).map((row) => row.book_id)));
+    const bookIds = Array.from(new Set(((guideRows || []) as BookGuideRow[]).map((row) => row.book_id)));
 
     if (bookIds.length === 0) {
         return [];
@@ -68,29 +70,27 @@ async function getGenomeBooks(): Promise<BookRow[]> {
 
     const { data: books, error: booksError } = await supabase
         .from("books")
-        .select("id, title, author, first_publication_year, genre")
+        .select("id, title, author, genre, first_publication_year")
         .in("id", bookIds)
         .order("title", { ascending: true });
 
     if (booksError) {
-        console.error("[Genomas] Error fetching books:", booksError.message);
+        console.error("[Genomas] Error fetching books for genomes:", booksError.message);
         return [];
     }
 
-    return books || [];
+    return (books || []).map((book) => ({
+        id: book.id,
+        title: book.title,
+        author: book.author,
+        genre: book.genre,
+        firstPublicationYear: book.first_publication_year,
+    }));
 }
 
-type GenomasPageProps = {
-    searchParams: Promise<{ page?: string }>;
-};
-
-export default async function GenomasPage({ searchParams }: GenomasPageProps) {
-    const { page } = await searchParams;
-    const books = await getGenomeBooks();
-    const totalPages = Math.max(1, Math.ceil(books.length / PAGE_SIZE));
-    const parsedPage = Number.parseInt(page || "1", 10);
-    const currentPage = Number.isFinite(parsedPage) ? Math.min(Math.max(parsedPage, 1), totalPages) : 1;
-    const visibleBooks = books.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+export default async function GenomasPage() {
+    const freeGenome = discussionGuides.find((guide) => guide.isFree) || discussionGuides[0];
+    const catalogBooks = await getCatalogBooks();
 
     return (
         <main className="min-h-screen bg-cream">
@@ -99,140 +99,88 @@ export default async function GenomasPage({ searchParams }: GenomasPageProps) {
             <div className="mx-auto max-w-6xl px-6 pb-16 pt-28 md:px-8 md:pt-32">
                 <Link
                     href="/"
-                    className="mb-6 inline-flex items-center gap-2 text-sm font-semibold text-teal transition-colors hover:text-coral"
+                    className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-teal transition-colors hover:text-coral"
                 >
                     <ArrowLeft className="h-4 w-4" aria-hidden="true" />
                     Volver
                 </Link>
 
-                <section className="mb-10 overflow-hidden rounded-3xl border border-teal/10 bg-white p-7 shadow-sm md:p-10">
-                    <div className="grid gap-6 md:grid-cols-[1fr_auto] md:items-end">
-                        <div>
-                            <p className="inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.22em] text-coral">
-                                <Dna className="h-4 w-4" aria-hidden="true" />
-                                Genoma literario
-                            </p>
-                            <h1 className="mt-4 max-w-4xl text-4xl leading-tight text-teal md:text-6xl">
-                                Obras con análisis literario premium
-                            </h1>
-                            <p className="mt-5 max-w-2xl text-base leading-relaxed text-grey md:text-lg">
-                                Catálogo de libros que ya tienen asociado análisis de genoma literario en Wordelia.
-                            </p>
+                <section className="mb-12 text-center">
+                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">Genomas Wordelia</p>
+                    <h1 className="mx-auto mt-4 max-w-4xl text-4xl leading-tight text-teal md:text-6xl">
+                        El genoma literario que revela cada obra por dentro
+                    </h1>
+                    <p className="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-grey">
+                        Estructura, estilo, emociones, temas, personajes, ritmo, lenguaje y contexto cultural: ocho
+                        cromosomas que muestran el ADN de cada libro.
+                    </p>
+                </section>
+
+                <section className="mb-14 overflow-hidden rounded-3xl border border-teal/10 bg-offwhite shadow-sm">
+                    <div className="grid gap-0 lg:grid-cols-[300px_1fr]">
+                        <div className="bg-[#D8E2DC] p-8">
+                            <div className="relative mx-auto aspect-[2/3] w-48 overflow-hidden rounded-2xl shadow-xl lg:w-full">
+                                <Image
+                                    src={freeGenome.cover}
+                                    alt={`Portada de ${freeGenome.bookTitle}`}
+                                    fill
+                                    className="object-cover"
+                                    priority
+                                    sizes="(min-width: 1024px) 260px, 192px"
+                                />
+                            </div>
                         </div>
-                        <Link
-                            href="/demo-adn"
-                            className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-coral px-6 font-semibold text-white transition-colors hover:bg-[#C25852]"
-                        >
-                            Ver muestra gratuita
-                            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                        </Link>
+                        <div className="flex flex-col justify-between gap-7 p-7 md:p-10">
+                            <div className="space-y-5">
+                                <span className="inline-flex items-center gap-2 rounded-full bg-coral/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-coral">
+                                    <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                                    Muestra gratuita
+                                </span>
+                                <div>
+                                    <h2 className="text-3xl leading-tight text-teal md:text-5xl">{freeGenome.bookTitle}</h2>
+                                    <p className="mt-2 text-grey">{freeGenome.author}</p>
+                                </div>
+                                <p className="max-w-3xl text-base leading-relaxed text-grey md:text-lg">
+                                    Explora el genoma literario de {freeGenome.bookTitle}: estructura narrativa, estilo,
+                                    perfil emocional, temas, personajes, ritmo, lenguaje y contexto cultural, analizados
+                                    en ocho cromosomas.
+                                </p>
+                                <div className="grid gap-3 sm:grid-cols-3">
+                                    {[
+                                        "8 cromosomas",
+                                        "Perfil emocional y temas",
+                                        "Ritmo, estilo y contexto",
+                                    ].map((item) => (
+                                        <div key={item} className="rounded-2xl bg-white p-4 text-center">
+                                            <CheckCircle2 className="mx-auto mb-2 h-5 w-5 text-teal" aria-hidden="true" />
+                                            <p className="text-sm font-semibold text-teal-dark">{item}</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex flex-col gap-3 sm:flex-row">
+                                <Link
+                                    href="/demo-adn"
+                                    className="inline-flex h-12 items-center justify-center gap-2 whitespace-nowrap rounded-2xl bg-coral px-6 font-semibold text-white transition-colors hover:bg-[#C25852]"
+                                >
+                                    Ver muestra gratuita
+                                    <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                                </Link>
+                            </div>
+                        </div>
                     </div>
                 </section>
 
-                {books.length > 0 ? (
-                    <section className="overflow-hidden rounded-3xl border border-teal/10 bg-white shadow-sm">
-                        <div className="flex flex-col gap-2 border-b border-teal/10 bg-offwhite px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                            <div>
-                                <h2 className="text-2xl font-semibold text-teal">Catálogo de genomas</h2>
-                                <p className="mt-1 text-sm text-grey">
-                                    {books.length} obra{books.length === 1 ? "" : "s"} disponible{books.length === 1 ? "" : "s"}
-                                </p>
-                            </div>
-                            <p className="text-sm font-semibold text-teal">
-                                Página {currentPage} de {totalPages}
-                            </p>
-                        </div>
-
-                        <div className="overflow-x-auto">
-                            <table className="w-full min-w-[720px] border-collapse text-left">
-                                <thead>
-                                    <tr className="border-b border-teal/10 text-xs font-bold uppercase tracking-[0.14em] text-coral">
-                                        <th className="px-5 py-4">Libro</th>
-                                        <th className="px-5 py-4">Autor</th>
-                                        <th className="px-5 py-4">Año</th>
-                                        <th className="px-5 py-4">Género</th>
-                                        <th className="px-5 py-4">Estado</th>
-                                    </tr>
-                                </thead>
-                                <tbody className="divide-y divide-teal/10">
-                                    {visibleBooks.map((book) => (
-                                        <tr key={book.id} className="transition-colors hover:bg-cream/60">
-                                            <td className="px-5 py-4">
-                                                <div className="flex items-center gap-3">
-                                                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal/10 text-teal">
-                                                        <Dna className="h-4 w-4" aria-hidden="true" />
-                                                    </span>
-                                                    <span className="font-semibold text-teal-dark">{book.title}</span>
-                                                </div>
-                                            </td>
-                                            <td className="px-5 py-4 text-sm text-grey">{book.author || "Autor desconocido"}</td>
-                                            <td className="px-5 py-4 text-sm text-grey">{book.first_publication_year || "N/D"}</td>
-                                            <td className="px-5 py-4">
-                                                {book.genre ? (
-                                                    <span className="rounded-full bg-coral/10 px-3 py-1 text-xs font-bold text-coral">{book.genre}</span>
-                                                ) : (
-                                                    <span className="text-sm text-grey">N/D</span>
-                                                )}
-                                            </td>
-                                            <td className="px-5 py-4">
-                                                <span className="rounded-full bg-teal/10 px-3 py-1 text-xs font-bold text-teal">
-                                                    Disponible
-                                                </span>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-
-                        {totalPages > 1 && (
-                            <div className="flex flex-col gap-3 border-t border-teal/10 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                                <p className="text-sm text-grey">
-                                    Mostrando {(currentPage - 1) * PAGE_SIZE + 1}-{Math.min(currentPage * PAGE_SIZE, books.length)} de {books.length}
-                                </p>
-                                <div className="flex gap-2">
-                                    <Link
-                                        href={`/genomas?page=${Math.max(1, currentPage - 1)}`}
-                                        aria-disabled={currentPage === 1}
-                                        className={`inline-flex h-10 items-center justify-center rounded-xl border px-4 text-sm font-semibold transition-colors ${
-                                            currentPage === 1
-                                                ? "pointer-events-none border-teal/10 text-grey/40"
-                                                : "border-teal/20 text-teal hover:bg-teal hover:text-white"
-                                        }`}
-                                    >
-                                        Anterior
-                                    </Link>
-                                    <Link
-                                        href={`/genomas?page=${Math.min(totalPages, currentPage + 1)}`}
-                                        aria-disabled={currentPage === totalPages}
-                                        className={`inline-flex h-10 items-center justify-center rounded-xl border px-4 text-sm font-semibold transition-colors ${
-                                            currentPage === totalPages
-                                                ? "pointer-events-none border-teal/10 text-grey/40"
-                                                : "border-teal/20 text-teal hover:bg-teal hover:text-white"
-                                        }`}
-                                    >
-                                        Siguiente
-                                    </Link>
-                                </div>
-                            </div>
-                        )}
-                    </section>
-                ) : (
-                    <section className="rounded-3xl border border-teal/10 bg-offwhite p-10 text-center shadow-sm">
-                        <Sparkles className="mx-auto mb-4 h-10 w-10 text-coral" aria-hidden="true" />
-                        <h2 className="text-3xl text-teal">Aún no hay genomas publicados</h2>
-                        <p className="mx-auto mt-3 max-w-2xl text-base leading-relaxed text-grey">
-                            Cuando un libro exista en `book_literary_chromosomes`, aparecerá aquí automáticamente.
-                        </p>
-                        <Link
-                            href="/demo-adn"
-                            className="mt-6 inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-coral px-6 font-semibold text-white transition-colors hover:bg-[#C25852]"
-                        >
-                            Ver muestra gratuita
-                            <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                        </Link>
-                    </section>
-                )}
+                <GuidesCatalogTable
+                    guides={catalogBooks}
+                    title="Genomas individuales"
+                    subtitle="Selecciona varios genomas para preparar un pack personalizado."
+                    iconName="dna"
+                    price={6.99}
+                    originalPrice={9.99}
+                    emptyLabel="Aún no hay genomas individuales disponibles."
+                />
             </div>
 
             <Footer />

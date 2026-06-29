@@ -812,7 +812,7 @@ function ThematicCompositionTab({ chromosome }: { chromosome: ThematicCompositio
                     <div className="grid gap-5 md:grid-cols-[0.75fr_1.25fr] md:items-center">
                         <div>
                             <p className="text-xs font-bold uppercase tracking-[0.18em] text-cream">Crítica social y política</p>
-                            <h3 className="mt-2 text-3xl font-semibold !text-white">{normalizeLabel(analisis.critica_social_politica.estilo)}</h3>
+                            <h3 className="mt-2 text-3xl font-semibold !text-white">{normalizeLabel(analisis.critica_social_politica.estilo ?? "")}</h3>
                             <p className="mt-3 text-sm text-white/80">Intensidad {analisis.critica_social_politica.intensidad}/10</p>
                         </div>
                         <div>

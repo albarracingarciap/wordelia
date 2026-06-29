@@ -5,7 +5,7 @@ import { GuidesSection } from "@/components/landing/GuidesSection";
 import {
   HomeAdnSection,
   HomeBetaSection,
-  HomeExploreSection,
+  HomeReaderSection,
   HomeWishlistSection,
 } from "@/components/landing/HomeSections";
 import { Footer } from "@/components/landing/Footer";
@@ -44,7 +44,7 @@ export default async function Home() {
     <main className="min-h-screen bg-cream selection:bg-teal selection:text-white overflow-x-hidden">
       <Navbar mode="public" />
       <Hero founderCount={founderCount} />
-      <HomeExploreSection />
+      <HomeReaderSection />
       <ClubsGrid initialClubs={officialClubs} />
       <GuidesSection />
       <HomeAdnSection />

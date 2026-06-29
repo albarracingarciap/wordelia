@@ -5,7 +5,7 @@ import Image from "next/image";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
-import { Calendar, Users, Sparkles, BookOpen, MessageCircle } from "lucide-react";
+import { Calendar, Users, Sparkles, MessageCircle } from "lucide-react";
 
 interface FeaturedClubProps {
     club: OfficialClub;
@@ -114,17 +114,6 @@ export function FeaturedClub({ club, onViewDetails }: FeaturedClubProps) {
                         </div>
 
                         <div className="flex flex-col gap-3 sm:flex-row">
-                            <a
-                                href="/guides/guia_el_cuento_de_la_criada.pdf"
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="w-full sm:w-auto"
-                            >
-                                <Button className="flex w-full items-center justify-center gap-2 bg-teal font-semibold text-white shadow-md transition-all hover:bg-teal-dark hover:shadow-lg">
-                                    <BookOpen className="h-4 w-4" />
-                                    Ver Guía Gratuita
-                                </Button>
-                            </a>
                             <Button
                                 onClick={onViewDetails}
                                 className="bg-coral font-semibold text-white shadow-md transition-all hover:bg-coral/90 hover:shadow-lg"

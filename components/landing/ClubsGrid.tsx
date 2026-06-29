@@ -269,7 +269,7 @@ export function ClubsGrid({ initialClubs }: ClubsGridProps) {
                                             {featuredClub.status}
                                         </span>
                                         <span className="rounded-full bg-coral/10 px-3 py-1.5 text-coral">
-                                            Valor {featuredClub.priceLabel}
+                                            Precio {featuredClub.priceLabel}
                                         </span>
                                         <span className="rounded-full bg-teal/10 px-3 py-1.5 text-teal">
                                             Gratis para fundadores
@@ -313,10 +313,15 @@ export function ClubsGrid({ initialClubs }: ClubsGridProps) {
                                                 <h4 className="line-clamp-1 font-semibold text-teal-dark">{club.title}</h4>
                                             </div>
                                             <p className="line-clamp-1 text-sm text-grey">{club.book}</p>
-                                            <p className="mt-2 inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-teal">
-                                                <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
-                                                {club.status}
-                                            </p>
+                                            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                                                <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-teal">
+                                                    <CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />
+                                                    {club.status}
+                                                </span>
+                                                <span className="inline-flex items-center rounded-full bg-coral/10 px-2.5 py-1 text-xs font-semibold text-coral">
+                                                    {club.priceLabel}
+                                                </span>
+                                            </div>
                                         </div>
                                     </button>
                                 ))}
@@ -345,7 +350,7 @@ export function ClubsGrid({ initialClubs }: ClubsGridProps) {
                     Explorar clubs
                 </Button>
                 <Button onClick={handleCreateClub} className="w-full sm:w-auto">
-                    {isLoggedIn ? "Crear un club" : "Crear club en la beta"}
+                    {isLoggedIn ? "Crear un club" : "Crea tu propio club"}
                 </Button>
             </div>
 
@@ -403,7 +408,7 @@ export function ClubsGrid({ initialClubs }: ClubsGridProps) {
                                 <div className="rounded-2xl bg-white/70 p-4 sm:col-span-2">
                                     <p className="text-xs font-bold uppercase tracking-[0.14em] text-grey">Acceso fundador</p>
                                     <p className="mt-1 font-semibold text-teal-dark">
-                                        Valor {selectedClub.priceLabel}; incluido en uno de los clubs oficiales si eres fundador.
+                                        Precio {selectedClub.priceLabel}; incluido en uno de los clubs oficiales si eres fundador.
                                     </p>
                                 </div>
                             </div>

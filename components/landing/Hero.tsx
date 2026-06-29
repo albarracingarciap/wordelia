@@ -57,7 +57,7 @@ export function Hero({ founderCount = 38 }: HeroProps) {
                             Solicitar acceso beta
                         </Link>
                         <Link
-                            href="#explorar"
+                            href="#para-ti"
                             className="inline-flex h-14 items-center justify-center rounded-2xl border border-coral px-8 text-lg font-semibold text-coral transition-all hover:bg-white/50"
                         >
                             Ver cómo funciona

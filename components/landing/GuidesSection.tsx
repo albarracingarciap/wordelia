@@ -50,8 +50,6 @@ export function GuidesSection() {
                                     {freeGuide.description}
                                 </p>
                                 <div className="flex flex-wrap gap-2 text-xs font-semibold">
-                                    <span className="rounded-full bg-white px-3 py-1.5 text-teal">{freeGuide.sessions}</span>
-                                    <span className="rounded-full bg-white px-3 py-1.5 text-teal">{freeGuide.checkpoints} checkpoints</span>
                                     <span className="rounded-full bg-white px-3 py-1.5 text-coral">{freeGuide.priceLabel}</span>
                                 </div>
                             </div>

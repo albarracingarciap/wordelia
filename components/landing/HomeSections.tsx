@@ -1,14 +1,13 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Award, EyeOff, Gauge, Gift, Library, MessageSquareHeart, Search, Sparkles } from "lucide-react";
-import { readingExperiences } from "@/lib/reading-experiences";
+import { Award, BookOpen, EyeOff, Gauge, Gift, HeartHandshake, Leaf, Library, MessageSquareHeart, Sparkles, StickyNote } from "lucide-react";
 import { Section } from "../ui/Section";
 
 const dnaMetrics = [
-    { label: "Tensión narrativa", value: "78%" },
-    { label: "Densidad conceptual", value: "64%" },
-    { label: "Carga emocional", value: "71%" },
-    { label: "Accesibilidad", value: "82%" },
+    { label: "Tensión narrativa", value: "88%" },
+    { label: "Densidad conceptual", value: "84%" },
+    { label: "Carga emocional", value: "92%" },
+    { label: "Accesibilidad", value: "46%" },
 ];
 
 const giftLists = [
@@ -29,58 +28,62 @@ const giftLists = [
     },
 ];
 
-export function HomeExploreSection() {
+const readerFeatures = [
+    {
+        title: "Sigue tu lectura",
+        description: "Sesiones, páginas y tu racha. Continúa donde lo dejaste, a tu ritmo y sin presión.",
+        icon: BookOpen,
+    },
+    {
+        title: "Guarda tus momentos",
+        description: "Citas, fragmentos y pensamientos que se convierten en tu colección personal.",
+        icon: StickyNote,
+    },
+    {
+        title: "Marca lo que sentiste",
+        description: "Registra la emoción de cada libro y vuelve a sentirla cuando quieras revivirlo.",
+        icon: HeartHandshake,
+    },
+    {
+        title: "Tu progreso, en calma",
+        description: "Estadísticas pensadas solo para ti. Sin rankings ni comparaciones. Solo tú.",
+        icon: Leaf,
+    },
+];
+
+export function HomeReaderSection() {
     return (
-        <Section id="explorar" className="bg-cream py-12 md:py-18">
-            <div className="mx-auto mb-8 max-w-4xl space-y-4 text-center md:mb-10">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">Explorar</p>
-                <h2 className="text-3xl leading-tight text-teal md:text-5xl">
-                    Búsquedas basadas en experiencias, no en categorías
-                </h2>
-                <p className="mx-auto max-w-2xl text-base leading-relaxed text-grey md:text-lg">
-                    Busca por título, autor o ISBN, o empieza por una experiencia de lectura.
-                </p>
-            </div>
-
-            <form
-                action="/buscar"
-                className="mx-auto mb-10 grid max-w-5xl gap-3 rounded-2xl border border-teal/10 bg-white p-3 shadow-sm md:grid-cols-[1fr_auto_auto] md:p-4"
-            >
-                <div className="flex min-h-14 items-center gap-3 rounded-xl bg-cream px-4 text-grey">
-                    <Search className="h-5 w-5 text-teal" aria-hidden="true" />
-                    <input
-                        type="search"
-                        name="q"
-                        required
-                        placeholder="Buscar por ISBN, título, autora o autor"
-                        className="min-w-0 flex-1 bg-transparent text-sm text-teal-dark outline-none placeholder:text-grey md:text-base"
-                    />
+        <Section id="para-ti" className="bg-cream py-12 md:py-18">
+            <div className="grid gap-8 md:grid-cols-[0.9fr_1.1fr] md:items-center">
+                <div className="space-y-5">
+                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">Tu lectura, contigo</p>
+                    <h2 className="text-3xl leading-tight text-teal md:text-5xl">
+                        No solo dónde lo dejaste. También cómo te hizo sentir.
+                    </h2>
+                    <p className="text-base leading-relaxed text-grey md:text-lg">
+                        Wordelia no es solo para clubs. Es tu rincón privado para acompañar cada lectura: tu ritmo,
+                        tus subrayados y tus emociones, guardados como tú los vives.
+                    </p>
+                    <Link
+                        href="/register?source=reader"
+                        className="inline-flex h-12 items-center justify-center gap-2 rounded-2xl bg-teal px-6 font-semibold text-white transition-colors hover:bg-teal-dark"
+                    >
+                        Empieza tu rincón de lectura
+                    </Link>
                 </div>
-                <button
-                    type="submit"
-                    className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl border border-teal/20 px-6 font-semibold text-teal transition-colors hover:bg-teal hover:text-white"
-                >
-                    Buscar
-                    <Search className="h-4 w-4" aria-hidden="true" />
-                </button>
-                <Link
-                    href="/explorar"
-                    className="inline-flex min-h-14 items-center justify-center gap-2 rounded-xl bg-teal px-6 font-semibold text-white transition-colors hover:bg-teal-dark"
-                >
-                    Explorar libros
-                </Link>
-            </form>
 
-            <div className="mx-auto max-w-5xl rounded-3xl border border-teal/10 bg-offwhite p-5 shadow-sm md:p-7">
-                <div className="grid gap-x-10 gap-y-3 sm:grid-cols-2 lg:grid-cols-3">
-                    {readingExperiences.map((experience) => (
-                        <Link
-                            key={experience.slug}
-                            href={`/buscar?experience=${experience.slug}`}
-                            className="group inline-flex items-center justify-between gap-3 border-b border-teal/10 py-2 text-left text-sm font-medium text-teal-dark transition-colors last:border-b-0 hover:text-coral sm:last:border-b sm:[&:nth-last-child(-n+2)]:border-b-0 lg:[&:nth-last-child(-n+3)]:border-b-0"
+                <div className="grid gap-3 sm:grid-cols-2">
+                    {readerFeatures.map((feature) => (
+                        <article
+                            key={feature.title}
+                            className="flex h-full flex-col gap-3 rounded-2xl border border-teal/10 bg-white p-5 shadow-sm"
                         >
-                            <span>{experience.label}</span>
-                        </Link>
+                            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-coral/10 text-coral">
+                                <feature.icon className="h-5 w-5" aria-hidden="true" />
+                            </div>
+                            <h3 className="font-semibold text-teal-dark">{feature.title}</h3>
+                            <p className="text-sm leading-relaxed text-grey">{feature.description}</p>
+                        </article>
                     ))}
                 </div>
             </div>
@@ -121,13 +124,13 @@ export function HomeAdnSection() {
                     <div className="mb-6 flex items-start justify-between gap-4">
                         <div>
                             <p className="text-sm font-semibold text-coral">Vista previa</p>
-                            <h3 className="mt-1 text-2xl font-semibold text-teal">El mundo de Sofía</h3>
-                            <p className="text-sm text-grey">Jostein Gaarder</p>
+                            <h3 className="mt-1 text-2xl font-semibold text-teal">El túnel</h3>
+                            <p className="text-sm text-grey">Ernesto Sábato</p>
                         </div>
                         <div className="relative h-16 w-11 shrink-0 overflow-hidden rounded-md shadow-sm">
                             <Image
-                                src="/assets/images/portada_sofia.png"
-                                alt="Portada de El mundo de Sofía"
+                                src="/assets/images/el_tunel_sabato.jpg"
+                                alt="Portada de El túnel"
                                 fill
                                 className="object-cover"
                                 sizes="44px"
@@ -153,12 +156,12 @@ export function HomeAdnSection() {
                         <div className="rounded-2xl bg-cream p-4">
                             <Gauge className="mb-3 h-5 w-5 text-teal" aria-hidden="true" />
                             <p className="text-sm font-semibold text-teal-dark">Ideal si buscas</p>
-                            <p className="mt-1 text-sm text-grey">Ideas grandes contadas con claridad narrativa.</p>
+                            <p className="mt-1 text-sm text-grey">Una inmersión psicológica intensa en la obsesión y la soledad.</p>
                         </div>
                         <div className="rounded-2xl bg-cream p-4">
                             <Library className="mb-3 h-5 w-5 text-teal" aria-hidden="true" />
                             <p className="text-sm font-semibold text-teal-dark">Quizá no si buscas</p>
-                            <p className="mt-1 text-sm text-grey">Acción constante o una trama puramente rápida.</p>
+                            <p className="mt-1 text-sm text-grey">Una lectura luminosa, ligera o de ritmo trepidante.</p>
                         </div>
                     </div>
                 </div>

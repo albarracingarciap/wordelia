@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowRight, CheckCircle2, Layers, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Layers, Sparkles } from "lucide-react";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
 import { discussionGuides, getGuidesBySlug, guidePacks } from "@/lib/guides";
@@ -97,6 +97,13 @@ export default async function GuidesPage() {
             <Navbar mode="public" />
 
             <div className="mx-auto max-w-6xl px-6 pb-16 pt-28 md:px-8 md:pt-32">
+                <Link
+                    href="/"
+                    className="mb-8 inline-flex items-center gap-2 text-sm font-semibold text-teal transition-colors hover:text-coral"
+                >
+                    <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+                    Volver
+                </Link>
                 <section className="mb-12 text-center">
                     <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">Guías Wordelia</p>
                     <h1 className="mx-auto mt-4 max-w-4xl text-4xl leading-tight text-teal md:text-6xl">

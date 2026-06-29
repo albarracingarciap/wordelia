@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BookOpenCheck, ChevronLeft, ChevronRight } from "lucide-react";
+import { BookOpenCheck, ChevronLeft, ChevronRight, Dna } from "lucide-react";
 
 export type CatalogGuide = {
     id: string;
@@ -12,8 +12,6 @@ export type CatalogGuide = {
 };
 
 const rowsPerPage = 10;
-const guidePrice = 4.99;
-const originalGuidePrice = 7.99;
 
 function formatPrice(value: number) {
     return new Intl.NumberFormat("es-ES", {
@@ -24,12 +22,27 @@ function formatPrice(value: number) {
 
 type GuidesCatalogTableProps = {
     guides: CatalogGuide[];
+    title?: string;
+    subtitle?: string;
+    iconName?: "book" | "dna";
+    price?: number;
+    originalPrice?: number;
+    emptyLabel?: string;
 };
 
-export function GuidesCatalogTable({ guides }: GuidesCatalogTableProps) {
+export function GuidesCatalogTable({
+    guides,
+    title = "Guías individuales",
+    subtitle = "Selecciona varias guías para preparar un pack personalizado.",
+    iconName = "book",
+    price = 6.99,
+    originalPrice = 9.99,
+    emptyLabel = "Aún no hay guías individuales disponibles.",
+}: GuidesCatalogTableProps) {
     const [currentPage, setCurrentPage] = useState(1);
     const [selectedGuideIds, setSelectedGuideIds] = useState<Set<string>>(new Set());
     const pageCount = Math.max(1, Math.ceil(guides.length / rowsPerPage));
+    const Icon = iconName === "dna" ? Dna : BookOpenCheck;
 
     const visibleGuides = useMemo(() => {
         const start = (currentPage - 1) * rowsPerPage;
@@ -37,7 +50,7 @@ export function GuidesCatalogTable({ guides }: GuidesCatalogTableProps) {
     }, [currentPage, guides]);
 
     const selectedCount = selectedGuideIds.size;
-    const selectedTotal = selectedCount * guidePrice;
+    const selectedTotal = selectedCount * price;
 
     const toggleGuide = (id: string) => {
         setSelectedGuideIds((current) => {
@@ -52,11 +65,11 @@ export function GuidesCatalogTable({ guides }: GuidesCatalogTableProps) {
         <section>
             <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
                 <div className="flex items-center gap-3">
-                    <BookOpenCheck className="h-6 w-6 text-coral" aria-hidden="true" />
+                    <Icon className="h-6 w-6 text-coral" aria-hidden="true" />
                     <div>
-                        <h2 className="text-3xl text-teal">Guías individuales</h2>
+                        <h2 className="text-3xl text-teal">{title}</h2>
                         <p className="mt-1 text-sm text-grey">
-                            Selecciona varias guías para preparar un pack personalizado.
+                            {subtitle}
                         </p>
                     </div>
                 </div>
@@ -98,9 +111,9 @@ export function GuidesCatalogTable({ guides }: GuidesCatalogTableProps) {
                                         <td className="px-5 py-4 text-sm text-grey">{guide.firstPublicationYear || "N/D"}</td>
                                         <td className="px-5 py-4 text-right">
                                             <span className="mr-2 text-sm font-medium text-grey/60 line-through">
-                                                {formatPrice(originalGuidePrice)}
+                                                {formatPrice(originalPrice)}
                                             </span>
-                                            <span className="font-semibold text-emerald-700">{formatPrice(guidePrice)}</span>
+                                            <span className="font-semibold text-emerald-700">{formatPrice(price)}</span>
                                         </td>
                                         <td className="px-5 py-4 text-center">
                                             <label className="inline-flex cursor-pointer items-center justify-center">
@@ -121,7 +134,7 @@ export function GuidesCatalogTable({ guides }: GuidesCatalogTableProps) {
                             }) : (
                                 <tr className="border-t border-teal/10">
                                     <td colSpan={6} className="px-5 py-10 text-center text-grey">
-                                        Aún no hay guías individuales disponibles.
+                                        {emptyLabel}
                                     </td>
                                 </tr>
                             )}
