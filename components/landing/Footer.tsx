@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { Instagram, Send, Youtube } from "lucide-react";
 import { Button } from "../ui/Button";
+import { subscribeToNewsletter } from "@/app/actions";
 
 const footerGroups = [
     {
@@ -38,13 +39,26 @@ const footerGroups = [
 export function Footer() {
     const [email, setEmail] = useState("");
     const [subscribed, setSubscribed] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const handleSubscribe = (event: React.FormEvent) => {
+    const handleSubscribe = async (event: React.FormEvent) => {
         event.preventDefault();
-        if (!email.trim()) return;
+        if (!email.trim() || submitting) return;
 
-        setSubscribed(true);
-        setEmail("");
+        setSubmitting(true);
+        setError(null);
+
+        const result = await subscribeToNewsletter(email, "footer");
+
+        if (result.success) {
+            setSubscribed(true);
+            setEmail("");
+        } else {
+            setError(result.error);
+        }
+
+        setSubmitting(false);
     };
 
     return (
@@ -99,13 +113,13 @@ export function Footer() {
                     </div>
 
                     <div className="rounded-3xl border border-teal/10 bg-white/70 p-5 shadow-sm">
-                        <h4 className="text-xs font-bold uppercase tracking-[0.18em] text-teal">Acceso anticipado</h4>
+                        <h4 className="text-xs font-bold uppercase tracking-[0.18em] text-teal">Suscríbete a la newsletter</h4>
                         <p className="mt-3 text-sm leading-relaxed text-grey/80">
-                            Recibe novedades de la beta y aviso cuando se abran nuevas plazas fundadoras.
+                            Lecturas recomendadas, novedades y rincones de Wordelia directos a tu correo. Sin spam, a tu ritmo.
                         </p>
                         {subscribed ? (
                             <div className="mt-4 rounded-2xl border border-teal/20 bg-teal/10 px-4 py-3 text-center text-sm font-medium text-teal-dark">
-                                Te avisaremos cuando haya novedades.
+                                ¡Listo! Te has suscrito a la newsletter.
                             </div>
                         ) : (
                             <form onSubmit={handleSubscribe} className="mt-4 space-y-3">
@@ -113,12 +127,19 @@ export function Footer() {
                                     type="email"
                                     required
                                     value={email}
-                                    onChange={(event) => setEmail(event.target.value)}
+                                    onChange={(event) => {
+                                        setEmail(event.target.value);
+                                        if (error) setError(null);
+                                    }}
                                     placeholder="tu@email.com"
+                                    aria-invalid={error ? true : undefined}
                                     className="w-full rounded-2xl border border-teal/10 bg-white px-4 py-3 text-sm transition-all placeholder:text-grey/40 focus:border-teal/30 focus:outline-none focus:ring-2 focus:ring-teal/10"
                                 />
-                                <Button type="submit" className="w-full justify-center">
-                                    Avisarme
+                                {error && (
+                                    <p className="text-xs font-medium text-coral">{error}</p>
+                                )}
+                                <Button type="submit" disabled={submitting} className="w-full justify-center">
+                                    {submitting ? "Suscribiendo…" : "Suscribirme"}
                                 </Button>
                             </form>
                         )}

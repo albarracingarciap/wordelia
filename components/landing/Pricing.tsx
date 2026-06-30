@@ -1,12 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
-import { Check, Sparkles, X } from "lucide-react";
+import { useState } from "react";
+import { Check, Sparkles, X, Building2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Section } from "../ui/Section";
 import { Button } from "../ui/Button";
 
+// Los IDs (explorador / voraz / ai) se mantienen estables: alimentan el flujo
+// de /register y el desbloqueo de recursos (resolveAccess: plan "ai" libera
+// guías, "voraz"/"ai" liberan genomas). Solo cambian los textos.
 type PlanId = "explorador" | "voraz" | "ai";
 
 const plans: Array<{
@@ -25,14 +28,14 @@ const plans: Array<{
         monthlyPrice: "0€",
         annualPrice: "0€",
         description: "Para empezar a organizar tu biblioteca, registrar sesiones y guardar lo que te mueve.",
-        cta: "Empezar en beta",
+        cta: "Empezar gratis",
         features: [
             { text: "Biblioteca personal", included: true },
-            { text: "Seguimiento de lecturas", included: true },
+            { text: "Seguimiento de lecturas y rachas", included: true },
             { text: "Notas, citas y emociones", included: true },
             { text: "Unirse a clubs públicos", included: true },
-            { text: "ADN literario limitado", included: true },
-            { text: "Mapas emocionales avanzados", included: false },
+            { text: "Muestra de guía y genoma", included: true },
+            { text: "Genomas (ADN) ilimitados", included: false },
             { text: "Crear clubs privados", included: false },
         ],
     },
@@ -41,33 +44,35 @@ const plans: Array<{
         name: "Lector Voraz",
         monthlyPrice: "4,99€",
         annualPrice: "47,90€",
-        description: "Para profundizar en cada libro, participar en clubs y desbloquear análisis completos.",
+        description: "Para profundizar en cada libro, crear tus clubs y desbloquear el ADN literario sin límites.",
         cta: "Reservar beneficio fundador",
         popular: true,
         features: [
             { text: "Todo lo del plan Explorador", included: true },
-            { text: "ADN literario ilimitado", included: true },
+            { text: "Genomas (ADN) ilimitados", included: true },
             { text: "Mapas emocionales completos", included: true },
             { text: "Crear y moderar clubs", included: true },
             { text: "Estadísticas avanzadas", included: true },
             { text: "Sin publicidad", included: true },
-            { text: "Asistente literario personal", included: false },
+            { text: "Guías de discusión ilimitadas", included: false },
+            { text: "Asistente literario IA", included: false },
         ],
     },
     {
         id: "ai",
-        name: "Bibliófilo AI",
+        name: "Bibliófilo",
         monthlyPrice: "9,99€",
         annualPrice: "95,90€",
-        description: "Para lectores y clubs que quieren análisis asistido, guías y herramientas de profundidad.",
+        description: "Acceso total: todas las guías y genomas sin límite, más tu asistente literario con IA.",
         cta: "Apuntarme a la lista",
         features: [
             { text: "Todo lo del plan Voraz", included: true },
-            { text: "Asistente literario personal", included: true },
-            { text: "Guías de discusión asistidas", included: true },
-            { text: "Sugerencias para clubs", included: true },
-            { text: "Soporte prioritario", included: true },
+            { text: "Guías de discusión ilimitadas", included: true },
+            { text: "Genomas (ADN) ilimitados", included: true },
+            { text: "Asistente literario IA", included: true },
+            { text: "Sugerencias para tus clubs", included: true },
             { text: "Acceso anticipado a novedades", included: true },
+            { text: "Soporte prioritario", included: true },
         ],
     },
 ];
@@ -87,7 +92,7 @@ export function Pricing() {
     };
 
     return (
-        <Section id="planes" className="bg-[#FFFAEF] pb-14 pt-8 md:py-24">
+        <Section id="planes" className="bg-[#D8E2DC] py-16 md:py-24">
             <div className="mx-auto mb-8 max-w-3xl space-y-4 px-4 text-center md:mb-14">
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">Planes previstos</p>
                 <h2 className="text-3xl leading-tight text-teal md:text-5xl">
@@ -138,7 +143,7 @@ export function Pricing() {
                             <div className="mb-5 space-y-3">
                                 <h3 className="text-xl font-bold text-teal-dark">{plan.name}</h3>
                                 <div className="flex items-end gap-1">
-                                    <span className="text-4xl font-bold text-grey-dark">{price}</span>
+                                    <span className="text-4xl font-bold text-teal-dark">{price}</span>
                                     {period && <span className="pb-1 text-sm text-grey/60">{period}</span>}
                                 </div>
                                 <p className="text-sm leading-relaxed text-grey/80">{plan.description}</p>
@@ -174,23 +179,29 @@ export function Pricing() {
             </div>
 
             <div className="mx-auto mt-8 flex max-w-6xl flex-col gap-6 rounded-3xl border border-teal/10 bg-white p-5 shadow-sm md:mt-10 md:flex-row md:items-center md:justify-between md:p-8">
-                <div className="max-w-2xl">
-                    <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-coral/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-coral">
-                        <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-                        Beneficio fundador
+                <div className="flex items-start gap-4 md:max-w-2xl">
+                    <div className="hidden h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-coral/10 text-coral sm:flex">
+                        <Building2 className="h-6 w-6" aria-hidden="true" />
                     </div>
-                    <h3 className="text-2xl font-bold text-teal-dark">¿Tienes un club, librería o proyecto educativo?</h3>
-                    <p className="mt-3 text-sm leading-relaxed text-grey/80 md:text-base">
-                        Estamos reservando plazas de beta para grupos que quieran probar clubs guiados, calendario,
-                        checkpoints y conversación sin spoilers con acompañamiento directo.
-                    </p>
+                    <div>
+                        <div className="mb-3 inline-flex items-center gap-2 rounded-full bg-coral/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-coral">
+                            <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                            Wordelia para organizaciones
+                        </div>
+                        <h3 className="text-2xl font-bold text-teal-dark">¿Tienes un club, librería o proyecto educativo?</h3>
+                        <p className="mt-3 text-sm leading-relaxed text-grey/80 md:text-base">
+                            Licencia guías y genomas para tus socios, gestiona clubs guiados con calendario y
+                            checkpoints, y acompaña la lectura sin spoilers. El acceso a los materiales se hereda
+                            a los miembros mientras pertenecen al club.
+                        </p>
+                    </div>
                 </div>
                 <Button
                     variant="outline"
-                    className="w-full border-teal/30 text-teal hover:bg-teal hover:text-white md:w-auto"
-                    onClick={() => router.push("/contacto?source=beta")}
+                    className="w-full border-teal/30 text-teal hover:bg-teal hover:text-white md:w-auto md:shrink-0"
+                    onClick={() => router.push("/contacto?source=planes-b2b")}
                 >
-                    Contactar
+                    Hablar con el equipo
                 </Button>
             </div>
         </Section>

@@ -8,6 +8,7 @@ import {
   HomeReaderSection,
   HomeWishlistSection,
 } from "@/components/landing/HomeSections";
+import { Pricing } from "@/components/landing/Pricing";
 import { Footer } from "@/components/landing/Footer";
 import { createClient } from "@/utils/supabase/server";
 import { getOfficialClubs } from "@/app/clubes/actions";
@@ -50,6 +51,7 @@ export default async function Home() {
       <HomeAdnSection />
       <HomeWishlistSection />
       <HomeBetaSection />
+      <Pricing />
       <Footer />
     </main>
   );
