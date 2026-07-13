@@ -70,9 +70,16 @@ export function TabsTrigger({ value, children, className = "" }: Omit<TabsTrigge
     if (!context) throw new Error("TabsTrigger must be used within Tabs");
 
     const isActive = context.value === value;
+    const ref = React.useRef<HTMLButtonElement>(null);
+
+    // Keep the active tab visible when the list scrolls horizontally (mobile/tablet).
+    React.useEffect(() => {
+        if (isActive) ref.current?.scrollIntoView({ inline: "center", block: "nearest" });
+    }, [isActive]);
 
     return (
         <button
+            ref={ref}
             onClick={() => context.onChange(value)}
             className={`
                 relative px-1 py-3 text-sm font-medium transition-colors whitespace-nowrap

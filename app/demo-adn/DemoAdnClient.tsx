@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { BarChart3, BookOpen, Brain, Clock3, Dna, GitBranch, HelpCircle, Layers3, LockKeyhole, Route, Sparkles } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
+import { ScrollNav } from "@/components/ui/ScrollNav";
 import {
     chromosomeTabs,
     demoChromosomes,
@@ -149,7 +150,7 @@ function TooltipTerm({
                 </button>
                 <span
                     role="tooltip"
-                    className={`pointer-events-none absolute top-full z-20 mt-2 w-56 rounded-lg bg-teal-dark px-3 py-2 text-left text-xs font-medium normal-case leading-relaxed tracking-normal text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${tooltipPosition}`}
+                    className={`pointer-events-none absolute top-full z-20 mt-2 w-56 max-w-[calc(100vw-2rem)] rounded-lg bg-teal-dark px-3 py-2 text-left text-xs font-medium normal-case leading-relaxed tracking-normal text-white opacity-0 shadow-lg transition-opacity group-hover:opacity-100 group-focus-within:opacity-100 ${tooltipPosition}`}
                 >
                     {tooltip}
                 </span>
@@ -312,22 +313,27 @@ function LiteraryStyleTab({ chromosome }: { chromosome: LiteraryStyleChromosome 
                 />
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+            <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Diálogo, narración y reflexión</h3>
                     <p className="mt-3 text-sm leading-relaxed text-grey">{proportions.descripcion}</p>
                     <div className="mt-5 overflow-hidden rounded-full bg-teal/10 text-xs font-bold text-white">
                         <div className="flex h-10">
-                            <div className="flex items-center justify-center bg-coral" style={{ width: `${proportions.dialogo_porcentaje}%` }}>
-                                Diálogo {proportions.dialogo_porcentaje}%
+                            <div className="flex items-center justify-center overflow-hidden bg-coral px-1" style={{ width: `${proportions.dialogo_porcentaje}%` }}>
+                                <span className="truncate">{proportions.dialogo_porcentaje}%</span>
                             </div>
-                            <div className="flex items-center justify-center bg-teal" style={{ width: `${proportions.narracion_porcentaje}%` }}>
-                                Narración {proportions.narracion_porcentaje}%
+                            <div className="flex items-center justify-center overflow-hidden bg-teal px-1" style={{ width: `${proportions.narracion_porcentaje}%` }}>
+                                <span className="truncate">{proportions.narracion_porcentaje}%</span>
                             </div>
-                            <div className="flex items-center justify-center bg-teal-dark" style={{ width: `${proportions.reflexion_interna_porcentaje}%` }}>
-                                Reflexión {proportions.reflexion_interna_porcentaje}%
+                            <div className="flex items-center justify-center overflow-hidden bg-teal-dark px-1" style={{ width: `${proportions.reflexion_interna_porcentaje}%` }}>
+                                <span className="truncate">{proportions.reflexion_interna_porcentaje}%</span>
                             </div>
                         </div>
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-xs text-grey">
+                        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 shrink-0 rounded-full bg-coral" />Diálogo {proportions.dialogo_porcentaje}%</span>
+                        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 shrink-0 rounded-full bg-teal" />Narración {proportions.narracion_porcentaje}%</span>
+                        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 shrink-0 rounded-full bg-teal-dark" />Reflexión {proportions.reflexion_interna_porcentaje}%</span>
                     </div>
                     <div className="mt-5 grid gap-3 sm:grid-cols-3">
                         <div className="rounded-xl bg-cream p-3">
@@ -361,7 +367,7 @@ function LiteraryStyleTab({ chromosome }: { chromosome: LiteraryStyleChromosome 
                 </Card>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Figuras retóricas</h3>
                     <p className="mt-3 text-sm leading-relaxed text-grey">{analisis.figuras_retoricas.descripcion}</p>
@@ -431,8 +437,8 @@ function EmotionalCurve({
     const areaPoints = `${paddingX},${height - paddingY} ${linePoints} ${width - paddingX},${height - paddingY}`;
 
     return (
-        <div className="overflow-hidden rounded-xl bg-offwhite p-4">
-            <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full" role="img" aria-label="Curva emocional">
+        <div className="overflow-x-auto rounded-xl bg-offwhite p-4">
+            <svg viewBox={`0 0 ${width} ${height}`} className="h-auto w-full min-w-[480px]" role="img" aria-label="Curva emocional">
                 <defs>
                     <linearGradient id="emotionArea" x1="0" x2="0" y1="0" y2="1">
                         <stop offset="0%" stopColor="#D56962" stopOpacity="0.32" />
@@ -505,7 +511,7 @@ function EmotionalProfileTab({ chromosome }: { chromosome: EmotionalProfileChrom
                 </div>
             </Card>
 
-            <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Emociones predominantes</h3>
                     <div className="mt-5 space-y-5">
@@ -571,7 +577,7 @@ function EmotionalProfileTab({ chromosome }: { chromosome: EmotionalProfileChrom
                 </Card>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+            <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Tipo de tensión</h3>
                     <p className="mt-2 text-sm text-grey">
@@ -662,7 +668,7 @@ function ThematicCompositionTab({ chromosome }: { chromosome: ThematicCompositio
 
             <ThematicCloud items={visualizacion.nube_tematica} />
 
-            <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
                 <Card>
                     <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
@@ -719,7 +725,7 @@ function ThematicCompositionTab({ chromosome }: { chromosome: ThematicCompositio
                 </Card>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+            <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Temas secundarios</h3>
                     <div className="mt-5 space-y-4">
@@ -765,7 +771,7 @@ function ThematicCompositionTab({ chromosome }: { chromosome: ThematicCompositio
                 </Card>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[0.85fr_1.15fr]">
+            <div className="grid gap-6 xl:grid-cols-[0.85fr_1.15fr]">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Relevancia temporal</h3>
                     <p className="mt-3 text-sm leading-relaxed text-grey">{analisis.relevancia_temporal.descripcion}</p>
@@ -809,7 +815,7 @@ function ThematicCompositionTab({ chromosome }: { chromosome: ThematicCompositio
 
             {analisis.critica_social_politica.presente && (
                 <div className="overflow-hidden rounded-xl border border-teal/10 bg-teal p-5 text-white shadow-sm">
-                    <div className="grid gap-5 md:grid-cols-[0.75fr_1.25fr] md:items-center">
+                    <div className="grid gap-5 xl:grid-cols-[0.75fr_1.25fr] md:items-center">
                         <div>
                             <p className="text-xs font-bold uppercase tracking-[0.18em] text-cream">Crítica social y política</p>
                             <h3 className="mt-2 text-3xl font-semibold !text-white">{normalizeLabel(analisis.critica_social_politica.estilo ?? "")}</h3>
@@ -865,7 +871,7 @@ function CharacterDnaTab({ chromosome }: { chromosome: CharacterDnaChromosome })
                 ))}
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Complejidad psicológica</h3>
                     <p className="mt-2 text-sm text-grey">
@@ -939,7 +945,7 @@ function CharacterDnaTab({ chromosome }: { chromosome: CharacterDnaChromosome })
                 </Card>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-3">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Diversidad</h3>
                     <p className="mt-3 text-sm leading-relaxed text-grey">{analisis.diversidad.evaluacion_general}</p>
@@ -999,7 +1005,7 @@ function CharacterDnaTab({ chromosome }: { chromosome: CharacterDnaChromosome })
                 </Card>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Arquetipos</h3>
                     <div className="mt-5 space-y-4">
@@ -1042,8 +1048,8 @@ function CharacterDnaTab({ chromosome }: { chromosome: CharacterDnaChromosome })
 
 function RhythmBarChart({ sections }: { sections: RhythmDensityChromosome["analisis"]["velocidad_narrativa"]["por_seccion"] }) {
     return (
-        <div className="rounded-xl bg-offwhite p-4">
-            <div className="flex h-56 items-end gap-3">
+        <div className="overflow-x-auto rounded-xl bg-offwhite p-4">
+            <div className="flex h-56 min-w-[420px] items-end gap-3">
                 {sections.map((section) => (
                     <div key={section.seccion} className="flex flex-1 flex-col items-center gap-2">
                         <div
@@ -1110,7 +1116,7 @@ function RhythmDensityTab({ chromosome }: { chromosome: RhythmDensityChromosome 
                 </div>
             </Card>
 
-            <div className="grid gap-6 lg:grid-cols-[1fr_0.9fr]">
+            <div className="grid gap-6 xl:grid-cols-[1fr_0.9fr]">
                 <Card>
                     <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
@@ -1187,7 +1193,7 @@ function RhythmDensityTab({ chromosome }: { chromosome: RhythmDensityChromosome 
                 </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+            <div className="grid gap-6 xl:grid-cols-[1.15fr_0.85fr]">
                 <Card className="lg:row-span-2">
                     <h3 className="text-xl font-semibold text-teal">Densidad de información</h3>
                     <p className="mt-3 text-sm leading-relaxed text-grey">{analisis.densidad_informacion.descripcion}</p>
@@ -1219,7 +1225,7 @@ function RhythmDensityTab({ chromosome }: { chromosome: RhythmDensityChromosome 
 
                     <Card>
                         <h3 className="text-xl font-semibold text-teal">Variación del ritmo</h3>
-                        <div className="mt-4 grid gap-4 md:grid-cols-[0.8fr_1.2fr] lg:grid-cols-1 xl:grid-cols-[0.8fr_1.2fr]">
+                        <div className="mt-4 grid gap-4 lg:grid-cols-[0.8fr_1.2fr]">
                             <div className="rounded-xl bg-cream p-4">
                                 <p className="text-xs font-bold uppercase tracking-[0.12em] text-coral">Patrón</p>
                                 <p className="mt-1 text-lg font-semibold text-teal-dark">{normalizeLabel(analisis.variacion_ritmo.patron)}</p>
@@ -1249,7 +1255,7 @@ function RhythmDensityTab({ chromosome }: { chromosome: RhythmDensityChromosome 
                 </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[1fr_0.95fr]">
+            <div className="grid gap-6 xl:grid-cols-[1fr_0.95fr]">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Técnicas de ritmo</h3>
                     <div className="mt-5 space-y-4">
@@ -1304,7 +1310,7 @@ function LinguisticComplexityTab({ chromosome }: { chromosome: LinguisticComplex
                 </div>
             </Card>
 
-            <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
                 <Card>
                     <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
                         <div>
@@ -1360,7 +1366,7 @@ function LinguisticComplexityTab({ chromosome }: { chromosome: LinguisticComplex
                 </Card>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+            <div className="grid gap-6 xl:grid-cols-[1.05fr_0.95fr]">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Sintaxis</h3>
                     <p className="mt-3 text-sm leading-relaxed text-grey">{analisis.sintaxis.descripcion}</p>
@@ -1409,7 +1415,7 @@ function LinguisticComplexityTab({ chromosome }: { chromosome: LinguisticComplex
                 </Card>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[1fr_1.2fr]">
+            <div className="grid gap-6 xl:grid-cols-[1fr_1.2fr]">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Registros lingüísticos</h3>
                     <p className="mt-3 text-sm leading-relaxed text-grey">{analisis.registro_variacion.descripcion}</p>
@@ -1472,10 +1478,10 @@ function LinguisticComplexityTab({ chromosome }: { chromosome: LinguisticComplex
                 </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Innovaciones lingüísticas</h3>
-                    <div className="mt-5 grid gap-4 md:grid-cols-[0.85fr_1.15fr]">
+                    <div className="mt-5 grid gap-4 xl:grid-cols-[0.85fr_1.15fr]">
                         <div className="rounded-xl bg-cream p-4">
                             <p className="text-xs font-bold uppercase tracking-[0.12em] text-coral">Neologismos</p>
                             <p className="mt-1 text-3xl font-bold text-teal">{analisis.innovaciones_linguisticas.neologismos.amount}</p>
@@ -1551,7 +1557,7 @@ function CulturalContextTab({ chromosome }: { chromosome: CulturalContextChromos
                 </div>
             </Card>
 
-            <div className="grid gap-6 lg:grid-cols-[1fr_0.85fr]">
+            <div className="grid gap-6 xl:grid-cols-[1fr_0.85fr]">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Coordenadas culturales</h3>
                     <div className="mt-5 grid gap-3 md:grid-cols-3">
@@ -1593,7 +1599,7 @@ function CulturalContextTab({ chromosome }: { chromosome: CulturalContextChromos
                 </div>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[0.95fr_1.05fr]">
+            <div className="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Movimiento literario</h3>
                     <p className="mt-3 text-sm leading-relaxed text-grey">{analisis.movimiento_literario.subversion_innovacion}</p>
@@ -1653,7 +1659,7 @@ function CulturalContextTab({ chromosome }: { chromosome: CulturalContextChromos
                 </Card>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Legado e impacto</h3>
                     <p className="mt-3 text-sm leading-relaxed text-grey">{analisis.legado_impacto.evolucion_recepcion}</p>
@@ -1753,7 +1759,7 @@ function NarrativeStructureTab({ chromosome }: { chromosome: NarrativeChromosome
                 />
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-[0.9fr_1.1fr]">
+            <div className="grid gap-6 xl:grid-cols-[0.9fr_1.1fr]">
                 <div className="space-y-6">
                     <Card>
                         <div className="mb-5 flex items-center gap-3">
@@ -1848,7 +1854,7 @@ function NarrativeStructureTab({ chromosome }: { chromosome: NarrativeChromosome
                 </Card>
             </div>
 
-            <div className="grid gap-6 lg:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-2">
                 <Card>
                     <h3 className="text-xl font-semibold text-teal">Tramas y entrelazamiento</h3>
                     <p className="mt-3 text-sm leading-relaxed text-grey">{analisis.lineas_argumentales.descripcion_tramas}</p>
@@ -1917,6 +1923,12 @@ export function DemoAdnClient({
     const [activeTab, setActiveTab] = useState<ChromosomeKey>("narrative_structure");
     const book = getBookHeader(chromosomes, fallbackBook);
     const activeCard = getActiveCard(activeTab, chromosomes);
+    const activeTabRef = useRef<HTMLButtonElement>(null);
+
+    // Keep the active chromosome visible when the tab list scrolls horizontally (mobile/tablet).
+    useEffect(() => {
+        activeTabRef.current?.scrollIntoView({ inline: "center", block: "nearest" });
+    }, [activeTab]);
 
     return (
         <section className="relative overflow-hidden pt-8 md:pt-10">
@@ -1938,7 +1950,7 @@ export function DemoAdnClient({
                         <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">
                             Wordelia · Genoma literario
                         </p>
-                        <h1 className="mt-4 max-w-4xl text-5xl leading-[0.95] text-teal md:text-7xl">
+                        <h1 className="mt-4 max-w-4xl text-4xl leading-[1] text-teal sm:text-5xl sm:leading-[0.95] md:text-6xl lg:text-7xl">
                             {book.titulo}
                         </h1>
                         <p className="mt-4 text-xl font-medium text-teal-dark">
@@ -1967,15 +1979,16 @@ export function DemoAdnClient({
                     </div>
                 </div>
 
-                <div className="grid gap-8 lg:grid-cols-[280px_1fr]">
-                <aside className="lg:sticky lg:top-24 lg:self-start">
-                    <div className="mb-0 flex flex-row gap-2 overflow-x-auto border-b-0 lg:flex-col lg:items-stretch lg:overflow-visible">
+                <div className="space-y-6">
+                <div className="min-w-0">
+                    <ScrollNav className="mb-0">
                         {chromosomeTabs.map((tab, index) => (
                             <button
                                 key={tab.key}
+                                ref={activeTab === tab.key ? activeTabRef : undefined}
                                 type="button"
                                 onClick={() => setActiveTab(tab.key)}
-                                className={`relative whitespace-nowrap rounded-xl border border-teal/10 bg-white px-4 py-3 text-left text-sm font-medium shadow-sm transition-colors lg:w-full ${
+                                className={`relative shrink-0 whitespace-nowrap rounded-xl border border-teal/10 bg-white px-4 py-3 text-left text-sm font-medium shadow-sm transition-colors ${
                                     activeTab === tab.key ? "text-teal" : "text-grey/60 hover:text-teal/80"
                                 }`}
                             >
@@ -1986,8 +1999,8 @@ export function DemoAdnClient({
                                 )}
                             </button>
                         ))}
-                    </div>
-                </aside>
+                    </ScrollNav>
+                </div>
 
                 <div className="min-w-0 animate-fade-in">
                     <ChromosomePanel activeTab={activeTab} chromosomes={chromosomes} />

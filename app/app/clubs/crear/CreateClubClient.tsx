@@ -46,7 +46,7 @@ export type CreateClubFormData = {
 
 type CreateClubFieldValue = CreateClubFormData[keyof CreateClubFormData];
 
-export function CreateClubClient() {
+export function CreateClubClient({ organizationId }: { organizationId?: string } = {}) {
     const router = useRouter();
     const [step, setStep] = React.useState(1);
     const [error, setError] = React.useState("");
@@ -198,7 +198,7 @@ export function CreateClubClient() {
 
         setIsSubmitting(true);
         try {
-            const result = await createClub(formData);
+            const result = await createClub({ ...formData, organizationId });
             if (result?.error) {
                 setError(result.error);
             } else if (result?.success && result?.clubId) {

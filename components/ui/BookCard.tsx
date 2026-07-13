@@ -49,6 +49,7 @@ export interface BookCardProps {
     onDelete?: () => void;
     onNotesClick?: () => void;
     onEmotionClick?: () => void;
+    onCorrectLastClick?: () => void;
     onEmotionToNoteClick?: (emotionId: string) => void;
     onReviewClick?: () => void;
     reviewLabel?: string;
@@ -94,7 +95,7 @@ function getResourceMeta(resource: BookResourceAccess) {
     return { Icon, statusLabel, unlocked };
 }
 
-export function BookCard({ title, author, coverUrl, progress, lastSession, club, emotionSummary, compact, onRegisterClick, actionLabel, onActionClick, tag, onDelete, onNotesClick, onEmotionClick, onEmotionToNoteClick, onReviewClick, reviewLabel, status, resources }: BookCardProps) {
+export function BookCard({ title, author, coverUrl, progress, lastSession, club, emotionSummary, compact, onRegisterClick, actionLabel, onActionClick, tag, onDelete, onNotesClick, onEmotionClick, onCorrectLastClick, onEmotionToNoteClick, onReviewClick, reviewLabel, status, resources }: BookCardProps) {
     // Calculate percentage for progress bar
     const percentage = progress
         ? progress.unit === "PERCENT"
@@ -245,6 +246,9 @@ export function BookCard({ title, author, coverUrl, progress, lastSession, club,
                                 <Button variant="ghost" size="sm" className="h-9 px-3 text-grey hover:text-teal" onClick={onRegisterClick}>Registrar</Button>
                                 <button onClick={onNotesClick} className="text-sm text-grey/60 hover:text-teal px-2 transition-colors">Notas</button>
                                 <button onClick={onEmotionClick} className="text-sm text-grey/60 hover:text-teal px-2 transition-colors">Emoción</button>
+                                {onCorrectLastClick && (
+                                    <button onClick={onCorrectLastClick} className="text-sm text-grey/60 hover:text-teal px-2 transition-colors">Corregir</button>
+                                )}
                                 {onReviewClick && (
                                     <button onClick={onReviewClick} className="text-sm text-grey/60 hover:text-teal px-2 transition-colors">{reviewLabel || "Reseñar"}</button>
                                 )}
@@ -266,6 +270,9 @@ export function BookCard({ title, author, coverUrl, progress, lastSession, club,
                         {status === 'READ' && (
                             <div className="flex items-center gap-2">
                                 <Button variant="outline" size="sm" className="h-9 px-4 border-grey/30 text-grey hover:border-teal hover:text-teal" onClick={onActionClick}>{actionLabel || "Ver detalles"}</Button>
+                                {onCorrectLastClick && (
+                                    <button onClick={onCorrectLastClick} className="text-sm text-grey/60 hover:text-teal px-2 transition-colors">Corregir última sesión</button>
+                                )}
                             </div>
                         )}
 

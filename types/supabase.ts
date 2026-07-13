@@ -1926,6 +1926,7 @@ export type Database = {
           edition_id: string | null
           end_time: string | null
           id: string
+          marked_finished: boolean
           pages_read: number | null
           start_time: string
           user_id: string
@@ -1937,6 +1938,7 @@ export type Database = {
           edition_id?: string | null
           end_time?: string | null
           id?: string
+          marked_finished?: boolean
           pages_read?: number | null
           start_time: string
           user_id: string
@@ -1948,6 +1950,7 @@ export type Database = {
           edition_id?: string | null
           end_time?: string | null
           id?: string
+          marked_finished?: boolean
           pages_read?: number | null
           start_time?: string
           user_id?: string

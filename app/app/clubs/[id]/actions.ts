@@ -29,6 +29,60 @@ function getAdminClient() {
     );
 }
 
+/**
+ * If the club is hosted by a bookstore ("librería") on the Pro tier, grant the
+ * new member perpetual access to the club book's guide + genome. Idempotent and
+ * non-blocking: failures are logged, never thrown. Members keep the grant even
+ * after leaving the club (expires_at = null).
+ */
+async function grantClubResourcesIfPro(supabase: any, clubId: string, userId: string) {
+    try {
+        const { data: club } = await supabase
+            .from('clubs')
+            .select('organization_id')
+            .eq('id', clubId)
+            .maybeSingle();
+        if (!club?.organization_id) return;
+
+        const { data: sub } = await supabase
+            .from('organization_subscriptions')
+            .select('tier')
+            .eq('organization_id', club.organization_id)
+            .maybeSingle();
+        if (sub?.tier !== 'pro') return;
+
+        const { data: clubBook } = await supabase
+            .from('club_books')
+            .select('book_id')
+            .eq('club_id', clubId)
+            .eq('status', 'current')
+            .maybeSingle();
+        if (!clubBook?.book_id) return;
+
+        const admin = getAdminClient();
+        if (!admin) {
+            console.error('grantClubResourcesIfPro: missing service role key');
+            return;
+        }
+
+        const rows = (['guide', 'genome'] as const).map((kind) => ({
+            user_id: userId,
+            book_id: clubBook.book_id,
+            resource_kind: kind,
+            access_source: 'org_club',
+            expires_at: null,
+        }));
+
+        const { error } = await admin
+            .from('user_book_resource_access')
+            .upsert(rows, { onConflict: 'user_id,book_id,resource_kind', ignoreDuplicates: true });
+
+        if (error) console.error('grantClubResourcesIfPro upsert error:', error);
+    } catch (e) {
+        console.error('grantClubResourcesIfPro error:', e);
+    }
+}
+
 export async function getClubDetails(clubId: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -261,6 +315,8 @@ export async function joinClub(clubId: string) {
         console.error("Error joining club:", error);
         return { error: "No se pudo unir al club" };
     }
+
+    await grantClubResourcesIfPro(supabase, clubId, user.id);
 
     revalidatePath(`/app/clubs/${clubId}`);
     return { success: true };
@@ -2762,6 +2818,7 @@ export async function approveMember(clubId: string, targetUserId: string) {
             .eq('user_id', targetUserId)
             .eq('role', 'pending');
         if (error) return { error: error.message };
+        await grantClubResourcesIfPro(supabase, clubId, targetUserId);
         revalidatePath(`/app/clubs/${clubId}`);
         return { success: true };
     } catch (e: any) { return { error: e.message }; }

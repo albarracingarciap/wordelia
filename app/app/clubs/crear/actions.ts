@@ -47,6 +47,41 @@ export async function createClub(data: any) {
 
     let clubId = "";
 
+    // Optional: hosting this club under a bookstore ("librería").
+    const organizationId: string | null = data.organizationId || null;
+    if (organizationId) {
+        // Caller must be owner/manager of the organization.
+        const { data: membership } = await supabase
+            .from('organization_members')
+            .select('role')
+            .eq('organization_id', organizationId)
+            .eq('user_id', user.id)
+            .maybeSingle();
+
+        if (!membership || !['owner', 'manager'].includes(membership.role)) {
+            return { error: 'No tienes permiso para crear clubs en esta librería.' };
+        }
+
+        // Free tier is limited to 1 active club.
+        const { data: sub } = await supabase
+            .from('organization_subscriptions')
+            .select('tier')
+            .eq('organization_id', organizationId)
+            .maybeSingle();
+
+        if (sub?.tier !== 'pro') {
+            const { count } = await supabase
+                .from('clubs')
+                .select('id', { count: 'exact', head: true })
+                .eq('organization_id', organizationId)
+                .eq('is_archived', false);
+
+            if ((count || 0) >= 1) {
+                return { error: 'Has alcanzado el límite del plan Gratis (1 club). Sube a Pro para crear más clubs.' };
+            }
+        }
+    }
+
     try {
         const visibility = ['public', 'private', 'secret'].includes(data.privacy)
             ? data.privacy
@@ -64,6 +99,7 @@ export async function createClub(data: any) {
                 description: data.description,
                 visibility,
                 owner_id: user.id,
+                organization_id: organizationId,
                 price: price,
                 currency: 'EUR',
                 tags: data.tags || [],

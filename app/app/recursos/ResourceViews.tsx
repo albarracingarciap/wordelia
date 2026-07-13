@@ -151,7 +151,10 @@ function normalizeDiscussionGuide(guide: DiscussionGuide): DiscussionGuide {
         simbolos_y_motivos: toArray(guide.simbolos_y_motivos),
         estructura_y_final: {
             ...estructuraFinal,
-            arquitectura_narrativa: safeString(estructuraFinal.arquitectura_narrativa),
+            // Keep the raw value: arquitectura_narrativa may arrive as a string
+            // or as an object ({ recursos, estructura } / { estructura,
+            // tecnicas_narrativas }). The view normalizes both shapes.
+            arquitectura_narrativa: estructuraFinal.arquitectura_narrativa ?? "",
             tres_lecturas_final: toArray(estructuraFinal.tres_lecturas_final),
         },
         conexiones_mundo_actual: toArray(guide.conexiones_mundo_actual),
@@ -162,9 +165,10 @@ function normalizeDiscussionGuide(guide: DiscussionGuide): DiscussionGuide {
             pregunta_sintesis: safeString(cierreDiscusion.pregunta_sintesis),
             pregunta_vigencia: safeString(cierreDiscusion.pregunta_vigencia),
             evaluacion_relevancia: safeString(cierreDiscusion.evaluacion_relevancia),
-            frase_salida: isPlainObject(cierreDiscusion.frase_salida)
-                ? cierreDiscusion.frase_salida
-                : { texto: "", fuente: "" },
+            // Keep the raw value: frase_salida may arrive as an object
+            // ({ texto, fuente } or other keys) or as a plain string. The view
+            // resolves both shapes (and searches other locations as fallback).
+            frase_salida: (cierreDiscusion.frase_salida ?? { texto: "", fuente: "" }) as { texto: string; fuente: string },
         },
     };
 }
@@ -274,7 +278,7 @@ export function ResourceGuideView({ detail }: { detail: ResourceDetail }) {
     const guide = normalizeDiscussionGuide(rawGuide);
 
     return (
-        <div className="-mx-4 -my-6 bg-cream sm:-mx-6 md:-mx-8">
+        <div className="-mx-4 -my-6 bg-cream sm:-mx-6">
             <div className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 md:px-8">
                 <Link href="/app/mi-lectura" className="inline-flex items-center gap-2 text-sm font-semibold text-teal hover:text-coral">
                     <ArrowLeft className="h-4 w-4" aria-hidden="true" />
@@ -301,7 +305,7 @@ export function ResourceGuideView({ detail }: { detail: ResourceDetail }) {
                             <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">
                                 {guide.metadata.marca} · Guia de discusion
                             </p>
-                            <h1 className="mt-4 max-w-4xl text-5xl leading-[0.95] text-teal md:text-7xl">
+                            <h1 className="mt-4 max-w-4xl text-4xl leading-[1] text-teal sm:text-5xl sm:leading-[0.95] md:text-6xl lg:text-7xl">
                                 {guide.cabecera.titulo_libro}
                             </h1>
                             <p className="mt-4 text-xl font-medium text-teal-dark">
@@ -342,7 +346,7 @@ export function ResourceGenomeView({ detail }: { detail: ResourceDetail }) {
     const year = detail.book.firstPublicationYear ? String(detail.book.firstPublicationYear) : null;
 
     return (
-        <div className="-mx-4 -my-6 bg-cream sm:-mx-6 md:-mx-8">
+        <div className="-mx-4 -my-6 bg-cream sm:-mx-6">
             <div className="mx-auto max-w-7xl px-4 pt-8 sm:px-6 md:px-8">
                 <Link href="/app/mi-lectura" className="inline-flex items-center gap-2 text-sm font-semibold text-teal hover:text-coral">
                     <ArrowLeft className="h-4 w-4" aria-hidden="true" />

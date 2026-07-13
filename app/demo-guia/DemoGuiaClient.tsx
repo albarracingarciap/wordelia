@@ -1,12 +1,80 @@
 "use client";
 
 import { AlertTriangle, Clock3, MessageCircle, Quote, Route, Sparkles, Users } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/Tabs";
+import { Tabs, TabsContent, TabsTrigger } from "@/components/ui/Tabs";
+import { ScrollNav } from "@/components/ui/ScrollNav";
 import type { DiscussionGuide } from "./guide-data";
 
 type DemoGuiaClientProps = {
     guide: DiscussionGuide;
 };
+
+// The `ficha_rapida_sesion` payload comes in two shapes depending on how the
+// guide was generated. We normalize both into a common { tiempo, label, text }
+// row so the session table always renders.
+type RawSessionRow = {
+    // Structure A
+    tiempo?: string;
+    actividad?: string;
+    // Structure B
+    momento?: string;
+    duracion?: string;
+    objetivo?: string;
+    dinamica?: string;
+    // Structure C
+    etapa?: string;
+};
+
+type SessionRow = {
+    tiempo: string;
+    label: string;
+    text: string;
+};
+
+// "00:20 - 00:50" -> "30 min" (the real duration of the activity).
+function realMinutesFromRange(range: string): string {
+    const match = range.match(/(\d{1,2}):(\d{2})\s*[-–—]\s*(\d{1,2}):(\d{2})/);
+    if (!match) return range.trim();
+    const start = Number(match[1]) * 60 + Number(match[2]);
+    const end = Number(match[3]) * 60 + Number(match[4]);
+    const diff = end - start;
+    if (!Number.isFinite(diff) || diff <= 0) return range.trim();
+    return `${diff} min`;
+}
+
+// "10 minutos" / "10 min" -> "10 min" (uniform format across structures).
+function normalizeDuration(value?: string): string {
+    if (!value) return "";
+    const match = value.match(/\d+/);
+    return match ? `${match[0]} min` : value.trim();
+}
+
+function normalizeSessionRow(item: RawSessionRow): SessionRow {
+    // Structure A: { tiempo (range), actividad }
+    if (item.tiempo != null || item.actividad != null) {
+        return {
+            tiempo: item.tiempo ? realMinutesFromRange(item.tiempo) : "",
+            label: "",
+            text: item.actividad ?? "",
+        };
+    }
+
+    // Structure C: { etapa, duracion }
+    if (item.etapa != null) {
+        return {
+            tiempo: normalizeDuration(item.duracion),
+            label: "",
+            text: item.etapa,
+        };
+    }
+
+    // Structure B: { momento, duracion, objetivo, dinamica }
+    return {
+        tiempo: normalizeDuration(item.duracion),
+        label: item.momento ?? "",
+        text: item.dinamica ?? "",
+    };
+}
 
 const tabItems = [
     { value: "sesion", label: "Sesión" },
@@ -20,6 +88,96 @@ const tabItems = [
     { value: "actividades", label: "Actividades" },
     { value: "moderador", label: "Moderador" },
 ];
+
+// `arquitectura_narrativa` arrives either as a single string or split across
+// object fields ({ recursos, estructura } / { estructura, tecnicas_narrativas }).
+// Return the parts as an array so each renders as its own paragraph.
+function normalizeArquitectura(value: unknown): string[] {
+    if (typeof value === "string") return value.trim() ? [value] : [];
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+        return Object.values(value as Record<string, unknown>).filter(
+            (part): part is string => typeof part === "string" && part.trim().length > 0
+        );
+    }
+    return [];
+}
+
+// Each `tres_lecturas_final` entry uses different keys depending on the guide
+// ({ enfoque, explicacion } / { prisma, analisis } / { lectura, analisis }).
+type RawLecturaFinal = {
+    enfoque?: string;
+    explicacion?: string;
+    prisma?: string;
+    lectura?: string;
+    analisis?: string;
+};
+
+function normalizeLecturaFinal(item: RawLecturaFinal): { title: string; body: string } {
+    return {
+        title: item.enfoque ?? item.prisma ?? item.lectura ?? "",
+        body: item.explicacion ?? item.analisis ?? "",
+    };
+}
+
+// The closing quote ("frase de salida") normally lives at
+// cierre_discusion.frase_salida, but some guides place it elsewhere. Resolve
+// the canonical location first, then fall back to a frase_salida found anywhere.
+type FraseSalida = { texto: string; fuente: string };
+
+function coerceFrase(value: unknown): FraseSalida | null {
+    if (typeof value === "string") {
+        return value.trim() ? { texto: value, fuente: "" } : null;
+    }
+    if (value && typeof value === "object" && !Array.isArray(value)) {
+        const obj = value as Record<string, unknown>;
+        const pick = (keys: string[]) => {
+            for (const key of keys) {
+                if (typeof obj[key] === "string" && (obj[key] as string).trim()) return obj[key] as string;
+            }
+            return "";
+        };
+        // Primary key names, with a fallback to the first string value present.
+        let texto = pick(["texto", "frase", "cita", "contenido", "text", "quote"]);
+        const fuente = pick(["fuente", "autor", "author", "source"]);
+        if (!texto) {
+            const firstString = Object.entries(obj).find(
+                ([key, val]) => typeof val === "string" && val.trim() && val !== fuente && key !== "fuente"
+            );
+            texto = firstString ? (firstString[1] as string) : "";
+        }
+        return texto.trim() ? { texto, fuente } : null;
+    }
+    return null;
+}
+
+function findFraseSalida(value: unknown, depth = 0): FraseSalida | null {
+    if (depth > 6 || !value || typeof value !== "object") return null;
+
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            const found = findFraseSalida(item, depth + 1);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    const obj = value as Record<string, unknown>;
+    if ("frase_salida" in obj) {
+        const frase = coerceFrase(obj.frase_salida);
+        if (frase) return frase;
+    }
+
+    for (const nested of Object.values(obj)) {
+        const found = findFraseSalida(nested, depth + 1);
+        if (found) return found;
+    }
+
+    return null;
+}
+
+function resolveFraseSalida(guide: DiscussionGuide): FraseSalida | null {
+    return coerceFrase(guide.cierre_discusion?.frase_salida) ?? findFraseSalida(guide);
+}
 
 function InlineMarkdown({ text }: { text: string }) {
     const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g).filter(Boolean);
@@ -77,6 +235,7 @@ function GuideCard({ children, className = "" }: { children: React.ReactNode; cl
 }
 
 export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
+    const fraseSalida = resolveFraseSalida(guide);
     return (
         <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 md:px-8">
             <div className="mb-8 grid gap-4 md:grid-cols-4">
@@ -106,20 +265,20 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                 </GuideCard>
             </div>
 
-            <Tabs defaultValue="sesion" className="grid gap-8 lg:grid-cols-[270px_1fr]">
-                <aside className="lg:sticky lg:top-24 lg:self-start">
-                    <TabsList className="mb-0 flex flex-row gap-2 overflow-x-auto border-b-0 lg:flex-col lg:items-stretch lg:overflow-visible">
+            <Tabs defaultValue="sesion" className="space-y-6">
+                <div className="min-w-0">
+                    <ScrollNav className="mb-0">
                         {tabItems.map((item) => (
                             <TabsTrigger
                                 key={item.value}
                                 value={item.value}
-                                className="rounded-xl border border-teal/10 bg-white px-4 py-3 text-left shadow-sm lg:w-full"
+                                className="shrink-0 rounded-xl border border-teal/10 bg-white px-4 py-3 text-left shadow-sm"
                             >
                                 {item.label}
                             </TabsTrigger>
                         ))}
-                    </TabsList>
-                </aside>
+                    </ScrollNav>
+                </div>
 
                 <div className="min-w-0">
                     <TabsContent value="sesion">
@@ -141,24 +300,22 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                             </GuideCard>
 
                             <div className="overflow-hidden border border-teal/10 bg-white shadow-sm">
-                                <div className="grid grid-cols-[96px_1fr] border-b border-teal/10 bg-offwhite px-4 py-3 text-xs font-bold uppercase tracking-[0.12em] text-teal sm:grid-cols-[130px_90px_1fr]">
-                                    <span>Momento</span>
-                                    <span className="hidden sm:block">Tiempo</span>
+                                <div className="grid grid-cols-[90px_1fr] border-b border-teal/10 bg-offwhite px-4 py-3 text-xs font-bold uppercase tracking-[0.12em] text-teal sm:grid-cols-[110px_1fr]">
+                                    <span>Tiempo</span>
                                     <span>Dinámica</span>
                                 </div>
-                                {guide.como_usar_guia.ficha_rapida_sesion.map((item, index) => (
-                                    <div key={`sesion-${index}-${item.momento || "momento"}`} className="grid grid-cols-[96px_1fr] gap-4 border-b border-teal/10 px-4 py-4 last:border-0 sm:grid-cols-[130px_90px_1fr]">
-                                        <div>
-                                            <p className="font-semibold text-teal-dark">{item.momento}</p>
-                                            <p className="mt-1 text-xs text-coral sm:hidden">{item.duracion}</p>
+                                {guide.como_usar_guia.ficha_rapida_sesion.map((item, index) => {
+                                    const row = normalizeSessionRow(item as RawSessionRow);
+                                    return (
+                                        <div key={`sesion-${index}`} className="grid grid-cols-[90px_1fr] gap-4 border-b border-teal/10 px-4 py-4 last:border-0 sm:grid-cols-[110px_1fr]">
+                                            <p className="text-sm font-semibold text-coral">{row.tiempo}</p>
+                                            <p className="text-sm leading-relaxed text-grey">
+                                                {row.label && <span className="font-semibold text-teal-dark">{row.label}: </span>}
+                                                {row.text}
+                                            </p>
                                         </div>
-                                        <p className="hidden text-sm font-semibold text-coral sm:block">{item.duracion}</p>
-                                        <div>
-                                            <p className="text-sm font-semibold text-teal">{item.objetivo}</p>
-                                            <p className="mt-1 text-sm leading-relaxed text-grey">{item.dinamica}</p>
-                                        </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </div>
                     </TabsContent>
@@ -216,7 +373,7 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
 
                     <TabsContent value="preguntas">
                         <SectionTitle eyebrow="Preguntas poderosas" title="Bloques temáticos para abrir la conversación" />
-                        <div className="grid gap-5 lg:grid-cols-2">
+                        <div className="grid gap-5 md:grid-cols-2">
                             {Object.entries(guide.preguntas_poderosas).map(([key, block]) => (
                                 <GuideCard key={key}>
                                     <div className="mb-4 flex items-center gap-3">
@@ -268,21 +425,30 @@ export function DemoGuiaClient({ guide }: DemoGuiaClientProps) {
                         <SectionTitle eyebrow="Estructura y cierre" title="Tres lecturas del desenlace" />
                         <GuideCard className="mb-5">
                             <h3 className="mb-3 text-xl font-semibold text-teal">Arquitectura narrativa</h3>
-                            <TextBlock text={guide.estructura_y_final.arquitectura_narrativa} />
-                        </GuideCard>
-                        <div className="grid gap-4 lg:grid-cols-3">
-                            {guide.estructura_y_final.tres_lecturas_final.map((lectura, index) => (
-                                <GuideCard key={`lectura-final-${index}-${lectura.enfoque || "sin-enfoque"}`}>
-                                    <h3 className="text-xl font-semibold leading-tight text-teal">{lectura.enfoque}</h3>
-                                    <TextBlock text={lectura.explicacion} className="mt-3" />
-                                </GuideCard>
+                            {normalizeArquitectura(guide.estructura_y_final.arquitectura_narrativa).map((part, index) => (
+                                <TextBlock key={`arquitectura-${index}`} text={part} className={index > 0 ? "mt-3" : ""} />
                             ))}
+                        </GuideCard>
+                        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                            {guide.estructura_y_final.tres_lecturas_final.map((item, index) => {
+                                const lectura = normalizeLecturaFinal(item as RawLecturaFinal);
+                                return (
+                                    <GuideCard key={`lectura-final-${index}`}>
+                                        <h3 className="text-xl font-semibold leading-tight text-teal">{lectura.title}</h3>
+                                        <TextBlock text={lectura.body} className="mt-3" />
+                                    </GuideCard>
+                                );
+                            })}
                         </div>
-                        <div className="mt-5 overflow-hidden rounded-xl border border-teal/10 bg-teal p-5 shadow-sm">
-                            <Quote className="mb-4 h-7 w-7 text-coral" aria-hidden="true" />
-                            <p className="font-serif text-2xl leading-relaxed text-white">{guide.cierre_discusion.frase_salida.texto}</p>
-                            <p className="mt-4 text-sm font-semibold text-white/70">{guide.cierre_discusion.frase_salida.fuente}</p>
-                        </div>
+                        {fraseSalida && (
+                            <div className="mt-5 overflow-hidden rounded-xl border border-teal/10 bg-teal p-5 shadow-sm">
+                                <Quote className="mb-4 h-7 w-7 text-coral" aria-hidden="true" />
+                                <p className="font-serif text-2xl leading-relaxed text-white">{fraseSalida.texto}</p>
+                                {fraseSalida.fuente && (
+                                    <p className="mt-4 text-sm font-semibold text-white/70">{fraseSalida.fuente}</p>
+                                )}
+                            </div>
+                        )}
                     </TabsContent>
 
                     <TabsContent value="actualidad">

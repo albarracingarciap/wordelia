@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { CreateShelfModal } from "@/components/shelves/CreateShelfModal";
 import { MoveBookModal } from "@/components/shelves/MoveBookModal";
 import { RegisterReadingModal } from "@/components/dashboard/RegisterReadingModal";
+import { EditSessionModal } from "@/components/dashboard/EditSessionModal";
 import { ReadingTimerModal } from "@/components/dashboard/ReadingTimerModal";
 import { CreateNoteModal } from "@/components/notes/CreateNoteModal";
 import { ReviewModal } from "@/components/reviews/ReviewModal";
@@ -60,6 +61,8 @@ function ShelvesPageContent() {
     const [sessionDuration, setSessionDuration] = React.useState<number | undefined>(undefined);
     const [isReviewModalOpen, setIsReviewModalOpen] = React.useState(false);
     const [reviewTargetBookId, setReviewTargetBookId] = React.useState<string | undefined>(undefined);
+    const [isEditSessionOpen, setIsEditSessionOpen] = React.useState(false);
+    const [editSessionBookId, setEditSessionBookId] = React.useState<string | undefined>(undefined);
 
     const [books, setBooks] = React.useState<CurrentBook[]>([]);
     const [shelves, setShelves] = React.useState<Shelf[]>([]);
@@ -142,6 +145,11 @@ function ShelvesPageContent() {
     const handleFirstImpressions = (bookId: string) => {
         setReviewTargetBookId(bookId);
         setIsReviewModalOpen(true);
+    };
+
+    const handleCorrectLastSession = (bookId: string) => {
+        setEditSessionBookId(bookId);
+        setIsEditSessionOpen(true);
     };
 
     const handleBookPrimaryAction = (book: CurrentBook) => {
@@ -371,6 +379,7 @@ function ShelvesPageContent() {
                                         onRegisterClick={() => handleManualRegister(book.id)}
                                         onNotesClick={() => handleOpenNoteModal(book.id)}
                                         onReviewClick={() => handleFirstImpressions(book.id)}
+                                        onCorrectLastClick={() => handleCorrectLastSession(book.id)}
                                         reviewLabel="Primeras impresiones"
                                     />
                                     <div className="absolute right-2 top-2 z-10 flex gap-1 opacity-100 transition-opacity sm:opacity-0 sm:group-hover:opacity-100">
@@ -434,6 +443,14 @@ function ShelvesPageContent() {
                 onClose={() => setIsTimerOpen(false)}
                 onFinish={handleTimerFinish}
                 bookTitle={timerBook?.title || "Lectura actual"}
+            />
+
+            <EditSessionModal
+                isOpen={isEditSessionOpen}
+                onClose={() => setIsEditSessionOpen(false)}
+                bookId={editSessionBookId}
+                bookTitle={books.find((book) => book.id === editSessionBookId)?.title}
+                onSuccess={fetchData}
             />
 
             <CreateNoteModal

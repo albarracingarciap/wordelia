@@ -1165,7 +1165,8 @@ export async function logReadingSession(
                 start_time: new Date(Date.now() - durationMinutes * 60000).toISOString(), // Estimated start
                 end_time: new Date().toISOString(),
                 duration_seconds: durationMinutes * 60,
-                pages_read: pagesRead
+                pages_read: pagesRead,
+                marked_finished: isFinished
             })
             .select("id")
             .single();
@@ -1202,6 +1203,165 @@ export async function logReadingSession(
 
     } catch (e: any) {
         console.error("logReadingSession Error:", e);
+        return { error: e.message };
+    }
+}
+
+export interface LastReadingSession {
+    id: string;
+    pagesRead: number | null;
+    durationMinutes: number;
+    startTime: string;
+}
+
+export async function getLastReadingSession(bookId: string): Promise<LastReadingSession | null> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return null;
+
+    const { data, error } = await supabase
+        .from("reading_sessions")
+        .select("id, pages_read, duration_seconds, start_time")
+        .eq("user_id", user.id)
+        .eq("book_id", bookId)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+    if (error) {
+        console.error("getLastReadingSession Error:", error);
+        return null;
+    }
+    if (!data) return null;
+
+    return {
+        id: data.id,
+        pagesRead: data.pages_read,
+        durationMinutes: Math.round((data.duration_seconds || 0) / 60),
+        startTime: data.start_time,
+    };
+}
+
+export async function updateReadingSession(
+    sessionId: string,
+    durationMinutes: number,
+    pagesRead: number | null
+) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "User not authenticated" };
+
+    try {
+        // 1. Read the existing session to compute the pages delta
+        const { data: session, error: fetchError } = await supabase
+            .from("reading_sessions")
+            .select("id, book_id, pages_read")
+            .eq("id", sessionId)
+            .eq("user_id", user.id)
+            .single();
+
+        if (fetchError) throw fetchError;
+        if (!session) return { error: "Sesión no encontrada" };
+
+        // 2. Update the session
+        const { error: updateError } = await supabase
+            .from("reading_sessions")
+            .update({
+                duration_seconds: durationMinutes * 60,
+                pages_read: pagesRead,
+            })
+            .eq("id", sessionId)
+            .eq("user_id", user.id);
+
+        if (updateError) throw updateError;
+
+        // 3. Reconcile the denormalized user_books.current_page by the delta
+        const delta = (pagesRead || 0) - (session.pages_read || 0);
+        if (delta !== 0) {
+            const { data: userBook } = await supabase
+                .from("user_books")
+                .select("current_page")
+                .eq("user_id", user.id)
+                .eq("book_id", session.book_id)
+                .single();
+
+            const newPage = Math.max(0, (userBook?.current_page || 0) + delta);
+            await supabase
+                .from("user_books")
+                .update({ current_page: newPage, updated_at: new Date().toISOString() })
+                .eq("user_id", user.id)
+                .eq("book_id", session.book_id);
+        }
+
+        revalidatePath("/app/search");
+        revalidatePath("/app/mi-lectura");
+        return { success: true };
+    } catch (e: any) {
+        console.error("updateReadingSession Error:", e);
+        return { error: e.message };
+    }
+}
+
+export async function deleteReadingSession(sessionId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "User not authenticated" };
+
+    try {
+        // 1. Read the session so we can roll back its page contribution
+        //    and, if it was the session that finished the book, its READ status.
+        const { data: session, error: fetchError } = await supabase
+            .from("reading_sessions")
+            .select("id, book_id, pages_read, marked_finished")
+            .eq("id", sessionId)
+            .eq("user_id", user.id)
+            .single();
+
+        if (fetchError) throw fetchError;
+        if (!session) return { error: "Sesión no encontrada" };
+
+        // 2. Delete the session
+        const { error: deleteError } = await supabase
+            .from("reading_sessions")
+            .delete()
+            .eq("id", sessionId)
+            .eq("user_id", user.id);
+
+        if (deleteError) throw deleteError;
+
+        // 3. Reconcile the denormalized user_books row: subtract the deleted
+        //    pages and, if this session had marked the book as finished, undo
+        //    the READ status / finish_date.
+        const pages = session.pages_read || 0;
+        const { data: userBook } = await supabase
+            .from("user_books")
+            .select("current_page, status")
+            .eq("user_id", user.id)
+            .eq("book_id", session.book_id)
+            .single();
+
+        const bookUpdates: Record<string, any> = { updated_at: new Date().toISOString() };
+
+        if (pages !== 0) {
+            bookUpdates.current_page = Math.max(0, (userBook?.current_page || 0) - pages);
+        }
+
+        if (session.marked_finished && userBook?.status === "READ") {
+            bookUpdates.status = "READING";
+            bookUpdates.finish_date = null;
+        }
+
+        await supabase
+            .from("user_books")
+            .update(bookUpdates)
+            .eq("user_id", user.id)
+            .eq("book_id", session.book_id);
+
+        revalidatePath("/app/search");
+        revalidatePath("/app/mi-lectura");
+        return { success: true };
+    } catch (e: any) {
+        console.error("deleteReadingSession Error:", e);
         return { error: e.message };
     }
 }
