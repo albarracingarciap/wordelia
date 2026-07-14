@@ -140,7 +140,7 @@ function mapBook(book: BookRow | null | undefined): ResourceBook {
 
 async function getAccessContext(userId: string) {
     const supabase = await createClient();
-    const [profileResult, founderResult] = await Promise.all([
+    const [profileResult, founderResult, subscriptionResult] = await Promise.all([
         supabase
             .from("profiles")
             .select("role")
@@ -152,11 +152,23 @@ async function getAccessContext(userId: string) {
             .eq("user_id", userId)
             .eq("status", "active")
             .maybeSingle(),
+        supabase
+            .from("user_subscriptions")
+            .select("plan, current_period_end")
+            .eq("user_id", userId)
+            .eq("status", "active")
+            .maybeSingle(),
     ]);
 
     const profile = profileResult.data as ProfileAccessRow | null;
     const founderMembership = founderResult.data as FounderMembershipAccessRow | null;
-    const plan = founderMembership?.requested_plan || null;
+    const subscription = subscriptionResult.data as { plan: string; current_period_end: string | null } | null;
+
+    // A paid subscription (if still within its period) takes precedence; else
+    // fall back to the founder-membership plan signal.
+    const subscriptionActive = subscription
+        && (!subscription.current_period_end || new Date(subscription.current_period_end) > new Date());
+    const plan = (subscriptionActive ? subscription!.plan : null) || founderMembership?.requested_plan || null;
     const isAdmin = profile?.role === "admin" || profile?.role === "editor";
 
     return {

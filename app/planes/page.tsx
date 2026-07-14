@@ -1,15 +1,19 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { PricingCard } from "@/components/ui/PricingCard";
-// import { Switch } from "@/components/ui/Switch"; // Removed unused import
 import { Navbar } from "@/components/landing/Navbar";
+import { createClient } from "@/utils/supabase/client";
+import { PayPalProvider, PayPalCheckout } from "@/components/payments/PayPalCheckout";
 
 // Mock data based on proposal
 const PLANS = [
     {
         title: "Lector Explorador",
+        plan: null as null | "voraz" | "ai",
         price: { monthly: "0€", annual: "0€" },
         description: "Ideal para empezar a organizar tu biblioteca y probar la experiencia Wordelia.",
         buttonText: "Comenzar Gratis",
@@ -27,6 +31,7 @@ const PLANS = [
     },
     {
         title: "Lector Voraz",
+        plan: "voraz" as null | "voraz" | "ai",
         price: { monthly: "4.99€", annual: "49€" },
         description: "El estándar para quien ama profundizar en sus lecturas y conectar con otros.",
         buttonText: "Elegir Premium",
@@ -45,6 +50,7 @@ const PLANS = [
     },
     {
         title: "Bibliófilo AI",
+        plan: "ai" as null | "voraz" | "ai",
         price: { monthly: "9.99€", annual: "99€" },
         description: "Para el usuario que quiere la máxima potencia tecnológica y social.",
         buttonText: "Elegir Pro",
@@ -61,7 +67,19 @@ const PLANS = [
 ];
 
 export default function PlansPage() {
+    const router = useRouter();
     const [isAnnual, setIsAnnual] = React.useState(false);
+    const [userId, setUserId] = React.useState<string | null>(null);
+    const [authReady, setAuthReady] = React.useState(false);
+    const period: "monthly" | "annual" = isAnnual ? "annual" : "monthly";
+
+    React.useEffect(() => {
+        const supabase = createClient();
+        supabase.auth.getUser().then(({ data }) => {
+            setUserId(data.user?.id ?? null);
+            setAuthReady(true);
+        });
+    }, []);
 
     return (
         <div className="space-y-16 pb-20 pt-[72px]">
@@ -98,22 +116,45 @@ export default function PlansPage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto px-4">
-                {PLANS.map((plan, idx) => (
-                    <div key={idx} className="h-full">
-                        <PricingCard
-                            title={plan.title}
-                            price={isAnnual ? plan.price.annual : plan.price.monthly}
-                            period={isAnnual ? "/año" : "/mes"}
-                            description={plan.description}
-                            features={plan.features}
-                            buttonText={plan.buttonText}
-                            variant={plan.variant as any}
-                            isPopular={plan.isPopular}
-                        />
-                    </div>
-                ))}
-            </div>
+            <PayPalProvider>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 max-w-6xl mx-auto px-4">
+                    {PLANS.map((plan, idx) => (
+                        <div key={idx} className="flex h-full flex-col gap-3">
+                            <PricingCard
+                                title={plan.title}
+                                price={isAnnual ? plan.price.annual : plan.price.monthly}
+                                period={isAnnual ? "/año" : "/mes"}
+                                description={plan.description}
+                                features={plan.features}
+                                buttonText={plan.buttonText}
+                                variant={plan.variant as any}
+                                isPopular={plan.isPopular}
+                            />
+                            {plan.plan && (
+                                <div className="rounded-2xl border border-teal/10 bg-white p-3">
+                                    {!authReady ? (
+                                        <div className="h-10" />
+                                    ) : userId ? (
+                                        <PayPalCheckout
+                                            productType="user_plan"
+                                            referenceId={plan.plan}
+                                            period={period}
+                                            onSuccess={() => router.push("/app/mi-lectura")}
+                                        />
+                                    ) : (
+                                        <Link
+                                            href="/login"
+                                            className="flex h-10 items-center justify-center rounded-xl bg-teal text-sm font-semibold text-white transition-colors hover:bg-teal-dark"
+                                        >
+                                            Inicia sesión para suscribirte
+                                        </Link>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    ))}
+                </div>
+            </PayPalProvider>
 
             {/* FAQ Section (Optional placeholder) */}
             <div className="max-w-3xl mx-auto px-4 text-center border-t border-teal/10 pt-16">

@@ -71,6 +71,7 @@ async function grantClubResourcesIfPro(supabase: any, clubId: string, userId: st
             resource_kind: kind,
             access_source: 'org_club',
             expires_at: null,
+            metadata: { organization_id: club.organization_id, club_id: clubId },
         }));
 
         const { error } = await admin
@@ -2926,6 +2927,7 @@ export async function inviteMemberByUsername(clubId: string, usernameOrEmail: st
                     : error.message
             };
         }
+        await grantClubResourcesIfPro(supabase, clubId, profile.id);
         revalidatePath(`/app/clubs/${clubId}`);
         return { success: true, profile };
     } catch (e: any) { return { error: e.message }; }
