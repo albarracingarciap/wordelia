@@ -1,7 +1,9 @@
 "use client";
 
 import * as React from "react";
+import { Suspense } from "react";
 import { useFormStatus } from "react-dom";
+import { useSearchParams } from "next/navigation";
 import { login } from "@/app/auth/actions";
 import { Button } from "@/components/ui/Button";
 import Link from "next/link";
@@ -18,8 +20,11 @@ function SubmitButton() {
     );
 }
 
-export default function LoginPage() {
+function LoginContent() {
     const [state, formAction] = React.useActionState(login, null);
+    const searchParams = useSearchParams();
+    const next = searchParams.get("next") ?? "";
+    const registerHref = next ? `/register?next=${encodeURIComponent(next)}` : "/register";
 
     return (
         <div className="min-h-dvh bg-white md:grid md:grid-cols-2">
@@ -55,6 +60,7 @@ export default function LoginPage() {
                     </div>
 
                     <form action={formAction} className="space-y-5">
+                        <input type="hidden" name="next" value={next} />
                         {state?.error ? (
                             <div className="rounded-2xl border border-coral/25 bg-coral/10 px-4 py-3 text-sm font-medium text-coral" role="alert">
                                 {state.error}
@@ -105,12 +111,20 @@ export default function LoginPage() {
 
                     <p className="text-center text-sm text-grey/60 sm:text-base">
                         ¿Aún no tienes una cuenta?{" "}
-                        <Link href="/register" className="font-bold text-teal hover:underline">
+                        <Link href={registerHref} className="font-bold text-teal hover:underline">
                             Regístrate
                         </Link>
                     </p>
                 </div>
             </section>
         </div>
+    );
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={null}>
+            <LoginContent />
+        </Suspense>
     );
 }

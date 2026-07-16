@@ -23,6 +23,8 @@ function RegisterContent() {
     const intent = searchParams.get("intent") || "";
     const requestedPlan = searchParams.get("plan") || (intent.startsWith("plan-") ? intent.replace("plan-", "") : "");
     const billingPeriod = searchParams.get("billing") || "";
+    const next = searchParams.get("next") || "";
+    const loginHref = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
     const isBetaSignup = source === "beta" || intent.includes("beta") || Boolean(requestedPlan);
     const errorMessage = clientError || state?.error;
 
@@ -96,6 +98,7 @@ function RegisterContent() {
                         <input type="hidden" name="signup_intent" value={intent} />
                         <input type="hidden" name="requested_plan" value={requestedPlan} />
                         <input type="hidden" name="billing_period" value={billingPeriod} />
+                        <input type="hidden" name="next" value={next} />
 
                         <div className="space-y-4">
                             <div>
@@ -173,7 +176,7 @@ function RegisterContent() {
                     <div className="pt-4 text-center">
                         <p className="text-sm text-grey/60">
                             ¿Ya tienes una cuenta?{" "}
-                            <Link href="/login" className="font-bold text-teal hover:underline">
+                            <Link href={loginHref} className="font-bold text-teal hover:underline">
                                 Entrar
                             </Link>
                         </p>

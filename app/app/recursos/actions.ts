@@ -32,10 +32,6 @@ type ProfileAccessRow = {
     role?: string | null;
 };
 
-type FounderMembershipAccessRow = {
-    requested_plan?: string | null;
-};
-
 type ResourceRow = Record<string, unknown> & {
     book_id?: string | null;
 };
@@ -140,17 +136,11 @@ function mapBook(book: BookRow | null | undefined): ResourceBook {
 
 async function getAccessContext(userId: string) {
     const supabase = await createClient();
-    const [profileResult, founderResult, subscriptionResult] = await Promise.all([
+    const [profileResult, subscriptionResult] = await Promise.all([
         supabase
             .from("profiles")
             .select("role")
             .eq("id", userId)
-            .maybeSingle(),
-        supabase
-            .from("founder_memberships")
-            .select("requested_plan")
-            .eq("user_id", userId)
-            .eq("status", "active")
             .maybeSingle(),
         supabase
             .from("user_subscriptions")
@@ -161,14 +151,14 @@ async function getAccessContext(userId: string) {
     ]);
 
     const profile = profileResult.data as ProfileAccessRow | null;
-    const founderMembership = founderResult.data as FounderMembershipAccessRow | null;
     const subscription = subscriptionResult.data as { plan: string; current_period_end: string | null } | null;
 
-    // A paid subscription (if still within its period) takes precedence; else
-    // fall back to the founder-membership plan signal.
+    // El acceso a recursos por plan requiere una suscripción de pago activa. El
+    // beneficio fundador NO concede plan: solo aporta clubs gratis, cuyo acceso a
+    // la guía/genoma del libro se otorga por grant (user_book_resource_access).
     const subscriptionActive = subscription
         && (!subscription.current_period_end || new Date(subscription.current_period_end) > new Date());
-    const plan = (subscriptionActive ? subscription!.plan : null) || founderMembership?.requested_plan || null;
+    const plan = subscriptionActive ? subscription!.plan : null;
     const isAdmin = profile?.role === "admin" || profile?.role === "editor";
 
     return {

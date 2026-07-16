@@ -339,11 +339,6 @@ type ProfileAccessRow = {
     role?: string | null;
 };
 
-type FounderMembershipAccessRow = {
-    requested_plan?: string | null;
-    status?: string | null;
-};
-
 type ResourceGrantRow = {
     book_id: string;
     resource_kind: ResourceKind;
@@ -644,24 +639,30 @@ async function getAccessContext(
     supabase: Awaited<ReturnType<typeof createClient>>,
     userId: string
 ): Promise<{ isAdmin: boolean; plan: string | null; hasGuidePlan: boolean; hasGenomePlan: boolean }> {
-    const [profileResult, founderResult] = await Promise.all([
+    const [profileResult, subscriptionResult] = await Promise.all([
         supabase
             .from("profiles")
             .select("role")
             .eq("id", userId)
             .maybeSingle(),
         supabase
-            .from("founder_memberships")
-            .select("requested_plan, status")
+            .from("user_subscriptions")
+            .select("plan, current_period_end")
             .eq("user_id", userId)
             .eq("status", "active")
             .maybeSingle(),
     ]);
 
     const profile = profileResult.data as ProfileAccessRow | null;
-    const founderMembership = founderResult.data as FounderMembershipAccessRow | null;
+    const subscription = subscriptionResult.data as { plan: string; current_period_end: string | null } | null;
     const isAdmin = profile?.role === "admin" || profile?.role === "editor";
-    const plan = founderMembership?.requested_plan || null;
+
+    // El acceso a recursos por plan requiere una suscripción de pago activa. El
+    // beneficio fundador NO concede plan: solo aporta clubs gratis, cuyo acceso a
+    // la guía/genoma del libro se otorga por grant (user_book_resource_access).
+    const subscriptionActive = subscription
+        && (!subscription.current_period_end || new Date(subscription.current_period_end) > new Date());
+    const plan = subscriptionActive ? subscription!.plan : null;
 
     return {
         isAdmin,

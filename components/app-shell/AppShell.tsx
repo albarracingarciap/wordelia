@@ -3,6 +3,7 @@
 import { TopBar } from "./TopBar";
 import { SideNav } from "./SideNav";
 import { MobileNav } from "./MobileNav";
+import { PendingSubscriptionBanner } from "./PendingSubscriptionBanner";
 
 interface AppShellProps {
     children: React.ReactNode;
@@ -21,6 +22,7 @@ export function AppShell({ children }: AppShellProps) {
                 {/* Main Content Area */}
                 <main className="relative z-0 min-w-0 flex-1 animate-fade-in px-4 py-4 pb-24 sm:px-6 md:p-6 lg:pb-8">
                     <div className="mx-auto max-w-5xl min-w-0">
+                        <PendingSubscriptionBanner />
                         {children}
                     </div>
                 </main>

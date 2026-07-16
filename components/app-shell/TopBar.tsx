@@ -5,6 +5,7 @@ import Image from "next/image";
 import { SearchInput } from "../ui/SearchInput";
 import { Avatar } from "../ui/Avatar";
 import { Badge } from "../ui/Badge";
+import { Sparkles } from "lucide-react";
 import { signout } from "@/app/auth/actions";
 
 import { createClient } from "@/utils/supabase/client";
@@ -135,6 +136,26 @@ export function TopBar() {
                         {/* Dropdown Menu */}
                         {isDropdownOpen && (
                             <div className="fixed right-3 top-14 z-[80] w-48 rounded-xl border border-teal/10 bg-white py-1 shadow-lg animate-fade-in md:right-8 md:top-[68px]">
+                                <Link
+                                    href="/app/perfil"
+                                    onClick={() => setIsDropdownOpen(false)}
+                                    className="w-full text-left px-4 py-2 text-sm text-grey hover:bg-teal/5 transition-colors flex items-center gap-2"
+                                >
+                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                                        <circle cx="12" cy="7" r="4" />
+                                    </svg>
+                                    Mi perfil
+                                </Link>
+                                <Link
+                                    href="/planes"
+                                    onClick={() => setIsDropdownOpen(false)}
+                                    className="w-full text-left px-4 py-2 text-sm text-grey hover:bg-teal/5 transition-colors flex items-center gap-2"
+                                >
+                                    <Sparkles className="h-4 w-4" aria-hidden="true" />
+                                    Mi plan
+                                </Link>
+                                <div className="my-1 border-t border-teal/5" />
                                 <button
                                     onClick={handleSignOut}
                                     className="w-full text-left px-4 py-2 text-sm text-grey hover:bg-teal/5 transition-colors flex items-center gap-2"

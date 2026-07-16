@@ -7,10 +7,10 @@ export type BillingPeriod = 'monthly' | 'annual';
 const CATALOG = {
     // Librería Pro — placeholder, ajustar al precio comercial real.
     org_subscription: { monthly: 1900, annual: 19000 },
-    // User plans (mirrors app/planes/page.tsx): voraz 4,99/49 · ai 9,99/99.
+    // User plans (mirrors app/planes/page.tsx): voraz 6,99/67,10 · ai 14,99/143,90.
     user_plan: {
-        voraz: { monthly: 499, annual: 4900 },
-        ai: { monthly: 999, annual: 9900 },
+        voraz: { monthly: 699, annual: 6710 },
+        ai: { monthly: 1499, annual: 14390 },
     } as Record<string, { monthly: number; annual: number }>,
     // One-off resource purchase (guide/genome) — not wired to UI yet.
     resource: 699,

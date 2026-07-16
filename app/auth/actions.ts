@@ -40,11 +40,19 @@ function getRequestedPlan(intent: string | null, plan: string | null) {
     return candidate && ['explorador', 'voraz', 'ai'].includes(candidate) ? candidate : null;
 }
 
+// Solo se permite volver a rutas internas: debe empezar por "/" pero no por "//"
+// (una URL protocol-relative como //evil.com sería un open redirect).
+function getSafeRedirect(next: FormDataEntryValue | null, fallback = '/app/mi-lectura') {
+    const target = String(next || '')
+    return target.startsWith('/') && !target.startsWith('//') ? target : fallback
+}
+
 export async function login(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
     const supabase = await createClient()
 
     const email = String(formData.get('email') || '').trim().toLowerCase()
     const password = String(formData.get('password') || '')
+    const nextUrl = getSafeRedirect(formData.get('next'))
 
     if (!email || !email.includes('@')) {
         return { error: 'Introduce un email válido.' }
@@ -64,7 +72,7 @@ export async function login(_prevState: AuthActionState, formData: FormData): Pr
     }
 
     revalidatePath('/', 'layout')
-    redirect('/app/mi-lectura')
+    redirect(nextUrl)
 }
 
 export async function signup(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
@@ -79,6 +87,9 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
     const rawBillingPeriod = cleanOptionalValue(formData.get('billing_period'))
     const billingPeriod = rawBillingPeriod === 'annual' || rawBillingPeriod === 'monthly' ? rawBillingPeriod : null
     const newsletterOptIn = formData.get('newsletter_opt_in') === 'on'
+    // Si venimos de /planes con un plan elegido, volvemos ahí a pagar; si no,
+    // al onboarding. El onboarding igualmente se fuerza al entrar en /app.
+    const nextUrl = getSafeRedirect(formData.get('next'), '/app/onboarding')
 
     if (!name) {
         return { error: 'Introduce tu nombre completo.' }
@@ -112,7 +123,7 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
     }
 
     revalidatePath('/', 'layout')
-    redirect('/app/onboarding')
+    redirect(nextUrl)
 }
 
 export async function signout() {

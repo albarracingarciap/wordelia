@@ -51,10 +51,10 @@ export function Hero({ founderCount = 38 }: HeroProps) {
                 <div className="mx-auto max-w-2xl space-y-5 text-center md:space-y-6">
                     <div className="flex flex-col justify-center gap-3 sm:flex-row">
                         <Link
-                            href="/register?source=beta"
+                            href="#planes"
                             className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-coral px-8 text-lg font-semibold text-white shadow-sm shadow-coral/20 transition-all hover:bg-[#C25852] hover:shadow-md"
                         >
-                            Registrar
+                            Empezar
                         </Link>
                         <Link
                             href="#para-ti"

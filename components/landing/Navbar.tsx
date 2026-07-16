@@ -10,9 +10,13 @@ import { Button } from "../ui/Button";
 
 type NavbarProps = {
     mode?: "auto" | "public";
+    /** Oculta el menú central de navegación (útil en páginas de foco como el checkout). */
+    centerLinks?: boolean;
+    /** Modo checkout: solo el logo (sin menú ni acciones), para no distraer del pago. */
+    minimal?: boolean;
 };
 
-export function Navbar({ mode = "auto" }: NavbarProps) {
+export function Navbar({ mode = "auto", centerLinks = true, minimal = false }: NavbarProps) {
     const [isOpen, setIsOpen] = React.useState(false);
     const { isLoggedIn } = useAuth();
     const showLoggedInActions = mode === "auto" && isLoggedIn;
@@ -46,7 +50,7 @@ export function Navbar({ mode = "auto" }: NavbarProps) {
         { label: "ADN literario", href: "/app/adn", requiresAuth: true },
         { label: "Beta", href: "/register?source=beta", requiresAuth: false },
     ];
-    const showPublicLinks = mode !== "public";
+    const showPublicLinks = mode !== "public" && centerLinks && !minimal;
 
     return (
         <nav className="fixed top-0 z-50 w-full border-b border-black/5 bg-cream/95 backdrop-blur-md">
@@ -78,7 +82,7 @@ export function Navbar({ mode = "auto" }: NavbarProps) {
                     </div>
                 )}
 
-                <div className="hidden lg:block">
+                {!minimal && <div className="hidden lg:block">
                     <div className="flex items-center gap-4">
                         {showLoggedInActions ? (
                             <Button
@@ -103,22 +107,22 @@ export function Navbar({ mode = "auto" }: NavbarProps) {
                                     variant="primary"
                                     size="sm"
                                     className="rounded-full px-6 shadow-coral/20"
-                                    onClick={() => router.push("/register?source=beta")}
+                                    onClick={() => handleNavigation("#planes")}
                                 >
-                                    Registrar
+                                    Empezar
                                 </Button>
                             </>
                         )}
                     </div>
-                </div>
+                </div>}
 
-                <button
+                {!minimal && <button
                     onClick={() => setIsOpen((current) => !current)}
                     className="inline-flex h-11 w-11 items-center justify-center rounded-full text-teal transition-colors hover:bg-teal/5 lg:hidden"
                 >
                     <span className="sr-only">Abrir menú</span>
                     {isOpen ? <X className="h-6 w-6" aria-hidden="true" /> : <Menu className="h-6 w-6" aria-hidden="true" />}
-                </button>
+                </button>}
             </div>
 
             {isOpen && (
@@ -140,8 +144,8 @@ export function Navbar({ mode = "auto" }: NavbarProps) {
                             </Button>
                         ) : (
                             <>
-                                <Button fullWidth onClick={() => router.push("/register?source=beta")}>
-                                    Solicitar acceso anticipado
+                                <Button fullWidth onClick={() => handleNavigation("#planes")}>
+                                    Empezar
                                 </Button>
                                 <Button variant="ghost" fullWidth onClick={() => router.push("/login")}>
                                     Entrar

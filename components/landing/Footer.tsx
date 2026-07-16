@@ -13,8 +13,7 @@ const footerGroups = [
         links: [
             { label: "Clubs públicos", href: "/clubes" },
             { label: "Libros", href: "/explorar" },
-            { label: "Beta", href: "/register?source=footer&intent=beta" },
-            { label: "Planes", href: "#planes" },
+            { label: "Planes", href: "/planes" },
         ],
     },
     {

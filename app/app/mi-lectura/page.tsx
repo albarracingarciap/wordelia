@@ -16,6 +16,7 @@ import { CreateNoteModal } from "@/components/notes/CreateNoteModal";
 import { ReviewModal } from "@/components/reviews/ReviewModal";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
+import { PlanStatusCard } from "@/components/pricing/PlanStatusCard";
 import { getCurrentBooks, getReadingStats, getRecentNotes, CurrentBook, ReadingStats, Note, deleteBook, getRecommendedBook, RecommendedBook, startReadingBook, convertBookEmotionToNote, getEmotionBookGroups, EmotionBookGroup, getReaderResourceContext, ReaderResourceContext } from "@/app/app/mi-lectura/actions";
 import { getUpcomingMilestones } from "@/app/app/clubs/[id]/actions";
 import { Search, BookOpen, CalendarDays, AlertCircle, Plus, Timer, Library, Users, StickyNote, BookOpenText, Dna, ShieldCheck, Lock } from "lucide-react";
@@ -617,6 +618,9 @@ export default function MiLecturaPage() {
 
                 {/* Right Column (Sidebar) - 4 Cols */}
                 <div className="flex flex-col gap-7 lg:col-span-4 lg:gap-8">
+
+                    {/* Plan status + upsell (oculto para el plan máximo) */}
+                    <PlanStatusCard plan={resourceContext.plan} />
 
                     {/* Section 4: Actions */}
                     <section className="order-1 hidden lg:block">
