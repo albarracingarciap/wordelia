@@ -14,16 +14,6 @@ export type DiscussionGuide = {
     isFree?: boolean;
 };
 
-export type GuidePack = {
-    slug: string;
-    title: string;
-    priceLabel: string;
-    savingsLabel: string;
-    description: string;
-    guideSlugs: string[];
-    tone: string;
-};
-
 export const discussionGuides: DiscussionGuide[] = [
     {
         slug: "el-tunel",
@@ -139,30 +129,3 @@ export const discussionGuides: DiscussionGuide[] = [
         themes: ["Culpa", "Moralidad", "Redención"],
     },
 ];
-
-export const guidePacks: GuidePack[] = [
-    {
-        slug: "distopias-esenciales",
-        title: "Pack Distopías esenciales",
-        priceLabel: "18,00 €",
-        savingsLabel: "Ahorra 11,97 €",
-        description: "Tres guías para conversar sobre poder, vigilancia, censura y derechos que se pierden poco a poco.",
-        guideSlugs: ["el-cuento-de-la-criada", "1984", "fahrenheit-451"],
-        tone: "Para debates intensos",
-    },
-    {
-        slug: "grandes-conversaciones",
-        title: "Pack Grandes conversaciones",
-        priceLabel: "25,00 €",
-        savingsLabel: "Ahorra 14,96 €",
-        description: "Cuatro guías para clubs que buscan preguntas éticas, sociales y emocionales con recorrido.",
-        guideSlugs: ["el-tunel", "siddhartha", "la-muerte-de-ivan-illich", "crimen-y-castigo"],
-        tone: "Para clubs que quieren profundidad",
-    },
-];
-
-export function getGuidesBySlug(slugs: string[]) {
-    return slugs
-        .map((slug) => discussionGuides.find((guide) => guide.slug === slug))
-        .filter((guide): guide is DiscussionGuide => Boolean(guide));
-}

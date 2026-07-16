@@ -1,10 +1,10 @@
 import Image from "next/image";
 import Link from "next/link";
 import type { Metadata } from "next";
-import { ArrowLeft, ArrowRight, CheckCircle2, Layers, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
-import { discussionGuides, getGuidesBySlug, guidePacks } from "@/lib/guides";
+import { discussionGuides } from "@/lib/guides";
 import { createClient } from "@/utils/supabase/server";
 import { GuidesCatalogTable, type CatalogGuide } from "./GuidesCatalogTable";
 
@@ -169,55 +169,11 @@ export default async function GuidesPage() {
                     </div>
                 </section>
 
-                <section id="packs" className="mb-14">
-                    <div className="mb-6 flex items-center gap-3">
-                        <Layers className="h-6 w-6 text-coral" aria-hidden="true" />
-                        <h2 className="text-3xl text-teal">Packs de guías</h2>
-                    </div>
-                    <div className="grid gap-5 md:grid-cols-2">
-                        {guidePacks.map((pack) => {
-                            const packGuides = getGuidesBySlug(pack.guideSlugs);
-
-                            return (
-                                <article key={pack.slug} className="rounded-3xl border border-teal/10 bg-white p-6 shadow-sm">
-                                    <div className="mb-5 flex items-start justify-between gap-4">
-                                        <div>
-                                            <p className="text-xs font-bold uppercase tracking-[0.14em] text-coral">{pack.tone}</p>
-                                            <h3 className="mt-2 text-2xl font-semibold text-teal">{pack.title}</h3>
-                                        </div>
-                                        <div className="text-right">
-                                            <p className="font-bold text-teal-dark">{pack.priceLabel}</p>
-                                            <p className="text-xs text-coral">{pack.savingsLabel}</p>
-                                        </div>
-                                    </div>
-                                    <p className="mb-5 text-sm leading-relaxed text-grey">{pack.description}</p>
-                                    <div className="mb-6 flex -space-x-3">
-                                        {packGuides.map((guide) => (
-                                            <div key={guide.slug} className="relative h-20 w-14 overflow-hidden rounded-lg border-2 border-white shadow-sm">
-                                                <Image
-                                                    src={guide.cover}
-                                                    alt={guide.bookTitle}
-                                                    fill
-                                                    className="object-cover"
-                                                    sizes="56px"
-                                                />
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <Link
-                                        href={`/register?source=guide-pack&pack=${pack.slug}`}
-                                        className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl bg-teal px-5 font-semibold text-white transition-colors hover:bg-teal-dark"
-                                    >
-                                        Comprar pack
-                                        <ArrowRight className="h-4 w-4" aria-hidden="true" />
-                                    </Link>
-                                </article>
-                            );
-                        })}
-                    </div>
-                </section>
-
-                <GuidesCatalogTable guides={guideBooks} />
+                <GuidesCatalogTable
+                    guides={guideBooks}
+                    sampleHref="/demo-guia"
+                    registerSource="guia-catalogo"
+                />
             </div>
 
             <Footer />

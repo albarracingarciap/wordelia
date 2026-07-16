@@ -15,13 +15,13 @@ import { ClubManagement } from "@/components/club/management/ClubManagement";
 import { ClubCheckpoints } from "@/components/club/ClubCheckpoints";
 import { ClubCalendar } from "@/components/club/ClubCalendar";
 import { ClubLibrary } from "@/components/club/ClubLibrary";
-import { startReading, createPoll } from "@/app/app/clubs/[id]/actions";
+import { saveReadingPlan, activateReading, cancelReadingPlan, createPoll } from "@/app/app/clubs/[id]/actions";
 
 import { SearchBookModal } from "@/components/club/management/SearchBookModal";
 import { ReadingSetup } from "@/components/club/management/ReadingSetup";
 import { CreatePollModal } from "@/components/club/polls/CreatePollModal";
 import { BookSearchResult } from "@/lib/isbndb"; // Or wherever types are
-import { ArrowLeft, Bell, BookOpen, Sparkles, Users } from "lucide-react";
+import { ArrowLeft, Bell, BookOpen, CalendarClock, Sparkles, Users } from "lucide-react";
 
 interface ClubDashboardClub {
     id: string;
@@ -48,6 +48,21 @@ interface ClubDashboardClub {
             cover_url?: string | null;
             page_count?: number | null;
             description?: string | null;
+            author?: { name?: string | null } | null;
+            authors?: { name?: string | null } | null;
+        };
+    } | null;
+    plannedBook?: {
+        id?: string | null;
+        start_date?: string | null;
+        cover_url?: string | null;
+        pregunta_apertura?: string | null;
+        pace_config?: { pace?: string | null; progressMeasure?: string | null } | null;
+        checkpoints?: any[] | null;
+        book?: {
+            id?: string;
+            title?: string;
+            cover_url?: string | null;
             author?: { name?: string | null } | null;
             authors?: { name?: string | null } | null;
         };
@@ -140,6 +155,69 @@ function MemberWaitingState({
     );
 }
 
+function formatPlanDate(value?: string | null) {
+    if (!value) return "Sin fecha";
+    const [datePart] = value.split("T");
+    const [year, month, day] = datePart.split("-").map(Number);
+    if (!year || !month || !day) return "Sin fecha";
+    return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long", year: "numeric" }).format(new Date(year, month - 1, day));
+}
+
+function PlannedReadingCard({ planned, onActivate, onEdit, onCancel, onChooseOther, busy }: {
+    planned: NonNullable<ClubDashboardClub["plannedBook"]>;
+    onActivate: () => void;
+    onEdit: () => void;
+    onCancel: () => void;
+    onChooseOther?: () => void;
+    busy: boolean;
+}) {
+    const book = planned.book || {};
+    const cover = planned.cover_url || book.cover_url || null;
+    const author = book.author?.name || book.authors?.name || "Autor desconocido";
+    const checkpointCount = planned.checkpoints?.length || 0;
+
+    return (
+        <div className="rounded-3xl border border-teal/15 bg-white p-6 shadow-sm">
+            <div className="mb-4 flex items-center gap-2">
+                <span className="inline-flex items-center gap-2 rounded-full bg-teal/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-teal">
+                    <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
+                    Lectura programada
+                </span>
+            </div>
+            <div className="flex gap-4">
+                <div className="h-28 w-20 shrink-0 overflow-hidden rounded-xl bg-grey/10 shadow-sm">
+                    {cover ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={cover} alt={book.title || "Portada"} className="h-full w-full object-cover" />
+                    ) : (
+                        <div className="flex h-full w-full items-center justify-center text-center text-xs text-grey/40">Sin portada</div>
+                    )}
+                </div>
+                <div className="min-w-0 flex-1">
+                    <h3 className="truncate text-xl font-bold text-teal-dark">{book.title || "Libro por confirmar"}</h3>
+                    <p className="text-sm text-grey/60">{author}</p>
+                    <p className="mt-2 text-sm text-grey">
+                        <span className="font-semibold text-teal-dark">Inicio:</span> {formatPlanDate(planned.start_date)}
+                    </p>
+                    <p className="mt-1 text-xs text-grey/50">
+                        {checkpointCount > 0
+                            ? `${checkpointCount} checkpoints configurados`
+                            : "Sin checkpoints (puedes añadirlos ahora o más tarde)"}
+                    </p>
+                </div>
+            </div>
+            <div className="mt-5 flex flex-wrap gap-2">
+                <Button variant="primary" onClick={onActivate} disabled={busy}>Comenzar ahora</Button>
+                <Button variant="outline" onClick={onEdit} disabled={busy}>Editar</Button>
+                {onChooseOther && (
+                    <Button variant="ghost" onClick={onChooseOther} disabled={busy}>Elegir otro libro</Button>
+                )}
+                <Button variant="ghost" onClick={onCancel} disabled={busy} className="text-red-600 hover:bg-red-50">Descartar</Button>
+            </div>
+        </div>
+    );
+}
+
 export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashboardProps) {
     // View State Handlers
     const searchParams = useSearchParams();
@@ -150,6 +228,8 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
     const [selectedBook, setSelectedBook] = React.useState<BookSearchResult | null>(null);
     const [bookSearchQuery, setBookSearchQuery] = React.useState("");
     const [conversationCheckpointNumber, setConversationCheckpointNumber] = React.useState<number | null>(null);
+    const [planBusy, setPlanBusy] = React.useState(false);
+    const [editingConfig, setEditingConfig] = React.useState<any | null>(null);
 
     // No data = club is private/secret and user is not a member
     if (!club) {
@@ -164,6 +244,7 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
 
     const isAdmin = club.userRole === 'admin' || club.userRole === 'moderator';
     const hasActiveBook = !!club.currentBook;
+    const plannedBook = club.plannedBook || null;
     const hasOpenPoll = !!activePoll?.isOpen;
     const latestPollWinner = pollHistory.find((poll) => poll?.winner && poll.winner.votes > 0)?.winner;
     const currentBookTitle = club.currentBook?.book?.title || "Lectura activa";
@@ -183,21 +264,93 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
         setActiveTab("feed");
     };
 
-    const handleStartReading = async (config: Record<string, unknown>) => {
+    const handleSaveReadingPlan = async (config: Record<string, unknown>) => {
         if (!selectedBook) return;
 
+        setPlanBusy(true);
         try {
-            const result = await startReading(club.id, selectedBook, config);
+            const result = await saveReadingPlan(club.id, selectedBook, config);
             if (result.error) {
                 alert("Error: " + result.error);
             } else {
-                // Success - State update will happen via revalidatePath/props update? 
-                setSelectedBook(null); // Clear selection to show new state
+                setSelectedBook(null);
+                setEditingConfig(null);
             }
         } catch (e) {
             console.error(e);
-            alert("Error al iniciar lectura.");
+            alert("Error al guardar la lectura.");
+        } finally {
+            setPlanBusy(false);
         }
+    };
+
+    const handleActivatePlan = async () => {
+        if (!plannedBook?.id) return;
+        if (!confirm("¿Comenzar ahora esta lectura? Pasará a ser la lectura activa del club.")) return;
+
+        setPlanBusy(true);
+        try {
+            const result = await activateReading(club.id, plannedBook.id);
+            if (result.error) alert("Error: " + result.error);
+        } catch (e) {
+            console.error(e);
+            alert("Error al iniciar la lectura.");
+        } finally {
+            setPlanBusy(false);
+        }
+    };
+
+    const handleEditPlan = () => {
+        if (!plannedBook) return;
+        const b = plannedBook.book || {};
+        const authorName = b.author?.name || b.authors?.name || "";
+        setSelectedBook({
+            id: b.id || "",
+            title: b.title || "",
+            authors: authorName ? [authorName] : [],
+            cover_url: plannedBook.cover_url || b.cover_url || null,
+            description: null,
+            isbn: null,
+            isbn13: null,
+            page_count: null,
+            published_date: null,
+            publisher: null,
+            categories: [],
+            average_rating: null,
+            ratings_count: null,
+            language: null,
+            price: null,
+            source: "db",
+        } as BookSearchResult);
+        setEditingConfig({
+            startDate: plannedBook.start_date || new Date().toISOString().split('T')[0],
+            pace: plannedBook.pace_config?.pace || "Estándar (2 check/sem)",
+            progressMeasure: plannedBook.pace_config?.progressMeasure || "pages",
+            checkpoints: plannedBook.checkpoints || [],
+            preguntaApertura: plannedBook.pregunta_apertura || "",
+        });
+    };
+
+    const handleCancelPlan = async () => {
+        if (!plannedBook?.id) return;
+        if (!confirm("¿Descartar la lectura programada?")) return;
+
+        setPlanBusy(true);
+        try {
+            const result = await cancelReadingPlan(club.id, plannedBook.id);
+            if (result.error) alert("Error: " + result.error);
+        } catch (e) {
+            console.error(e);
+            alert("Error al descartar la lectura.");
+        } finally {
+            setPlanBusy(false);
+        }
+    };
+
+    const handleScheduleWinner = (winnerText: string) => {
+        setEditingConfig(null);
+        setBookSearchQuery(winnerText || "");
+        setIsSearchModalOpen(true);
     };
 
     const handleCreatePoll = async (question: string, options: string[]) => {
@@ -237,29 +390,42 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
         </div>
     );
 
+    // Configurar lectura (elegir o editar) — válido con o sin lectura activa.
+    if (selectedBook) {
+        return (
+            <div className="pb-20">
+                {header}
+                <div className="max-w-4xl mx-auto">
+                    <ReadingSetup
+                        book={selectedBook}
+                        onBack={() => { setSelectedBook(null); setEditingConfig(null); }}
+                        onSave={handleSaveReadingPlan}
+                        initialConfig={editingConfig}
+                        isSaving={planBusy}
+                    />
+                </div>
+            </div>
+        );
+    }
+
     // 2. NO BOOK STATE
     if (!hasActiveBook) {
-        if (selectedBook) {
-            return (
-                <div className="pb-20">
-                    {header}
-                    <div className="max-w-4xl mx-auto">
-                        <ReadingSetup
-                            book={selectedBook}
-                            onBack={() => setSelectedBook(null)}
-                            onSave={handleStartReading}
-                        />
-                    </div>
-                </div>
-            );
-        }
-
         return (
             <div className="pb-20">
                 {header}
                 <div className="grid grid-cols-1 gap-7 lg:grid-cols-12 lg:gap-8">
                     <div className="lg:col-span-8">
                         {isAdmin ? (
+                            plannedBook ? (
+                                <PlannedReadingCard
+                                    planned={plannedBook}
+                                    onActivate={handleActivatePlan}
+                                    onEdit={handleEditPlan}
+                                    onCancel={handleCancelPlan}
+                                    onChooseOther={handleChooseBook}
+                                    busy={planBusy}
+                                />
+                            ) : (
                             <div className="space-y-6 rounded-3xl border-2 border-dashed border-teal/20 bg-white px-6 py-8 text-center sm:px-12 sm:py-16">
                                 <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-teal/10 text-teal text-2xl">
                                     📖
@@ -292,6 +458,7 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                                     </Button>
                                 </div>
                             </div>
+                            )
                         ) : (
                             <>
                                 <MemberWaitingState club={club} hasOpenPoll={hasOpenPoll} />
@@ -301,6 +468,7 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                                         activePoll={activePoll}
                                         pollHistory={pollHistory}
                                         onOpenCreatePoll={() => setIsCreatePollModalOpen(true)}
+                                        onScheduleWinner={handleScheduleWinner}
                                     />
                                 </div>
                             </>
@@ -318,6 +486,7 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                                             activePoll={activePoll}
                                             pollHistory={pollHistory}
                                             onOpenCreatePoll={() => setIsCreatePollModalOpen(true)}
+                                            onScheduleWinner={handleScheduleWinner}
                                         />
                                     }
                                 />
@@ -331,6 +500,7 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                             activePoll={activePoll}
                             pollHistory={pollHistory}
                             onOpenCreatePoll={() => setIsCreatePollModalOpen(true)}
+                            onScheduleWinner={handleScheduleWinner}
                         />
                     </div>
                 </div>
@@ -359,6 +529,17 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
             <div className="grid grid-cols-1 gap-7 lg:grid-cols-12 lg:gap-8">
                 {/* Main Content */}
                 <div className="lg:col-span-8">
+                    {isAdmin && plannedBook && (
+                        <div className="mb-6">
+                            <PlannedReadingCard
+                                planned={plannedBook}
+                                onActivate={handleActivatePlan}
+                                onEdit={handleEditPlan}
+                                onCancel={handleCancelPlan}
+                                busy={planBusy}
+                            />
+                        </div>
+                    )}
                     <Tabs value={activeTab} onValueChange={setActiveTab}>
                         <TabsList className="sticky top-[64px] z-20 mb-5 grid grid-cols-3 gap-0.5 overflow-x-visible rounded-xl border-b-0 bg-white/90 p-1 shadow-sm backdrop-blur md:static md:flex md:gap-6 md:overflow-x-auto md:rounded-none md:border-b md:border-teal/10 md:bg-transparent md:p-0 md:shadow-none [&_button]:py-2 [&_button]:text-xs md:[&_button]:py-3 md:[&_button]:text-sm">
                             <TabsTrigger value="summary">Sala</TabsTrigger>
@@ -379,6 +560,7 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                                     activePoll={activePoll}
                                     pollHistory={pollHistory}
                                     onOpenCreatePoll={() => setIsCreatePollModalOpen(true)}
+                                    onScheduleWinner={handleScheduleWinner}
                                 />
                             </div>
                         </TabsContent>
@@ -429,9 +611,17 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                         activePoll={activePoll}
                         pollHistory={pollHistory}
                         onOpenCreatePoll={() => setIsCreatePollModalOpen(true)}
+                        onScheduleWinner={handleScheduleWinner}
                     />
                 </div>
             </div>
+
+            <SearchBookModal
+                isOpen={isSearchModalOpen}
+                onClose={() => setIsSearchModalOpen(false)}
+                onSelectBook={handleBookSelect}
+                initialQuery={bookSearchQuery}
+            />
 
             <CreatePollModal
                 isOpen={isCreatePollModalOpen}

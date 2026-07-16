@@ -215,14 +215,14 @@ export function HomeBetaSection() {
             <div className="overflow-hidden rounded-3xl bg-teal p-7 text-white shadow-xl md:p-10">
                 <div className="grid gap-8 md:grid-cols-[1fr_320px] md:items-center">
                     <div className="max-w-3xl">
-                        <p className="text-xs font-bold uppercase tracking-[0.22em] text-cream">Beta privada</p>
+                        <p className="text-xs font-bold uppercase tracking-[0.22em] text-cream">Wordelia Fundadores</p>
                         <h2 className="mt-3 text-3xl leading-tight text-white md:text-5xl">
-                            Ayúdanos a construir una forma más precisa de elegir lecturas
+                            Sé de los primeros en vivir Wordelia
                         </h2>
                         <p className="mt-4 text-base leading-relaxed text-white/85 md:text-lg">
-                            Estamos abriendo Wordelia a lectores fundadores para pulir detallitos. Prueba nuestras
-                            búsquedas, clubs, análisis literario y listas de deseos antes del lanzamiento público el
-                            15 de julio.
+                            Estamos abriendo Wordelia a lectores fundadores. Explora nuestras búsquedas, clubs,
+                            análisis literario y listas de deseos, y consigue tu insignia de Miembro Fundador antes
+                            del 1 de septiembre. Lanzamiento público el 2 de agosto.
                         </p>
                         <div className="mt-6 inline-flex max-w-xl items-start gap-3 rounded-2xl border border-white/15 bg-white/10 p-4">
                             <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-cream" aria-hidden="true" />

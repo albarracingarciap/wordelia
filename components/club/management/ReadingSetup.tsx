@@ -14,14 +14,23 @@ interface ReadingSetupProps {
     onBack: () => void;
     onSave: (config: any) => void;
     isPro?: boolean; // New prop to check subscription status
+    initialConfig?: {
+        startDate?: string;
+        pace?: string;
+        progressMeasure?: string;
+        checkpoints?: any[];
+        preguntaApertura?: string;
+    } | null;
+    isSaving?: boolean;
 }
 
-export function ReadingSetup({ book, onBack, onSave, isPro = false }: ReadingSetupProps) {
+export function ReadingSetup({ book, onBack, onSave, isPro = false, initialConfig = null, isSaving = false }: ReadingSetupProps) {
     const [config, setConfig] = React.useState({
-        startDate: new Date().toISOString().split('T')[0],
-        pace: "Estándar (2 check/sem)",
-        progressMeasure: "pages",
-        checkpoints: [] as any[],
+        startDate: initialConfig?.startDate || new Date().toISOString().split('T')[0],
+        pace: initialConfig?.pace || "Estándar (2 check/sem)",
+        progressMeasure: initialConfig?.progressMeasure || "pages",
+        checkpoints: initialConfig?.checkpoints || ([] as any[]),
+        preguntaApertura: initialConfig?.preguntaApertura || "",
     });
 
     const [isCheckpointModalOpen, setIsCheckpointModalOpen] = React.useState(false);
@@ -138,7 +147,19 @@ export function ReadingSetup({ book, onBack, onSave, isPro = false }: ReadingSet
                     />
                 </div>
 
-                {/* 4. Checkpoints */}
+                {/* 4. Opening question */}
+                <div>
+                    <label className="block text-sm font-bold text-grey-dark mb-1.5">Pregunta de apertura</label>
+                    <textarea
+                        className="w-full rounded-xl border border-grey/20 bg-white px-4 py-3 text-sm text-grey-dark placeholder:text-grey/40 focus:border-teal focus:outline-none focus:ring-1 focus:ring-teal/20 min-h-[90px] resize-none"
+                        value={config.preguntaApertura}
+                        onChange={(e) => updateField("preguntaApertura", e.target.value)}
+                        placeholder="Una pregunta potente para arrancar la conversación sobre este libro..."
+                    />
+                    <p className="text-xs text-grey/50 mt-1">Se muestra como gancho del club (opcional).</p>
+                </div>
+
+                {/* 5. Checkpoints */}
                 <div className="bg-[#FAF9F6] border border-teal/10 rounded-xl p-6">
                     <div className="flex justify-between items-center mb-4">
                         <h4 className="font-bold text-teal text-sm uppercase tracking-wider">Plan de lectura {config.pace === 'Personalizado' ? '(Manual)' : '(Borrador)'}</h4>
@@ -183,8 +204,8 @@ export function ReadingSetup({ book, onBack, onSave, isPro = false }: ReadingSet
 
                 {/* Actions */}
                 <div className="flex justify-end pt-8 border-t border-grey/10">
-                    <Button variant="primary" onClick={() => onSave(config)} disabled={config.checkpoints.length === 0}>
-                        Comenzar Lectura
+                    <Button variant="primary" onClick={() => onSave(config)} disabled={isSaving}>
+                        {isSaving ? "Guardando..." : "Guardar cambios"}
                     </Button>
                 </div>
             </div>

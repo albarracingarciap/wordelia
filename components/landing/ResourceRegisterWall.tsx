@@ -8,22 +8,22 @@ type ResourceRegisterWallProps = {
 
 const copy = {
     guide: {
-        eyebrow: "Sigue leyendo gratis",
-        title: "Regístrate para ver la guía completa",
+        eyebrow: "Llévate esta guía",
+        title: "Regístrate y úsala en tu club",
         unlocks: [
-            "Las 5 rutas de discusión con sus preguntas analíticas",
-            "Preguntas poderosas, tarjetas de personajes y símbolos",
-            "Lecturas del final, actividades y notas del moderador",
+            "Guárdala en tu cuenta y accede desde cualquier dispositivo",
+            "Úsala en un club de lectura de Wordelia",
+            "Desbloquea el catálogo completo de guías y genomas",
         ],
         source: "demo-guia",
     },
     genome: {
-        eyebrow: "Sigue explorando gratis",
-        title: "Regístrate para ver el genoma completo",
+        eyebrow: "Llévate este genoma",
+        title: "Regístrate para guardarlo y explorar más",
         unlocks: [
-            "Los 8 cromosomas literarios al detalle",
-            "Perfil emocional, ADN de personajes y composición de temas",
-            "Ritmo, densidad, estilo y contexto cultural de la obra",
+            "Guárdalo en tu cuenta y accede desde cualquier dispositivo",
+            "Úsalo en un club de lectura de Wordelia",
+            "Desbloquea el catálogo completo de guías y genomas",
         ],
         source: "demo-adn",
     },
@@ -43,7 +43,7 @@ export function ResourceRegisterWall({ kind, bookTitle }: ResourceRegisterWallPr
                     <h2 className="mt-3 text-3xl leading-tight text-white md:text-4xl">{content.title}</h2>
                     {bookTitle && (
                         <p className="mt-2 text-base text-white/80">
-                            Estás viendo una muestra gratuita de <strong className="text-cream">{bookTitle}</strong>.
+                            Acabas de ver la muestra completa de <strong className="text-cream">{bookTitle}</strong>, sin coste.
                         </p>
                     )}
 

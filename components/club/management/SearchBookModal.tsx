@@ -82,7 +82,7 @@ export function SearchBookModal({ isOpen, onClose, onSelectBook, initialQuery = 
         resetManualCoverFile();
     }, [resetManualCoverFile]);
 
-    const handleSearch = React.useCallback(async (searchQuery = query) => {
+    const handleSearch = React.useCallback(async (searchQuery: string) => {
         const trimmedQuery = searchQuery.trim();
         if (trimmedQuery.length < 3) return;
 
@@ -96,7 +96,7 @@ export function SearchBookModal({ isOpen, onClose, onSelectBook, initialQuery = 
         } finally {
             setIsLoading(false);
         }
-    }, [query]);
+    }, []);
 
     React.useEffect(() => {
         if (!isOpen) return;
@@ -113,7 +113,7 @@ export function SearchBookModal({ isOpen, onClose, onSelectBook, initialQuery = 
     }, [handleSearch, hydrateManualFields, isOpen, initialQuery]);
 
     const handleKeyDown = (event: React.KeyboardEvent) => {
-        if (event.key === "Enter") void handleSearch();
+        if (event.key === "Enter") void handleSearch(query);
     };
 
     const openManualMode = () => {
@@ -223,7 +223,7 @@ export function SearchBookModal({ isOpen, onClose, onSelectBook, initialQuery = 
                                 onKeyDown={handleKeyDown}
                                 autoFocus
                             />
-                            <Button onClick={() => handleSearch()} disabled={isLoading || query.trim().length < 3} variant="primary">
+                            <Button onClick={() => handleSearch(query)} disabled={isLoading || query.trim().length < 3} variant="primary">
                                 {isLoading ? "..." : "Buscar"}
                             </Button>
                         </div>
@@ -348,9 +348,9 @@ export function SearchBookModal({ isOpen, onClose, onSelectBook, initialQuery = 
                             )}
 
                             <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                                {results.map((book) => (
+                                {results.map((book, index) => (
                                     <button
-                                        key={book.isbn || book.id}
+                                        key={`${book.isbn || book.id || "book"}-${index}`}
                                         onClick={() => onSelectBook(book)}
                                         className="group flex gap-4 rounded-lg border border-transparent p-3 text-left transition-all hover:border-teal/20 hover:bg-teal/5"
                                     >

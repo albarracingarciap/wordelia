@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Sparkles, X, Building2 } from "lucide-react";
+import { Check, Gift, Sparkles, X, Building2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { Section } from "../ui/Section";
@@ -20,6 +20,7 @@ const plans: Array<{
     description: string;
     cta: string;
     popular?: boolean;
+    founderClubs: number;
     features: Array<{ text: string; included: boolean }>;
 }> = [
     {
@@ -29,6 +30,7 @@ const plans: Array<{
         annualPrice: "0€",
         description: "Para empezar a organizar tu biblioteca, registrar sesiones y guardar lo que te mueve.",
         cta: "Empezar gratis",
+        founderClubs: 1,
         features: [
             { text: "Biblioteca personal", included: true },
             { text: "Seguimiento de lecturas y rachas", included: true },
@@ -47,9 +49,11 @@ const plans: Array<{
         description: "Para profundizar en cada libro, crear tus clubs y desbloquear el ADN literario sin límites.",
         cta: "Reservar beneficio fundador",
         popular: true,
+        founderClubs: 2,
         features: [
             { text: "Todo lo del plan Explorador", included: true },
             { text: "Genomas (ADN) ilimitados", included: true },
+            { text: "Nuevos genomas cada mes", included: true },
             { text: "Mapas emocionales completos", included: true },
             { text: "Crear y moderar clubs", included: true },
             { text: "Estadísticas avanzadas", included: true },
@@ -64,11 +68,13 @@ const plans: Array<{
         monthlyPrice: "9,99€",
         annualPrice: "95,90€",
         description: "Acceso total: todas las guías y genomas sin límite, más tu asistente literario con IA.",
-        cta: "Apuntarme a la lista",
+        cta: "Reservar beneficio fundador",
+        founderClubs: 3,
         features: [
             { text: "Todo lo del plan Voraz", included: true },
             { text: "Guías de discusión ilimitadas", included: true },
             { text: "Genomas (ADN) ilimitados", included: true },
+            { text: "Nuevas guías y genomas cada mes", included: true },
             { text: "Asistente literario IA", included: true },
             { text: "Sugerencias para tus clubs", included: true },
             { text: "Acceso anticipado a novedades", included: true },
@@ -94,13 +100,13 @@ export function Pricing() {
     return (
         <Section id="planes" className="bg-[#D8E2DC] py-16 md:py-24">
             <div className="mx-auto mb-8 max-w-3xl space-y-4 px-4 text-center md:mb-14">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">Planes previstos</p>
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">Planes fundador hasta el 1 de septiembre</p>
                 <h2 className="text-3xl leading-tight text-teal md:text-5xl">
                     Elige cómo quieres vivir tus lecturas
                 </h2>
                 <p className="mx-auto max-w-2xl text-base leading-relaxed text-grey md:text-lg">
-                    Durante la beta podrás probar Wordelia y reservar beneficios fundadores antes del lanzamiento
-                    público del 15 de julio.
+                    Wordelia se lanza al público el 2 de agosto. Regístrate antes del 1 de septiembre y bloquea tu
+                    beneficio fundador: participación gratuita en clubs de lectura de Wordelia.
                 </p>
 
                 <div className="inline-flex items-center gap-2 rounded-full bg-white p-1.5 text-sm font-semibold shadow-sm">
@@ -147,6 +153,17 @@ export function Pricing() {
                                     {period && <span className="pb-1 text-sm text-grey/60">{period}</span>}
                                 </div>
                                 <p className="text-sm leading-relaxed text-grey/80">{plan.description}</p>
+                            </div>
+
+                            <div className="mb-5 rounded-2xl border border-coral/20 bg-coral/5 p-3">
+                                <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-coral">
+                                    <Gift className="h-3.5 w-3.5" aria-hidden="true" />
+                                    Beneficio fundador
+                                </p>
+                                <p className="mt-1.5 text-sm font-semibold text-teal-dark">
+                                    {plan.founderClubs} {plan.founderClubs === 1 ? "club de lectura gratis" : "clubs de lectura gratis"}
+                                </p>
+                                <p className="mt-0.5 text-xs leading-relaxed text-grey">Incluye su guía y genoma, para siempre.</p>
                             </div>
 
                             <ul className="mb-7 space-y-3">

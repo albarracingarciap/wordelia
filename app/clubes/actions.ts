@@ -19,6 +19,75 @@ export interface OfficialClub {
     currency?: string | null;
 }
 
+export interface HomeClub {
+    id: string;
+    slug?: string | null;
+    name: string;
+    description?: string | null;
+    tags?: string[] | null;
+    start_date?: string | null;
+    hook_question?: string | null;
+    price?: number | null;
+    currency?: string | null;
+    destacado?: boolean;
+    book?: { title?: string | null; author?: string | null; cover_url?: string | null } | null;
+}
+
+/**
+ * Clubs oficiales marcados para el home (clubs.portada), con el libro (current o
+ * planned) de club_books. El destacado (clubs.destacado) va primero. Máx. 4.
+ */
+export async function getHomeClubs(): Promise<HomeClub[]> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from('clubs')
+        .select(`
+            id, name, slug, description, tags, price, currency, destacado,
+            club_books ( status, start_date, cover_url, pregunta_apertura, book:books ( title, author:authors(name) ) )
+        `)
+        .eq('is_official', true)
+        .eq('portada', true)
+        .eq('is_archived', false);
+
+    if (error) {
+        console.error('Error fetching home clubs:', error.message, '| details:', error.details, '| hint:', error.hint, '| code:', error.code);
+        return [];
+    }
+
+    const clubs: HomeClub[] = (data || []).map((club: any) => {
+        const books = Array.isArray(club.club_books) ? club.club_books : [];
+        const clubBook = books.find((b: any) => b.status === 'current')
+            || books.find((b: any) => b.status === 'planned')
+            || null;
+        const book = clubBook?.book || null;
+
+        return {
+            id: club.id,
+            slug: club.slug ?? null,
+            name: club.name,
+            description: club.description ?? null,
+            tags: club.tags ?? null,
+            start_date: clubBook?.start_date ?? null,
+            hook_question: clubBook?.pregunta_apertura ?? null,
+            price: typeof club.price === 'number' ? club.price : (club.price != null ? Number(club.price) : null),
+            currency: club.currency ?? null,
+            destacado: Boolean(club.destacado),
+            book: book
+                ? {
+                    title: book.title ?? null,
+                    author: book.author?.name ?? null,
+                    cover_url: clubBook?.cover_url ?? null,
+                }
+                : null,
+        };
+    });
+
+    // Destacado primero; como mucho 4 clubs en el home.
+    clubs.sort((a, b) => Number(b.destacado) - Number(a.destacado));
+    return clubs.slice(0, 4);
+}
+
 /**
  * Get all official clubs ordered by display_order
  */

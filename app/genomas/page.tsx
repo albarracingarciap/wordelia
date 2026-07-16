@@ -175,11 +175,14 @@ export default async function GenomasPage() {
                 <GuidesCatalogTable
                     guides={catalogBooks}
                     title="Genomas individuales"
-                    subtitle="Selecciona varios genomas para preparar un pack personalizado."
+                    subtitle="Cada genoma desglosa la obra en ocho cromosomas: estructura, estilo, emociones y contexto."
                     iconName="dna"
                     price={6.99}
                     originalPrice={9.99}
                     emptyLabel="Aún no hay genomas individuales disponibles."
+                    noun="genomas"
+                    sampleHref="/demo-adn"
+                    registerSource="genoma-catalogo"
                 />
             </div>
 

@@ -27,6 +27,7 @@ interface ClubReadingRoomProps {
         currentBook?: {
             id?: string | null;
             pace_unit?: string | null;
+            cover_url?: string | null;
             checkpoints?: Checkpoint[] | null;
             book?: {
                 id?: string | null;
@@ -71,6 +72,7 @@ export function ClubReadingRoom({ club }: ClubReadingRoomProps) {
     const tabsContext = React.useContext(TabsContext);
     const currentBook = club?.currentBook;
     const book = currentBook?.book;
+    const cover = currentBook?.cover_url || book?.cover_url || null;
     const checkpoints = currentBook?.checkpoints || [];
     const active = getActiveCheckpoint(checkpoints);
     const unitLabel = currentBook?.pace_unit || "p.";
@@ -87,9 +89,9 @@ export function ClubReadingRoom({ club }: ClubReadingRoomProps) {
         <div className="space-y-6">
             <section className="overflow-hidden rounded-3xl border border-teal/10 bg-white shadow-sm">
                 <div className="relative bg-teal-dark px-5 py-7 text-white sm:px-7">
-                    {book.cover_url && (
+                    {cover && (
                         <Image
-                            src={book.cover_url}
+                            src={cover}
                             alt=""
                             fill
                             className="object-cover opacity-20 blur-xl"
@@ -100,9 +102,9 @@ export function ClubReadingRoom({ club }: ClubReadingRoomProps) {
 
                     <div className="relative grid gap-6 sm:grid-cols-[8rem_1fr] sm:items-end">
                         <div className="mx-auto h-44 w-28 overflow-hidden rounded-2xl bg-white/10 shadow-2xl sm:mx-0 sm:h-48 sm:w-32">
-                            {book.cover_url ? (
+                            {cover ? (
                                 <Image
-                                    src={book.cover_url}
+                                    src={cover}
                                     alt={book.title || "Portada"}
                                     width={160}
                                     height={240}

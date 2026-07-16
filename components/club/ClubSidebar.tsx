@@ -6,7 +6,7 @@ import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { Modal } from "../ui/Modal";
 import { PollWidget } from "./polls/PollWidget";
-import { AlertCircle, BookOpen, CheckCircle2, ChevronDown, Clock, Flag, ShieldAlert, X, XCircle } from "lucide-react";
+import { AlertCircle, BookOpen, CalendarClock, CheckCircle2, ChevronDown, Clock, Flag, ShieldAlert, X, XCircle } from "lucide-react";
 import { getMyClubReports, reportClubProblem, updateClubBookDetails } from "@/app/app/clubs/[id]/actions";
 import { createClient } from "@/utils/supabase/client";
 
@@ -52,6 +52,7 @@ interface ClubSidebarProps {
     activePoll?: React.ComponentProps<typeof PollWidget>["poll"];
     pollHistory?: PollHistoryItem[];
     onOpenCreatePoll?: () => void;
+    onScheduleWinner?: (winnerText: string) => void;
 }
 
 type ReportStatus = "open" | "reviewing" | "resolved" | "dismissed";
@@ -151,8 +152,18 @@ function formatClosedDate(date?: string | null) {
     return new Date(date).toLocaleDateString("es-ES", { day: "numeric", month: "short", year: "numeric" });
 }
 
-function PollHistoryWidget({ polls = [] }: { polls?: PollHistoryItem[] }) {
+function PollHistoryWidget({
+    polls = [],
+    canSchedule = false,
+    onScheduleWinner,
+}: {
+    polls?: PollHistoryItem[];
+    canSchedule?: boolean;
+    onScheduleWinner?: (winnerText: string) => void;
+}) {
     if (!polls.length) return null;
+
+    const latestWinnerPollId = polls.find((poll) => poll.winner && poll.winner.votes > 0)?.id;
 
     return (
         <Card className="rounded-3xl">
@@ -187,6 +198,20 @@ function PollHistoryWidget({ polls = [] }: { polls?: PollHistoryItem[] }) {
                                         <p className="mt-1 text-sm font-bold text-teal-dark">
                                             {winner.text} <span className="text-grey/50">{winnerPercentage}%</span>
                                         </p>
+                                        {canSchedule && onScheduleWinner && poll.id === latestWinnerPollId && (
+                                            <button
+                                                type="button"
+                                                onClick={(event) => {
+                                                    event.preventDefault();
+                                                    event.stopPropagation();
+                                                    onScheduleWinner(winner.text);
+                                                }}
+                                                className="mt-2.5 inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-xl bg-teal px-3 text-xs font-bold text-white transition-colors hover:bg-teal-dark"
+                                            >
+                                                <CalendarClock className="h-3.5 w-3.5" aria-hidden="true" />
+                                                Programar libro ganador
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </summary>
@@ -855,7 +880,7 @@ function RulesWidget({ rules, clubId }: { rules?: string[] | null; clubId?: stri
     );
 }
 
-export function ClubSidebar({ club, activePoll, pollHistory = [], onOpenCreatePoll }: ClubSidebarProps) {
+export function ClubSidebar({ club, activePoll, pollHistory = [], onOpenCreatePoll, onScheduleWinner }: ClubSidebarProps) {
     const currentBook = club?.currentBook?.book;
     const hasActiveBook = !!currentBook;
     const canCreatePoll = club?.userRole === "admin" || club?.userRole === "moderator";
@@ -877,7 +902,7 @@ export function ClubSidebar({ club, activePoll, pollHistory = [], onOpenCreatePo
                         canCreate={canCreatePoll}
                         onCreateClick={() => onOpenCreatePoll?.()}
                     />
-                    <PollHistoryWidget polls={pollHistory} />
+                    <PollHistoryWidget polls={pollHistory} canSchedule={canCreatePoll} onScheduleWinner={onScheduleWinner} />
                 </>
             )}
 
@@ -897,7 +922,7 @@ export function ClubSidebar({ club, activePoll, pollHistory = [], onOpenCreatePo
                         canCreate={canCreatePoll}
                         onCreateClick={() => onOpenCreatePoll?.()}
                     />
-                    <PollHistoryWidget polls={pollHistory} />
+                    <PollHistoryWidget polls={pollHistory} canSchedule={canCreatePoll} onScheduleWinner={onScheduleWinner} />
                 </>
             )}
 

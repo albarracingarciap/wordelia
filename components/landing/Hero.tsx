@@ -54,7 +54,7 @@ export function Hero({ founderCount = 38 }: HeroProps) {
                             href="/register?source=beta"
                             className="inline-flex h-14 items-center justify-center gap-2 rounded-2xl bg-coral px-8 text-lg font-semibold text-white shadow-sm shadow-coral/20 transition-all hover:bg-[#C25852] hover:shadow-md"
                         >
-                            Solicitar acceso beta
+                            Registrar
                         </Link>
                         <Link
                             href="#para-ti"
@@ -65,7 +65,7 @@ export function Hero({ founderCount = 38 }: HeroProps) {
                     </div>
 
                     <p className="text-sm font-medium text-teal-dark">
-                        {availableSpots} plazas beta disponibles para lectores fundadores.
+                        {availableSpots} plazas disponibles para lectores fundadores.
                     </p>
                 </div>
             </div>

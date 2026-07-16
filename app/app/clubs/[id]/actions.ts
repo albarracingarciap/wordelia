@@ -129,6 +129,7 @@ export async function getClubDetails(clubId: string) {
     // 4. Transform Data for UI
     const clubBooks = Array.isArray(club.current_book) ? club.current_book : [];
     const currentBook = clubBooks.find((b: any) => b.status === 'current') || null;
+    const plannedBook = clubBooks.find((b: any) => b.status === 'planned') || null;
 
     return {
         ...club,
@@ -136,6 +137,10 @@ export async function getClubDetails(clubId: string) {
         currentBook: currentBook ? {
             ...currentBook,
             book: currentBook.book
+        } : null,
+        plannedBook: plannedBook ? {
+            ...plannedBook,
+            book: plannedBook.book
         } : null,
         libraryBooks: clubBooks.map((clubBook: any) => ({
             ...clubBook,
@@ -323,6 +328,40 @@ export async function joinClub(clubId: string) {
     return { success: true };
 }
 
+// Normaliza el libro seleccionado y resuelve su book_id canónico
+// (EditionMatchingService). Reutilizado por startReading / saveReadingPlan.
+async function resolveClubBook(bookData: any): Promise<{ bookId: string } | { error: string }> {
+    const normalizedBook: BookSearchResult = {
+        id: bookData.id || `manual-${Date.now()}`,
+        title: bookData.title,
+        authors: bookData.authors && bookData.authors.length > 0
+            ? bookData.authors
+            : (bookData.author ? [bookData.author] : []),
+        cover_url: bookData.cover_url ?? null,
+        description: bookData.description ?? null,
+        isbn: bookData.isbn ?? null,
+        isbn13: bookData.isbn13 ?? null,
+        page_count: bookData.page_count ?? null,
+        published_date: bookData.published_date ?? null,
+        publisher: bookData.publisher ?? null,
+        categories: bookData.categories ?? [],
+        average_rating: null,
+        ratings_count: null,
+        language: bookData.language ?? null,
+        price: null,
+        source: bookData.source ?? "manual",
+    };
+
+    try {
+        const resolved = await resolveBookFromResult(normalizedBook);
+        if (!resolved.bookId) return { error: "No se pudo identificar el libro." };
+        return { bookId: resolved.bookId };
+    } catch (resolveError) {
+        console.error("Error resolving book:", resolveError);
+        return { error: resolveError instanceof Error ? resolveError.message : "No se pudo identificar el libro." };
+    }
+}
+
 export async function startReading(clubId: string, bookData: any, config: any) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -342,38 +381,10 @@ export async function startReading(clubId: string, bookData: any, config: any) {
     }
 
     try {
-        // 2. Resolve Book ID — delega en EditionMatchingService vía resolveBookFromResult.
-        const normalizedBook: BookSearchResult = {
-            id: bookData.id || `manual-${Date.now()}`,
-            title: bookData.title,
-            authors: bookData.authors && bookData.authors.length > 0
-                ? bookData.authors
-                : (bookData.author ? [bookData.author] : []),
-            cover_url: bookData.cover_url ?? null,
-            description: bookData.description ?? null,
-            isbn: bookData.isbn ?? null,
-            isbn13: bookData.isbn13 ?? null,
-            page_count: bookData.page_count ?? null,
-            published_date: bookData.published_date ?? null,
-            publisher: bookData.publisher ?? null,
-            categories: bookData.categories ?? [],
-            average_rating: null,
-            ratings_count: null,
-            language: bookData.language ?? null,
-            price: null,
-            source: bookData.source ?? "manual",
-        };
-
-        let bookId: string;
-        try {
-            const resolved = await resolveBookFromResult(normalizedBook);
-            bookId = resolved.bookId;
-        } catch (resolveError) {
-            console.error("Error resolving book in startReading:", resolveError);
-            return { error: resolveError instanceof Error ? resolveError.message : "No se pudo identificar el libro." };
-        }
-
-        if (!bookId) return { error: "No se pudo identificar el libro." };
+        // 2. Resolve Book ID — delega en EditionMatchingService.
+        const resolved = await resolveClubBook(bookData);
+        if ('error' in resolved) return { error: resolved.error };
+        const bookId = resolved.bookId;
 
         // 3. Archive any current book (optional, but good practice)
         await supabase
@@ -395,6 +406,8 @@ export async function startReading(clubId: string, bookData: any, config: any) {
             book_id: bookId,
             status: 'current',
             start_date: config.startDate,
+            cover_url: bookData.cover_url ?? null,
+            pregunta_apertura: config.preguntaApertura ?? null,
             pace_config: {
                 pace: config.pace,
                 progressMeasure: config.progressMeasure
@@ -414,6 +427,148 @@ export async function startReading(clubId: string, bookData: any, config: any) {
         console.error("Error in startReading:", e);
         return { error: "Error inesperado." };
     }
+}
+
+// Programa (o actualiza) la lectura del club como 'planned'. No la activa.
+export async function saveReadingPlan(clubId: string, bookData: any, config: any) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "Debes iniciar sesión" };
+
+    const { data: membership } = await supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (!membership || (membership.role !== 'admin' && membership.role !== 'moderator')) {
+        return { error: "No tienes permisos para programar una lectura." };
+    }
+
+    const resolved = await resolveClubBook(bookData);
+    if ('error' in resolved) return { error: resolved.error };
+
+    const row = {
+        club_id: clubId,
+        book_id: resolved.bookId,
+        status: 'planned',
+        start_date: config.startDate,
+        cover_url: bookData.cover_url ?? null,
+        pregunta_apertura: config.preguntaApertura ?? null,
+        pace_config: {
+            pace: config.pace,
+            progressMeasure: config.progressMeasure,
+        },
+        checkpoints: config.checkpoints ?? [],
+    };
+
+    // Una lectura programada a la vez: si ya hay una, la actualizamos.
+    const { data: existingPlanned } = await supabase
+        .from('club_books')
+        .select('id')
+        .eq('club_id', clubId)
+        .eq('status', 'planned')
+        .maybeSingle();
+
+    const { error } = existingPlanned?.id
+        ? await supabase.from('club_books').update(row).eq('id', existingPlanned.id)
+        : await supabase.from('club_books').insert(row);
+
+    if (error) {
+        console.error("Error saving reading plan:", error);
+        return { error: "Error al guardar la lectura programada." };
+    }
+
+    revalidatePath(`/app/clubs/${clubId}`);
+    revalidatePath('/');
+    return { success: true };
+}
+
+// Activa una lectura programada: la pasa a 'current'. Cierra la lectura activa
+// anterior (si la hay) y las votaciones abiertas.
+export async function activateReading(clubId: string, clubBookId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "Debes iniciar sesión" };
+
+    const { data: membership } = await supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (!membership || (membership.role !== 'admin' && membership.role !== 'moderator')) {
+        return { error: "No tienes permisos para iniciar una lectura." };
+    }
+
+    // Cierra la lectura activa anterior (el estado permitido es 'completed').
+    await supabase
+        .from('club_books')
+        .update({ status: 'completed' })
+        .eq('club_id', clubId)
+        .eq('status', 'current');
+
+    // Cierra votaciones abiertas.
+    await supabase
+        .from('polls')
+        .update({ is_open: false, ended_at: new Date().toISOString() })
+        .eq('club_id', clubId)
+        .eq('is_open', true);
+
+    const { error } = await supabase
+        .from('club_books')
+        .update({ status: 'current' })
+        .eq('id', clubBookId)
+        .eq('club_id', clubId)
+        .eq('status', 'planned');
+
+    if (error) {
+        console.error("Error activating reading:", error);
+        return { error: "Error al iniciar la lectura." };
+    }
+
+    revalidatePath(`/app/clubs/${clubId}`);
+    revalidatePath('/');
+    return { success: true };
+}
+
+// Descarta una lectura programada.
+export async function cancelReadingPlan(clubId: string, clubBookId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "Debes iniciar sesión" };
+
+    const { data: membership } = await supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (!membership || (membership.role !== 'admin' && membership.role !== 'moderator')) {
+        return { error: "No tienes permisos para descartar la lectura." };
+    }
+
+    const { error } = await supabase
+        .from('club_books')
+        .delete()
+        .eq('id', clubBookId)
+        .eq('club_id', clubId)
+        .eq('status', 'planned');
+
+    if (error) {
+        console.error("Error cancelling reading plan:", error);
+        return { error: "Error al descartar la lectura programada." };
+    }
+
+    revalidatePath(`/app/clubs/${clubId}`);
+    revalidatePath('/');
+    return { success: true };
 }
 
 export async function updateClubBookDetails(
@@ -1620,7 +1775,14 @@ export async function saveCheckpoints(clubId: string, checkpoints: Array<{ id: s
 
 export async function updateClubSettings(
     clubId: string,
-    settings: { name?: string; description?: string; visibility?: string }
+    settings: {
+        name?: string;
+        description?: string;
+        visibility?: string;
+        price?: number;
+        portada?: boolean;
+        destacado?: boolean;
+    }
 ) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -1643,6 +1805,25 @@ export async function updateClubSettings(
     if (settings.name?.trim()) updates.name = settings.name.trim();
     if (settings.description !== undefined) updates.description = settings.description;
     if (settings.visibility) updates.visibility = settings.visibility;
+    if (settings.price !== undefined) {
+        if (Number.isNaN(settings.price) || settings.price < 0) {
+            return { error: "El precio no es válido" };
+        }
+        updates.price = settings.price;
+    }
+    if (settings.portada !== undefined) updates.portada = settings.portada;
+    if (settings.destacado !== undefined) updates.destacado = settings.destacado;
+
+    // Solo un club puede estar destacado ("Libro del mes"): al marcar este,
+    // desmarcamos cualquier otro. (RLS limita el desmarcado a clubs que el
+    // usuario administra; los clubs oficiales comparten dueño.)
+    if (settings.destacado === true) {
+        await supabase
+            .from('clubs')
+            .update({ destacado: false })
+            .eq('destacado', true)
+            .neq('id', clubId);
+    }
 
     const { error } = await supabase
         .from('clubs')
@@ -1655,6 +1836,7 @@ export async function updateClubSettings(
     }
 
     revalidatePath(`/app/clubs/${clubId}`);
+    revalidatePath('/');
     return { success: true };
 }
 

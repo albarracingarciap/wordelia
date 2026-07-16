@@ -22,11 +22,12 @@ interface Club {
     description: string;
     hookQuestion: string;
     priceLabel: string;
+    destacado?: boolean;
 }
 
 interface InitialClub {
     id?: string;
-    slug?: string;
+    slug?: string | null;
     name?: string;
     description?: string | null;
     tags?: string[] | null;
@@ -35,6 +36,7 @@ interface InitialClub {
     price?: number | null;
     price_cents?: number | null;
     currency?: string | null;
+    destacado?: boolean;
     book_data?: BookSearchResult | null;
     book?: {
         title?: string | null;
@@ -169,12 +171,14 @@ function mapDbClub(dbClub: InitialClub): Club {
         status: formatClubStartDate(dbClub.start_date),
         badges: dbClub.tags?.slice(0, 3) || bookData?.categories?.slice(0, 3) || ["Sin spoilers", "Checkpoints"],
         description: dbClub.description || "Un club para leer con calma, contexto y conversación cuidada.",
-        hookQuestion: normalizedBookTitle
-            ? hookQuestionByBook[normalizedBookTitle]
-            : dbClub.hook_question || dbClub.description || "¿Qué conversación abriría este libro?",
+        hookQuestion: dbClub.hook_question
+            || (normalizedBookTitle ? hookQuestionByBook[normalizedBookTitle] : "")
+            || dbClub.description
+            || "¿Qué conversación abriría este libro?",
         priceLabel: typeof dbClub.price_cents === "number"
             ? formatClubPriceFromCents(dbClub.price_cents, dbClub.currency || "EUR")
             : formatClubPrice(dbClub.price, dbClub.currency || "EUR"),
+        destacado: Boolean(dbClub.destacado),
     };
 }
 
@@ -187,8 +191,8 @@ export function ClubsGrid({ initialClubs }: ClubsGridProps) {
     const displayClubs = initialClubs && initialClubs.length > 0
         ? initialClubs.map(mapDbClub)
         : fallbackClubs;
-    const featuredClub = displayClubs[0];
-    const upcomingClubs = displayClubs.slice(1, 4);
+    const featuredClub = displayClubs.find((club) => club.destacado) || displayClubs[0];
+    const upcomingClubs = displayClubs.filter((club) => club !== featuredClub).slice(0, 3);
 
     const handleClubClick = (club: Club) => {
         if (isLoggedIn && club.id) {

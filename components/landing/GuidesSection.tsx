@@ -1,13 +1,12 @@
 import Image from "next/image";
 import Link from "next/link";
-import { BookOpenCheck, Layers, Sparkles } from "lucide-react";
-import { discussionGuides, guidePacks } from "@/lib/guides";
+import { ArrowRight, BookOpenCheck, CalendarClock, Sparkles } from "lucide-react";
+import { discussionGuides } from "@/lib/guides";
 import { Section } from "../ui/Section";
 
 export function GuidesSection() {
     const freeGuide = discussionGuides.find((guide) => guide.isFree) || discussionGuides[0];
     const paidGuides = discussionGuides.filter((guide) => !guide.isFree).slice(0, 3);
-    const featuredPack = guidePacks[0];
 
     return (
         <Section id="guias" className="bg-cream pb-8 pt-16 md:pb-10 md:pt-24">
@@ -94,28 +93,37 @@ export function GuidesSection() {
                         </div>
                     </div>
 
-                    {featuredPack && (
-                        <div className="rounded-3xl border border-teal/10 bg-teal p-5 text-white shadow-sm">
-                            <div className="mb-3 flex items-center gap-2">
-                                <Layers className="h-5 w-5 text-cream" aria-hidden="true" />
-                                <p className="text-sm font-bold uppercase tracking-[0.14em] text-cream">Pack destacado</p>
-                            </div>
-                            <h3 className="text-2xl font-semibold !text-white">{featuredPack.title}</h3>
-                            <p className="mt-2 text-sm leading-relaxed text-white/85">{featuredPack.description}</p>
-                            <div className="mt-4 flex items-center justify-between gap-4">
-                                <div>
-                                    <p className="font-semibold text-white">{featuredPack.priceLabel}</p>
-                                    <p className="text-xs text-white/70">{featuredPack.savingsLabel}</p>
-                                </div>
-                                <Link
-                                    href="/guias#packs"
-                                    className="inline-flex h-10 items-center justify-center rounded-xl bg-coral px-4 text-sm font-semibold text-white transition-colors hover:bg-[#C25852]"
-                                >
-                                    Ver pack
-                                </Link>
-                            </div>
+                    <div className="rounded-3xl border border-teal/10 bg-teal p-5 text-white shadow-sm">
+                        <h3 className="text-2xl font-semibold !text-white">Compra desde tu cuenta</h3>
+                        <p className="mt-2 text-sm leading-relaxed text-white/85">
+                            Las guías y genomas se consultan dentro de Wordelia. Crea tu cuenta gratis, prueba la
+                            muestra y desbloquea el catálogo completo cuando quieras.
+                        </p>
+                        <div className="mt-4 flex items-center justify-between gap-4">
+                            <p className="text-sm font-semibold text-white/90">Desde 6,99 € por título</p>
+                            <Link
+                                href="/register?source=guias-landing"
+                                className="inline-flex h-10 items-center justify-center gap-1.5 rounded-xl bg-coral px-4 text-sm font-semibold text-white transition-colors hover:bg-[#C25852]"
+                            >
+                                Crear cuenta
+                                <ArrowRight className="h-4 w-4" aria-hidden="true" />
+                            </Link>
                         </div>
-                    )}
+                    </div>
+                </div>
+            </div>
+
+            <div className="mt-5 flex flex-col items-start gap-4 rounded-3xl border border-teal/10 bg-white p-5 shadow-sm sm:flex-row sm:items-center sm:gap-5 md:mt-6 md:p-6">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-coral/10 text-coral">
+                    <CalendarClock className="h-6 w-6" aria-hidden="true" />
+                </div>
+                <div>
+                    <p className="text-xs font-bold uppercase tracking-[0.16em] text-coral">Novedades cada mes</p>
+                    <h3 className="mt-1 text-xl font-semibold text-teal">El catálogo crece mes a mes</h3>
+                    <p className="mt-1 text-sm leading-relaxed text-grey">
+                        Cada mes añadimos nuevas guías de discusión y genomas literarios. En los planes Voraz
+                        o Bibliófilo, las novedades están incluidas.
+                    </p>
                 </div>
             </div>
 

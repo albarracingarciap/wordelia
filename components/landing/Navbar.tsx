@@ -105,7 +105,7 @@ export function Navbar({ mode = "auto" }: NavbarProps) {
                                     className="rounded-full px-6 shadow-coral/20"
                                     onClick={() => router.push("/register?source=beta")}
                                 >
-                                    Acceso beta
+                                    Registrar
                                 </Button>
                             </>
                         )}

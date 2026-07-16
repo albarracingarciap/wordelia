@@ -11,7 +11,7 @@ import {
 import { Pricing } from "@/components/landing/Pricing";
 import { Footer } from "@/components/landing/Footer";
 import { createClient } from "@/utils/supabase/server";
-import { getOfficialClubs } from "@/app/clubes/actions";
+import { getHomeClubs } from "@/app/clubes/actions";
 import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -31,8 +31,8 @@ export default async function Home() {
     redirect('/app/mi-lectura');
   }
 
-  const [officialClubs, founderStatsResult] = await Promise.all([
-    getOfficialClubs(),
+  const [homeClubs, founderStatsResult] = await Promise.all([
+    getHomeClubs(),
     supabase.rpc("get_founder_membership_stats").maybeSingle(),
   ]);
 
@@ -46,7 +46,7 @@ export default async function Home() {
       <Navbar mode="public" />
       <Hero founderCount={founderCount} />
       <HomeReaderSection />
-      <ClubsGrid initialClubs={officialClubs} />
+      <ClubsGrid initialClubs={homeClubs} />
       <GuidesSection />
       <HomeAdnSection />
       <HomeWishlistSection />
