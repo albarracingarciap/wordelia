@@ -4,6 +4,17 @@ import { createClient } from '@/utils/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { revalidatePath } from 'next/cache';
 import { Organization, OrganizationEvent, OrganizationLocation } from '@/types/organizations';
+import { isOrgProActive } from '@/lib/subscription-access';
+import { FREE_LOCATION_LIMIT, FREE_UPCOMING_EVENT_LIMIT } from '@/lib/org-limits';
+
+async function orgIsPro(supabase: any, orgId: string): Promise<boolean> {
+    const { data: sub } = await supabase
+        .from('organization_subscriptions')
+        .select('tier, status, current_period_end')
+        .eq('organization_id', orgId)
+        .maybeSingle();
+    return isOrgProActive(sub);
+}
 
 function getAdminClient() {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -23,8 +34,9 @@ const EDITABLE_FIELDS = [
 ] as const;
 
 /**
- * Self-serve creation of a bookstore ("librería"). The creator becomes owner
- * and the org starts on the free tier. Pro is activated later by an admin.
+ * Self-serve creation of a bookstore ("librería"), abierto a cualquier usuario
+ * (es un eje B2B independiente del plan de consumidor). El creador es owner y la
+ * librería arranca en el tier gratis; Pro se activa con el checkout self-serve.
  */
 export async function createOrganization(data: any) {
     const supabase = await createClient();
@@ -487,6 +499,19 @@ export async function createOrganizationEvent(orgId: string, data: Record<string
 
     try {
         await assertOrgManager(supabase, orgId, user.id);
+
+        // Eventos ilimitados son Pro: el plan gratis tiene un tope de próximos.
+        if (!(await orgIsPro(supabase, orgId))) {
+            const { count } = await supabase
+                .from('organization_events')
+                .select('id', { count: 'exact', head: true })
+                .eq('organization_id', orgId)
+                .gte('starts_at', new Date().toISOString());
+            if ((count || 0) >= FREE_UPCOMING_EVENT_LIMIT) {
+                return { error: `El plan gratuito permite ${FREE_UPCOMING_EVENT_LIMIT} eventos próximos. Sube a Librería Pro para eventos ilimitados.` };
+            }
+        }
+
         const { error } = await supabase
             .from('organization_events')
             .insert({ ...pickEventFields(data), organization_id: orgId, created_by: user.id });
@@ -587,6 +612,11 @@ export async function createLocation(orgId: string, data: Record<string, any>) {
             .select('id', { count: 'exact', head: true })
             .eq('organization_id', orgId);
         const isPrimary = !!data.is_primary || (count || 0) === 0;
+
+        // Multisede es Pro: el plan gratis permite 1 sede.
+        if ((count || 0) >= FREE_LOCATION_LIMIT && !(await orgIsPro(supabase, orgId))) {
+            return { error: `El plan gratuito permite ${FREE_LOCATION_LIMIT} sede. Sube a Librería Pro para añadir más.` };
+        }
 
         const { data: created, error } = await supabase
             .from('organization_locations')

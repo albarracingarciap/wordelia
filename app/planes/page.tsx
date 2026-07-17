@@ -4,6 +4,7 @@ import * as React from "react";
 import { Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { Check, ChevronLeft } from "lucide-react";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Button } from "@/components/ui/Button";
 import { Navbar } from "@/components/landing/Navbar";
@@ -11,6 +12,7 @@ import { PlanCard } from "@/components/pricing/PlanCard";
 import { createClient } from "@/utils/supabase/client";
 import { PayPalSubscriptionProvider, PayPalSubscribeButton } from "@/components/payments/PayPalSubscribe";
 import { PLANS, type PlanId } from "@/lib/plans";
+import { isSubscriptionActive } from "@/lib/subscription-access";
 
 function PlansContent() {
     const router = useRouter();
@@ -20,15 +22,28 @@ function PlansContent() {
     const [isAnnual, setIsAnnual] = React.useState(searchParams.get("billing") === "annual");
     const [userId, setUserId] = React.useState<string | null>(null);
     const [authReady, setAuthReady] = React.useState(false);
+    // Plan de pago activo del usuario (null = ninguno / plan gratis).
+    const [currentPlan, setCurrentPlan] = React.useState<string | null>(null);
     const period: "monthly" | "annual" = isAnnual ? "annual" : "monthly";
     const selectedCardRef = React.useRef<HTMLDivElement | null>(null);
 
     React.useEffect(() => {
         const supabase = createClient();
-        supabase.auth.getUser().then(({ data }) => {
-            setUserId(data.user?.id ?? null);
+        (async () => {
+            const { data: { user } } = await supabase.auth.getUser();
+            setUserId(user?.id ?? null);
+            if (user) {
+                const { data: sub } = await supabase
+                    .from("user_subscriptions")
+                    .select("plan, status, current_period_end")
+                    .eq("user_id", user.id)
+                    .maybeSingle();
+                if (sub && isSubscriptionActive(sub.status, sub.current_period_end)) {
+                    setCurrentPlan(sub.plan);
+                }
+            }
             setAuthReady(true);
-        });
+        })();
     }, []);
 
     // Al llegar con ?plan=X la página actúa como confirmación: salta al plan elegido.
@@ -38,11 +53,29 @@ function PlansContent() {
         }
     }, [selectedPlan]);
 
+    // Volver: logueado → página anterior (o la app si no hay historial); si no, a la home.
+    const handleBack = () => {
+        if (!userId) {
+            router.push("/");
+            return;
+        }
+        if (typeof window !== "undefined" && window.history.length > 1) router.back();
+        else router.push("/app/mi-lectura");
+    };
+
     return (
         <div className="min-h-[100svh] space-y-16 bg-cream pb-20 pt-[72px]">
             <Navbar minimal />
 
             <div className="mx-auto max-w-3xl space-y-6 px-4 pt-10 text-center">
+                <div className="text-left">
+                    <button
+                        onClick={handleBack}
+                        className="inline-flex items-center gap-1 text-sm font-medium text-teal transition-colors hover:text-coral"
+                    >
+                        <ChevronLeft className="h-4 w-4" aria-hidden="true" /> Volver
+                    </button>
+                </div>
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">
                     {selectedPlan ? "Último paso" : "Planes fundador hasta el 1 de septiembre"}
                 </p>
@@ -96,7 +129,7 @@ function PlansContent() {
                                     price={price}
                                     period={displayPeriod}
                                     hidePopularBadge={isSelected}
-                                    action={<PlanAction planId={plan.id} cta={plan.cta} period={period} authReady={authReady} userId={userId} router={router} />}
+                                    action={<PlanAction planId={plan.id} cta={plan.cta} period={period} authReady={authReady} userId={userId} currentPlan={currentPlan} router={router} />}
                                 />
                             </div>
                         );
@@ -121,12 +154,21 @@ function PlansContent() {
     );
 }
 
+function CurrentPlanBadge() {
+    return (
+        <div className="flex h-11 w-full items-center justify-center rounded-xl bg-teal/10 text-sm font-semibold text-teal-dark">
+            <Check className="mr-1.5 h-4 w-4" aria-hidden="true" /> Tu plan actual
+        </div>
+    );
+}
+
 function PlanAction({
     planId,
     cta,
     period,
     authReady,
     userId,
+    currentPlan,
     router,
 }: {
     planId: PlanId;
@@ -134,26 +176,31 @@ function PlanAction({
     period: "monthly" | "annual";
     authReady: boolean;
     userId: string | null;
+    currentPlan: string | null;
     router: ReturnType<typeof useRouter>;
 }) {
-    // Plan gratis: no hay cobro, registro directo.
+    // Esperamos a resolver sesión/suscripción para no parpadear entre estados.
+    if (!authReady) return <div className="h-11" />;
+
+    const hasActiveSub = currentPlan !== null;
+    const isCurrent = currentPlan === planId;
+
+    // Plan gratis.
     if (planId === "explorador") {
+        // Logueado sin plan de pago → el gratis ES su plan actual.
+        if (userId && !hasActiveSub) return <CurrentPlanBadge />;
         return (
             <Button
                 variant="outline"
                 className="w-full"
                 onClick={() => router.push(userId ? "/app/mi-lectura" : `/register?source=beta&intent=plan-explorador&plan=explorador`)}
             >
-                {cta}
+                {userId ? "Ir a la app" : cta}
             </Button>
         );
     }
 
-    // Planes de pago.
-    if (!authReady) {
-        return <div className="h-11" />;
-    }
-
+    // Planes de pago, sin sesión: registro/login conservando el plan elegido.
     if (!userId) {
         const next = `/planes?plan=${planId}&billing=${period}`;
         const encodedNext = encodeURIComponent(next);
@@ -175,6 +222,31 @@ function PlanAction({
         );
     }
 
+    // Ya es su plan actual → gestionar, no volver a suscribirse.
+    if (isCurrent) {
+        return (
+            <div className="space-y-2">
+                <CurrentPlanBadge />
+                <Link href="/app/perfil/suscripcion" className="block text-center text-xs font-semibold text-teal hover:underline">
+                    Gestionar suscripción
+                </Link>
+            </div>
+        );
+    }
+
+    // Tiene OTRO plan de pago activo → cambiar desde gestión (evita una 2ª suscripción/doble cobro).
+    if (hasActiveSub) {
+        return (
+            <Link
+                href="/app/perfil/suscripcion"
+                className="flex h-11 w-full items-center justify-center rounded-xl border border-teal text-sm font-semibold text-teal transition-colors hover:bg-teal/5"
+            >
+                Cambiar a este plan
+            </Link>
+        );
+    }
+
+    // Sin suscripción activa → alta directa.
     return (
         <PayPalSubscribeButton
             productType="user_plan"

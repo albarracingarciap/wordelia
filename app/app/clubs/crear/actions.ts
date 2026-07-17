@@ -1,7 +1,7 @@
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
-import { isOrgProActive } from '@/lib/subscription-access';
+import { isOrgProActive, isSubscriptionActive } from '@/lib/subscription-access';
 import { Club } from '@/types/clubs';
 import { revalidatePath } from 'next/cache';
 import { BookSearchResult } from '@/lib/isbndb';
@@ -83,10 +83,36 @@ export async function createClub(data: any) {
         }
     }
 
+    const visibility = ['public', 'private', 'secret'].includes(data.privacy)
+        ? data.privacy
+        : 'public';
+
+    // Personal (non-org) club: gate by user plan. Explorador (gratis) puede crear
+    // 1 club PÚBLICO; los privados/secretos y crear varios requieren plan de pago.
+    if (!organizationId) {
+        const { data: sub } = await supabase
+            .from('user_subscriptions')
+            .select('status, current_period_end')
+            .eq('user_id', user.id)
+            .maybeSingle();
+        const isPaid = isSubscriptionActive(sub?.status, sub?.current_period_end);
+        if (!isPaid) {
+            if (visibility !== 'public') {
+                return { error: 'Los clubs privados y secretos son del plan Voraz. Sube de plan para crearlos.' };
+            }
+            const { count } = await supabase
+                .from('clubs')
+                .select('id', { count: 'exact', head: true })
+                .eq('owner_id', user.id)
+                .is('organization_id', null)
+                .eq('is_archived', false);
+            if ((count || 0) >= 1) {
+                return { error: 'El plan gratuito permite crear 1 club. Sube a Voraz para crear clubs ilimitados.' };
+            }
+        }
+    }
+
     try {
-        const visibility = ['public', 'private', 'secret'].includes(data.privacy)
-            ? data.privacy
-            : 'public';
         const joinCode = visibility === 'private' || visibility === 'secret'
             ? generateJoinCode()
             : null;

@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AlertCircle, BarChart3, BookOpen, Building2, CalendarClock, CalendarPlus, Clock, ExternalLink, Gift, Globe, ImagePlus, MapPin, MessageSquare, Palette, Pencil, Plus, Sparkles, Store, Trash2, UserPlus, Users } from "lucide-react";
+import { AlertCircle, BarChart3, BookOpen, Building2, CalendarClock, CalendarPlus, Check, Clock, ExternalLink, Gift, Globe, ImagePlus, MapPin, MessageSquare, Palette, Pencil, Plus, Sparkles, Store, Trash2, UserPlus, Users } from "lucide-react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -11,6 +11,7 @@ import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
 import { createClient } from "@/utils/supabase/client";
 import { createOrganization, updateOrganization, createOrganizationEvent, updateOrganizationEvent, deleteOrganizationEvent, createLocation, updateLocation, deleteLocation, type OrganizationAnalytics, type OrganizationMember } from "./actions";
+import { FREE_LOCATION_LIMIT, FREE_UPCOMING_EVENT_LIMIT } from "@/lib/org-limits";
 import { inviteMemberByUsername } from "@/app/app/clubs/[id]/actions";
 import { PayPalSubscriptionProvider, PayPalSubscribeButton } from "@/components/payments/PayPalSubscribe";
 import OrgSubscriptionManage from "@/components/payments/OrgSubscriptionManage";
@@ -21,6 +22,12 @@ import type { Organization, OrganizationEvent, OrganizationEventFormat, Organiza
 function orgPriceLabel(period: "monthly" | "annual") {
     const price = getPrice({ productType: "org_subscription", referenceId: "", period });
     return price ? formatAmount(price.amount_cents) : "";
+}
+
+// Equivalente mensual del plan anual (para mostrar "X €/mes" en la opción anual).
+function orgAnnualPerMonthLabel() {
+    const price = getPrice({ productType: "org_subscription", referenceId: "", period: "annual" });
+    return price ? formatAmount(Math.round(price.amount_cents / 12)) : "";
 }
 
 const EVENT_TYPE_LABELS: Record<OrganizationEventType, string> = {
@@ -218,18 +225,38 @@ function Dashboard({ organizations, organization, clubs, analytics, events, memb
                         <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-coral" aria-hidden="true" />
                         <div className="min-w-0 flex-1">
                             <p className="font-bold text-teal-dark">Sube a Librería Pro</p>
-                            <p className="mt-1 text-sm text-grey">
-                                Clubs ilimitados, y tus socios se llevan la <span className="font-semibold">guía y el genoma</span> de cada
-                                libro <span className="font-semibold">para siempre</span>.
-                            </p>
+                            <ul className="mt-2 space-y-1.5">
+                                <li className="flex items-start gap-2 text-sm text-grey">
+                                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-teal" aria-hidden="true" /> Clubs ilimitados
+                                </li>
+                                <li className="flex items-start gap-2 text-sm text-grey">
+                                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-teal" aria-hidden="true" />
+                                    <span>Tus socios se llevan la <span className="font-semibold">guía y el genoma</span> de cada libro <span className="font-semibold">para siempre</span></span>
+                                </li>
+                                <li className="flex items-start gap-2 text-sm text-grey">
+                                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-teal" aria-hidden="true" /> Multisede (varias sedes)
+                                </li>
+                                <li className="flex items-start gap-2 text-sm text-grey">
+                                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-teal" aria-hidden="true" /> Analíticas avanzadas
+                                </li>
+                                <li className="flex items-start gap-2 text-sm text-grey">
+                                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-teal" aria-hidden="true" /> Eventos ilimitados
+                                </li>
+                            </ul>
+                            <p className="mt-2 text-xs text-grey/60">Renovación automática. Cancela cuando quieras.</p>
                             <div className="mt-4 grid gap-4 sm:grid-cols-2">
                                 <PayPalSubscriptionProvider>
                                     <div className="rounded-xl border border-teal/10 bg-white p-3">
-                                        <p className="mb-2 text-sm font-bold text-teal-dark">Anual · {orgPriceLabel("annual")}</p>
+                                        <div className="mb-1 flex items-center gap-2">
+                                            <p className="text-sm font-bold text-teal-dark">Anual</p>
+                                            <span className="rounded-full bg-coral/10 px-2 py-0.5 text-[10px] font-bold text-coral">2 meses gratis</span>
+                                        </div>
+                                        <p className="mb-2 text-xs text-grey/70">{orgPriceLabel("annual")} · {orgAnnualPerMonthLabel()}/mes</p>
                                         <PayPalSubscribeButton productType="org_subscription" referenceId={organization.id} period="annual" onSuccess={() => router.refresh()} />
                                     </div>
                                     <div className="rounded-xl border border-teal/10 bg-white p-3">
-                                        <p className="mb-2 text-sm font-bold text-teal-dark">Mensual · {orgPriceLabel("monthly")}</p>
+                                        <p className="mb-1 text-sm font-bold text-teal-dark">Mensual</p>
+                                        <p className="mb-2 text-xs text-grey/70">{orgPriceLabel("monthly")}/mes</p>
                                         <PayPalSubscribeButton productType="org_subscription" referenceId={organization.id} period="monthly" onSuccess={() => router.refresh()} />
                                     </div>
                                 </PayPalSubscriptionProvider>
@@ -254,7 +281,9 @@ function Dashboard({ organizations, organization, clubs, analytics, events, memb
                 </Card>
             )}
 
-            {analytics && <AnalyticsSection analytics={analytics} />}
+            {isPro
+                ? (analytics && <AnalyticsSection analytics={analytics} />)
+                : <AnalyticsUpsell />}
 
             <section>
                 <h2 className={`${sectionTitle} mb-4`}>Sus clubs</h2>
@@ -293,9 +322,9 @@ function Dashboard({ organizations, organization, clubs, analytics, events, memb
 
             <MembersSection members={members} clubs={clubs} />
 
-            <LocationsSection orgId={organization.id} locations={locations} />
+            <LocationsSection orgId={organization.id} locations={locations} isPro={isPro} />
 
-            <EventsSection orgId={organization.id} events={events} locations={locations} />
+            <EventsSection orgId={organization.id} events={events} locations={locations} isPro={isPro} />
 
             <EditProfileModal
                 organization={organization}
@@ -310,11 +339,13 @@ function Dashboard({ organizations, organization, clubs, analytics, events, memb
     );
 }
 
-function LocationsSection({ orgId, locations }: { orgId: string; locations: OrganizationLocation[] }) {
+function LocationsSection({ orgId, locations, isPro }: { orgId: string; locations: OrganizationLocation[]; isPro: boolean }) {
     const router = useRouter();
     const [editing, setEditing] = React.useState<OrganizationLocation | null>(null);
     const [isModalOpen, setIsModalOpen] = React.useState(false);
     const [pendingDelete, setPendingDelete] = React.useState<string | null>(null);
+
+    const atLimit = !isPro && locations.length >= FREE_LOCATION_LIMIT;
 
     const openNew = () => { setEditing(null); setIsModalOpen(true); };
     const openEdit = (loc: OrganizationLocation) => { setEditing(loc); setIsModalOpen(true); };
@@ -326,9 +357,15 @@ function LocationsSection({ orgId, locations }: { orgId: string; locations: Orga
                 <h2 className={`${sectionTitle} flex items-center gap-2`}>
                     <Building2 className="h-4 w-4" aria-hidden="true" /> Sedes
                 </h2>
-                <button onClick={openNew} className="inline-flex items-center gap-1.5 text-sm font-semibold text-teal hover:text-coral">
-                    <Plus className="h-4 w-4" aria-hidden="true" /> Añadir sede
-                </button>
+                {atLimit ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-grey/50">
+                        <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> Multisede en Pro
+                    </span>
+                ) : (
+                    <button onClick={openNew} className="inline-flex items-center gap-1.5 text-sm font-semibold text-teal hover:text-coral">
+                        <Plus className="h-4 w-4" aria-hidden="true" /> Añadir sede
+                    </button>
+                )}
             </div>
 
             {locations.length > 0 ? (
@@ -537,12 +574,15 @@ function MembersSection({ members, clubs }: { members: OrganizationMember[]; clu
     );
 }
 
-function EventsSection({ orgId, events, locations }: { orgId: string; events: OrganizationEvent[]; locations: OrganizationLocation[] }) {
+function EventsSection({ orgId, events, locations, isPro }: { orgId: string; events: OrganizationEvent[]; locations: OrganizationLocation[]; isPro: boolean }) {
     const router = useRouter();
     const [editing, setEditing] = React.useState<OrganizationEvent | null>(null);
     const [isModalOpen, setIsModalOpen] = React.useState(false);
     const [pendingDelete, setPendingDelete] = React.useState<string | null>(null);
     const locationById = React.useMemo(() => new Map(locations.map((l) => [l.id, l])), [locations]);
+
+    const upcomingCount = events.filter((e) => new Date(e.starts_at) >= new Date()).length;
+    const atLimit = !isPro && upcomingCount >= FREE_UPCOMING_EVENT_LIMIT;
 
     const openNew = () => { setEditing(null); setIsModalOpen(true); };
     const openEdit = (event: OrganizationEvent) => { setEditing(event); setIsModalOpen(true); };
@@ -559,9 +599,15 @@ function EventsSection({ orgId, events, locations }: { orgId: string; events: Or
                 <h2 className={`${sectionTitle} flex items-center gap-2`}>
                     <CalendarClock className="h-4 w-4" aria-hidden="true" /> Agenda de la tienda
                 </h2>
-                <button onClick={openNew} className="inline-flex items-center gap-1.5 text-sm font-semibold text-teal hover:text-coral">
-                    <CalendarPlus className="h-4 w-4" aria-hidden="true" /> Añadir evento
-                </button>
+                {atLimit ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-grey/50">
+                        <Sparkles className="h-3.5 w-3.5" aria-hidden="true" /> Eventos ilimitados en Pro
+                    </span>
+                ) : (
+                    <button onClick={openNew} className="inline-flex items-center gap-1.5 text-sm font-semibold text-teal hover:text-coral">
+                        <CalendarPlus className="h-4 w-4" aria-hidden="true" /> Añadir evento
+                    </button>
+                )}
             </div>
 
             {events.length > 0 ? (
@@ -736,6 +782,24 @@ function Tile({ icon: Icon, label, value }: { icon: React.ElementType; label: st
                     <p className="text-2xl font-bold leading-tight text-teal-dark">{value}</p>
                     <p className="mt-0.5 text-xs font-bold uppercase tracking-wide text-grey/50">{label}</p>
                 </div>
+            </div>
+        </Card>
+    );
+}
+
+// Teaser de analíticas para el plan Gratis (las avanzadas son de Librería Pro).
+function AnalyticsUpsell() {
+    return (
+        <Card className="border-teal/15 bg-teal/[0.03]">
+            <div className="flex items-center gap-3">
+                <BarChart3 className="h-5 w-5 shrink-0 text-teal/50" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                    <p className="font-bold text-teal-dark">Analíticas avanzadas</p>
+                    <p className="mt-0.5 text-sm text-grey">
+                        Lectores, participación y eventos de tus clubs, en un panel. Disponible en <span className="font-semibold">Librería Pro</span>.
+                    </p>
+                </div>
+                <Sparkles className="h-4 w-4 shrink-0 text-coral" aria-hidden="true" />
             </div>
         </Card>
     );
