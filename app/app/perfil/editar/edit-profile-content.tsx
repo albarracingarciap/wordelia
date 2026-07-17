@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
     Bell,
@@ -9,6 +10,7 @@ import {
     Camera,
     Check,
     ChevronLeft,
+    CreditCard,
     Eye,
     FileDown,
     Lock,
@@ -803,6 +805,21 @@ function AccountTab({ email }: { email: string }) {
                         >
                             Actualizar
                         </Button>
+                    </div>
+                </div>
+
+                <div className="rounded-2xl border border-grey/10 bg-white p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h3 className="font-bold text-teal-dark">Suscripción</h3>
+                            <p className="mt-1 text-sm text-grey/60">Consulta tu plan, cámbialo o cancélalo cuando quieras.</p>
+                        </div>
+                        <Link
+                            href="/app/perfil/suscripcion"
+                            className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-teal/20 px-3 text-sm font-semibold text-teal transition-colors hover:bg-teal/5"
+                        >
+                            <CreditCard className="h-4 w-4" /> Gestionar
+                        </Link>
                     </div>
                 </div>
 

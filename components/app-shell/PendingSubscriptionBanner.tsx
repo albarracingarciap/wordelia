@@ -5,6 +5,7 @@ import Link from "next/link";
 import { X } from "lucide-react";
 import { createClient } from "@/utils/supabase/client";
 import { PLANS } from "@/lib/plans";
+import { isSubscriptionActive } from "@/lib/subscription-access";
 
 const DISMISS_KEY = "wordelia_pending_sub_dismissed";
 
@@ -30,9 +31,8 @@ export function PendingSubscriptionBanner() {
             const [{ data: sub }, { data: founder }] = await Promise.all([
                 supabase
                     .from("user_subscriptions")
-                    .select("current_period_end")
+                    .select("status, current_period_end")
                     .eq("user_id", user.id)
-                    .eq("status", "active")
                     .maybeSingle(),
                 supabase
                     .from("founder_memberships")
@@ -42,7 +42,7 @@ export function PendingSubscriptionBanner() {
                     .maybeSingle(),
             ]);
 
-            const hasActiveSub = sub && (!sub.current_period_end || new Date(sub.current_period_end) > new Date());
+            const hasActiveSub = isSubscriptionActive(sub?.status, sub?.current_period_end);
             const plan = founder?.requested_plan;
 
             if (active && !hasActiveSub && (plan === "voraz" || plan === "ai")) {

@@ -69,6 +69,113 @@ export async function capturePayPalOrder(orderId: string): Promise<CaptureResult
     };
 }
 
+// --- Subscriptions API (recurring billing) ---------------------------------
+
+export interface SubscriptionResult {
+    id: string;
+    status: string;
+    approveUrl: string | null;    // link de aprobación del comprador (alta y upgrades)
+}
+
+function approveLink(links: any[] | undefined): string | null {
+    return links?.find((l) => l.rel === 'approve')?.href ?? null;
+}
+
+/** Create a subscription to a billing plan. Returns its id + the buyer approval link. */
+export async function createSubscription(
+    planId: string,
+    customId: string,
+    returnUrl: string,
+    cancelUrl: string,
+): Promise<SubscriptionResult> {
+    const token = await getAccessToken();
+    const res = await fetch(`${getBaseUrl()}/v1/billing/subscriptions`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=representation',
+        },
+        body: JSON.stringify({
+            plan_id: planId,
+            custom_id: customId,
+            application_context: {
+                brand_name: 'Wordelia',
+                locale: 'es-ES',
+                shipping_preference: 'NO_SHIPPING',
+                user_action: 'SUBSCRIBE_NOW',
+                return_url: returnUrl,
+                cancel_url: cancelUrl,
+            },
+        }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data.id) throw new Error(`PayPal create-subscription error: ${res.status} ${JSON.stringify(data)}`);
+    return { id: data.id, status: data.status, approveUrl: approveLink(data.links) };
+}
+
+/** Fetch a subscription (status, plan_id, billing_info.next_billing_time, custom_id…). */
+export async function getSubscription(subscriptionId: string): Promise<any> {
+    const token = await getAccessToken();
+    const res = await fetch(`${getBaseUrl()}/v1/billing/subscriptions/${subscriptionId}`, {
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(`PayPal get-subscription error: ${res.status} ${JSON.stringify(data)}`);
+    return data;
+}
+
+/** Cancel a subscription. The real status change arrives via webhook. */
+export async function cancelSubscription(subscriptionId: string, reason: string): Promise<void> {
+    const token = await getAccessToken();
+    const res = await fetch(`${getBaseUrl()}/v1/billing/subscriptions/${subscriptionId}/cancel`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason }),
+    });
+    // 204 No Content on success.
+    if (!res.ok && res.status !== 204) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(`PayPal cancel-subscription error: ${res.status} ${JSON.stringify(data)}`);
+    }
+}
+
+/**
+ * Change the plan of an existing subscription (upgrade/downgrade). PayPal handles
+ * proration. Upgrades (price increase) return an approval link the buyer must
+ * confirm; downgrades usually apply without re-approval.
+ */
+export async function reviseSubscription(
+    subscriptionId: string,
+    newPlanId: string,
+    returnUrl: string,
+    cancelUrl: string,
+): Promise<SubscriptionResult> {
+    const token = await getAccessToken();
+    const res = await fetch(`${getBaseUrl()}/v1/billing/subscriptions/${subscriptionId}/revise`, {
+        method: 'POST',
+        headers: {
+            Authorization: `Bearer ${token}`,
+            'Content-Type': 'application/json',
+            Prefer: 'return=representation',
+        },
+        body: JSON.stringify({
+            plan_id: newPlanId,
+            application_context: {
+                brand_name: 'Wordelia',
+                locale: 'es-ES',
+                shipping_preference: 'NO_SHIPPING',
+                user_action: 'SUBSCRIBE_NOW',
+                return_url: returnUrl,
+                cancel_url: cancelUrl,
+            },
+        }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(`PayPal revise-subscription error: ${res.status} ${JSON.stringify(data)}`);
+    return { id: subscriptionId, status: data.status ?? 'UNKNOWN', approveUrl: approveLink(data.links) };
+}
+
 /** Verify a PayPal webhook signature. Returns true only on SUCCESS. */
 export async function verifyWebhookSignature(headers: Headers, rawBody: string): Promise<boolean> {
     const webhookId = process.env.PAYPAL_WEBHOOK_ID;

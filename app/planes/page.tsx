@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Navbar } from "@/components/landing/Navbar";
 import { PlanCard } from "@/components/pricing/PlanCard";
 import { createClient } from "@/utils/supabase/client";
-import { PayPalProvider, PayPalCheckout } from "@/components/payments/PayPalCheckout";
+import { PayPalSubscriptionProvider, PayPalSubscribeButton } from "@/components/payments/PayPalSubscribe";
 import { PLANS, type PlanId } from "@/lib/plans";
 
 function PlansContent() {
@@ -72,7 +72,7 @@ function PlansContent() {
                 </div>
             </div>
 
-            <PayPalProvider>
+            <PayPalSubscriptionProvider>
                 <div className="mx-auto grid max-w-6xl grid-cols-1 gap-4 px-4 md:grid-cols-3 md:gap-6">
                     {PLANS.map((plan) => {
                         const price = isAnnual ? plan.annualPrice : plan.monthlyPrice;
@@ -102,7 +102,7 @@ function PlansContent() {
                         );
                     })}
                 </div>
-            </PayPalProvider>
+            </PayPalSubscriptionProvider>
 
             <div className="mx-auto max-w-3xl border-t border-teal/10 px-4 pt-16 text-center">
                 <h3 className="mb-8 text-2xl font-serif text-teal">Preguntas Frecuentes</h3>
@@ -176,7 +176,7 @@ function PlanAction({
     }
 
     return (
-        <PayPalCheckout
+        <PayPalSubscribeButton
             productType="user_plan"
             referenceId={planId}
             period={period}

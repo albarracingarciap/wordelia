@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
+import { isSubscriptionActive } from "@/lib/subscription-access";
 
 // --- TYPES ---
 export interface ReadingStats {
@@ -647,22 +648,22 @@ async function getAccessContext(
             .maybeSingle(),
         supabase
             .from("user_subscriptions")
-            .select("plan, current_period_end")
+            .select("plan, status, current_period_end")
             .eq("user_id", userId)
-            .eq("status", "active")
             .maybeSingle(),
     ]);
 
     const profile = profileResult.data as ProfileAccessRow | null;
-    const subscription = subscriptionResult.data as { plan: string; current_period_end: string | null } | null;
+    const subscription = subscriptionResult.data as { plan: string; status: string; current_period_end: string | null } | null;
     const isAdmin = profile?.role === "admin" || profile?.role === "editor";
 
-    // El acceso a recursos por plan requiere una suscripción de pago activa. El
+    // El acceso a recursos por plan requiere una suscripción de pago vigente. El
     // beneficio fundador NO concede plan: solo aporta clubs gratis, cuyo acceso a
     // la guía/genoma del libro se otorga por grant (user_book_resource_access).
-    const subscriptionActive = subscription
-        && (!subscription.current_period_end || new Date(subscription.current_period_end) > new Date());
-    const plan = subscriptionActive ? subscription!.plan : null;
+    // Una suscripción cancelada mantiene acceso hasta el fin del periodo pagado.
+    const plan = subscription && isSubscriptionActive(subscription.status, subscription.current_period_end)
+        ? subscription.plan
+        : null;
 
     return {
         isAdmin,

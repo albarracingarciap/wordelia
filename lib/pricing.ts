@@ -5,8 +5,8 @@ export type ProductType = 'org_subscription' | 'user_plan' | 'resource' | 'club'
 export type BillingPeriod = 'monthly' | 'annual';
 
 const CATALOG = {
-    // Librería Pro — placeholder, ajustar al precio comercial real.
-    org_subscription: { monthly: 1900, annual: 19000 },
+    // Librería Pro — 24,99 €/mes · 239,90 €/año (anual ~20% dto).
+    org_subscription: { monthly: 2499, annual: 23990 },
     // User plans (mirrors app/planes/page.tsx): voraz 6,99/67,10 · ai 14,99/143,90.
     user_plan: {
         voraz: { monthly: 699, annual: 6710 },

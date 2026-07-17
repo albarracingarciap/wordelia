@@ -12,8 +12,10 @@ import { Select } from "@/components/ui/Select";
 import { createClient } from "@/utils/supabase/client";
 import { createOrganization, updateOrganization, createOrganizationEvent, updateOrganizationEvent, deleteOrganizationEvent, createLocation, updateLocation, deleteLocation, type OrganizationAnalytics, type OrganizationMember } from "./actions";
 import { inviteMemberByUsername } from "@/app/app/clubs/[id]/actions";
-import { PayPalProvider, PayPalCheckout } from "@/components/payments/PayPalCheckout";
+import { PayPalSubscriptionProvider, PayPalSubscribeButton } from "@/components/payments/PayPalSubscribe";
+import OrgSubscriptionManage from "@/components/payments/OrgSubscriptionManage";
 import { getPrice, formatAmount } from "@/lib/pricing";
+import { isOrgProActive } from "@/lib/subscription-access";
 import type { Organization, OrganizationEvent, OrganizationEventFormat, OrganizationEventType, OrganizationLocation } from "@/types/organizations";
 
 function orgPriceLabel(period: "monthly" | "annual") {
@@ -159,8 +161,8 @@ function RegisterForm({ onCreated }: { onCreated?: (orgId: string) => void } = {
 
 function Dashboard({ organizations, organization, clubs, analytics, events, members, locations }: { organizations: Organization[]; organization: Organization; clubs: any[]; analytics: OrganizationAnalytics | null; events: OrganizationEvent[]; members: OrganizationMember[]; locations: OrganizationLocation[] }) {
     const router = useRouter();
-    const tier = organization.subscription?.tier ?? "free";
-    const isPro = tier === "pro";
+    // Pro requires an active (or within-grace) paid subscription, not just tier.
+    const isPro = isOrgProActive(organization.subscription);
     const atFreeLimit = !isPro && clubs.length >= 1;
     const [isEditOpen, setIsEditOpen] = React.useState(false);
     const [isNewOrgOpen, setIsNewOrgOpen] = React.useState(false);
@@ -221,18 +223,33 @@ function Dashboard({ organizations, organization, clubs, analytics, events, memb
                                 libro <span className="font-semibold">para siempre</span>.
                             </p>
                             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                                <PayPalProvider>
+                                <PayPalSubscriptionProvider>
                                     <div className="rounded-xl border border-teal/10 bg-white p-3">
                                         <p className="mb-2 text-sm font-bold text-teal-dark">Anual · {orgPriceLabel("annual")}</p>
-                                        <PayPalCheckout productType="org_subscription" referenceId={organization.id} period="annual" onSuccess={() => router.refresh()} />
+                                        <PayPalSubscribeButton productType="org_subscription" referenceId={organization.id} period="annual" onSuccess={() => router.refresh()} />
                                     </div>
                                     <div className="rounded-xl border border-teal/10 bg-white p-3">
                                         <p className="mb-2 text-sm font-bold text-teal-dark">Mensual · {orgPriceLabel("monthly")}</p>
-                                        <PayPalCheckout productType="org_subscription" referenceId={organization.id} period="monthly" onSuccess={() => router.refresh()} />
+                                        <PayPalSubscribeButton productType="org_subscription" referenceId={organization.id} period="monthly" onSuccess={() => router.refresh()} />
                                     </div>
-                                </PayPalProvider>
+                                </PayPalSubscriptionProvider>
                             </div>
                         </div>
+                    </div>
+                </Card>
+            )}
+
+            {isPro && organization.subscription?.provider_subscription_id && (
+                <Card className="border-teal/15">
+                    <p className="font-bold text-teal-dark">Gestiona tu plan Pro</p>
+                    <div className="mt-3">
+                        <OrgSubscriptionManage
+                            organizationId={organization.id}
+                            subscriptionId={organization.subscription.provider_subscription_id}
+                            status={organization.subscription.status}
+                            billingPeriod={organization.subscription.billing_period}
+                            currentPeriodEnd={organization.subscription.current_period_end}
+                        />
                     </div>
                 </Card>
             )}

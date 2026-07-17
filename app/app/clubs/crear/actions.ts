@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
+import { isOrgProActive } from '@/lib/subscription-access';
 import { Club } from '@/types/clubs';
 import { revalidatePath } from 'next/cache';
 import { BookSearchResult } from '@/lib/isbndb';
@@ -62,14 +63,14 @@ export async function createClub(data: any) {
             return { error: 'No tienes permiso para crear clubs en esta librería.' };
         }
 
-        // Free tier is limited to 1 active club.
+        // Free tier is limited to 1 active club. An expired Pro counts as free.
         const { data: sub } = await supabase
             .from('organization_subscriptions')
-            .select('tier')
+            .select('tier, status, current_period_end')
             .eq('organization_id', organizationId)
             .maybeSingle();
 
-        if (sub?.tier !== 'pro') {
+        if (!isOrgProActive(sub)) {
             const { count } = await supabase
                 .from('clubs')
                 .select('id', { count: 'exact', head: true })

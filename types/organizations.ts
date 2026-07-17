@@ -5,10 +5,13 @@ export interface OrganizationSubscription {
     id: string;
     organization_id: string;
     tier: OrganizationTier;
-    status: 'active' | 'trialing' | 'past_due' | 'cancelled';
+    status: 'active' | 'trialing' | 'past_due' | 'cancelled' | 'expired' | 'paused';
     billing_period: 'monthly' | 'annual' | null;
     started_at: string;
     current_period_end: string | null;
+    provider?: string;
+    provider_subscription_id: string | null;
+    provider_plan_id: string | null;
     external_ref: string | null;
     metadata: Record<string, unknown>;
 }

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { isOrgProActive } from '@/lib/subscription-access';
 import { revalidatePath } from 'next/cache';
 import { BookSearchResult } from '@/lib/isbndb';
 import { resolveBookFromResult } from '@/lib/book-resolution';
@@ -46,10 +47,10 @@ async function grantClubResourcesIfPro(supabase: any, clubId: string, userId: st
 
         const { data: sub } = await supabase
             .from('organization_subscriptions')
-            .select('tier')
+            .select('tier, status, current_period_end')
             .eq('organization_id', club.organization_id)
             .maybeSingle();
-        if (sub?.tier !== 'pro') return;
+        if (!isOrgProActive(sub)) return;
 
         const { data: clubBook } = await supabase
             .from('club_books')
