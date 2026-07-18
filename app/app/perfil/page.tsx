@@ -2,6 +2,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import UserProfile from "./user-profile";
+import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 // Force dynamic rendering as we depend on user session
 export const dynamic = "force-dynamic";
@@ -103,7 +104,7 @@ export default async function ProfilePage() {
             updated_at,
             book:books (
                 title,
-                authors (name),
+                author,
                 preferred_edition:editions!books_preferred_edition_fk (cover_url)
             )
         `)
@@ -120,7 +121,7 @@ export default async function ProfilePage() {
             current_page,
             book:books (
                 title,
-                authors (name),
+                author,
                 preferred_edition:editions!books_preferred_edition_fk (cover_url, page_count)
             )
         `)
@@ -153,13 +154,13 @@ export default async function ProfilePage() {
     const activity = {
         lastRead: lastBook && lastReadData ? {
             title: lastBook.title,
-            author: Array.isArray(lastBook.authors) ? lastBook.authors[0]?.name || "Autor Desconocido" : (lastBook.authors?.name || "Autor Desconocido"),
+            author: bookAuthorLabel(lastBook, "Autor Desconocido"),
             timeAgo: new Date(lastReadData.updated_at).toLocaleDateString(),
             cover: lastEdition?.cover_url ?? null
         } : null,
         current: currentBook && currentReadData ? {
             title: currentBook.title,
-            author: Array.isArray(currentBook.authors) ? currentBook.authors[0]?.name || "Autor Desconocido" : (currentBook.authors?.name || "Autor Desconocido"),
+            author: bookAuthorLabel(currentBook, "Autor Desconocido"),
             progress: currentEdition?.page_count ? Math.round((currentReadData.current_page || 0) / currentEdition.page_count * 100) : 0,
             cover: currentEdition?.cover_url ?? null
         } : null

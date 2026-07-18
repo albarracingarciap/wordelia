@@ -1,137 +1,102 @@
-"use client";
-
-import { OfficialClub } from "@/app/clubes/actions";
-import Image from "next/image";
-import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
 import Link from "next/link";
+import Image from "next/image";
 import { Calendar, Users, Sparkles, MessageCircle } from "lucide-react";
+import type { PublicClub } from "@/app/clubes/actions";
+import { formatStartDate, formatClubPrice, clubHref } from "./format";
 
-interface FeaturedClubProps {
-    club: OfficialClub;
-    onViewDetails: () => void;
-}
-
-const openingQuestion = "Lo más aterrador de Gilead es que no se construyó de la noche a la mañana, sino mediante la pérdida gradual de pequeños derechos que la gente normal justificó \"por seguridad\". ¿Qué derechos o libertades creen que damos por sentados hoy y que podrían desaparecer si la sociedad entrara en pánico?";
-
-function formatStartDate(value?: string | null) {
-    if (!value) return "Próximamente";
-
-    const [datePart] = value.split("T");
-    const [year, month, day] = datePart.split("-").map(Number);
-    if (!year || !month || !day) return "Próximamente";
-
-    return new Intl.DateTimeFormat("es-ES", {
-        day: "numeric",
-        month: "short",
-    }).format(new Date(year, month - 1, day));
-}
-
-function formatPrice(value?: number | null, currency = "EUR") {
-    const cents = typeof value === "number" ? value : 990;
-
-    return new Intl.NumberFormat("es-ES", {
-        style: "currency",
-        currency,
-    }).format(cents / 100);
-}
-
-export function FeaturedClub({ club, onViewDetails }: FeaturedClubProps) {
-    const bookData = club.book_data;
-
-    if (!bookData) return null;
+// La pregunta de apertura sale de club_books.pregunta_apertura. Antes había
+// una cita de Gilead hardcodeada que se mostraba para cualquier club.
+export function FeaturedClub({ club }: { club: PublicClub }) {
+    const cover = club.book?.cover_url;
+    const title = club.book?.title || club.name;
+    const startLabel = formatStartDate(club.start_date);
+    const priceLabel = formatClubPrice(club.price, club.currency ?? "EUR");
 
     return (
-        <div className="relative mb-12 overflow-hidden rounded-2xl border-2 border-coral/20 bg-white shadow-xl">
-            <div className="absolute inset-0 bg-gradient-to-br from-coral/5 via-transparent to-red-50/30" />
+        <article className="relative overflow-hidden rounded-3xl border border-coral/20 bg-white shadow-lg">
+            <div className="absolute inset-0 bg-gradient-to-br from-coral/5 via-transparent to-cream/40" />
 
             <div className="relative z-10 p-6 md:p-8">
-                <div className="mb-6 flex items-center gap-2">
-                    <Sparkles className="h-5 w-5 text-coral" />
-                    <Badge className="border-none bg-coral text-sm font-bold text-white">
-                        CLUB DEL MES
-                    </Badge>
-                </div>
+                <p className="mb-6 inline-flex items-center gap-2 rounded-full bg-coral/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-coral">
+                    <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
+                    Club destacado
+                </p>
 
                 <div className="grid gap-8 lg:grid-cols-[260px_1fr] lg:items-start">
-                    <div
-                        onClick={onViewDetails}
-                        className="relative mx-auto aspect-[2/3] w-full max-w-[220px] cursor-pointer overflow-hidden rounded-xl bg-grey/10 shadow-lg transition-all duration-300 hover:shadow-2xl lg:mx-0"
+                    <Link
+                        href={clubHref(club)}
+                        className="relative mx-auto aspect-[2/3] w-full max-w-[220px] overflow-hidden rounded-2xl bg-grey/10 shadow-lg transition-shadow duration-300 hover:shadow-2xl lg:mx-0"
                     >
-                        {bookData.cover_url ? (
+                        {cover ? (
                             <Image
-                                src={bookData.cover_url}
-                                alt={bookData.title}
+                                src={cover}
+                                alt={`Portada de ${title}`}
                                 fill
-                                className="object-cover transition-transform duration-300 hover:scale-105"
+                                sizes="220px"
+                                className="object-cover"
                             />
                         ) : (
                             <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-grey/20 to-grey/5 p-4">
-                                <p className="text-center font-serif text-xs text-grey/60">
-                                    {bookData.title}
-                                </p>
+                                <p className="text-center font-serif text-sm text-grey/60">{title}</p>
                             </div>
                         )}
-                    </div>
+                    </Link>
 
                     <div className="space-y-6">
                         <div>
-                            <h2 className="mb-2 text-2xl text-teal md:text-3xl">
-                                {bookData.title}
-                            </h2>
-                            <p className="text-lg text-grey/70">
-                                por {bookData.authors?.join(", ") || "Autor desconocido"}
-                            </p>
+                            <h2 className="mb-1 text-2xl text-teal md:text-3xl">{club.name}</h2>
+                            {club.book?.title && (
+                                <p className="text-lg text-grey/70">
+                                    Leyendo: {club.book.title}
+                                    {club.book.author && ` · ${club.book.author}`}
+                                </p>
+                            )}
                         </div>
 
-                        <div className="rounded-2xl border border-teal/10 bg-white p-5 shadow-sm">
-                            <div className="mb-3 flex items-center gap-2 text-sm font-bold text-teal-dark">
-                                <MessageCircle className="h-4 w-4 text-coral" />
-                                Pregunta de apertura
+                        {club.hook_question && (
+                            <div className="rounded-2xl border border-teal/10 bg-white p-5 shadow-sm">
+                                <div className="mb-3 flex items-center gap-2 text-sm font-bold text-teal-dark">
+                                    <MessageCircle className="h-4 w-4 text-coral" aria-hidden="true" />
+                                    Pregunta de apertura
+                                </div>
+                                <p className="font-serif text-lg leading-relaxed text-teal-dark">
+                                    “{club.hook_question}”
+                                </p>
                             </div>
-                            <p className="font-serif text-lg leading-relaxed text-teal-dark">
-                                “{openingQuestion}”
-                            </p>
-                        </div>
+                        )}
 
-                        <p className="text-base leading-relaxed text-grey/80">
-                            {club.description}
-                        </p>
+                        {club.description && (
+                            <p className="text-base leading-relaxed text-grey/80">{club.description}</p>
+                        )}
 
                         <div className="flex flex-wrap gap-3">
-                            <div className="flex items-center gap-2 rounded-lg border border-coral/20 bg-coral/10 px-3 py-2 text-coral">
-                                <Calendar className="h-4 w-4" />
-                                <span className="text-sm font-semibold">{formatStartDate(club.start_date)}</span>
-                            </div>
-                            <div className="flex items-center gap-2 rounded-lg border border-teal/20 bg-teal/10 px-3 py-2 text-teal">
-                                <Users className="h-4 w-4" />
-                                <span className="text-sm font-semibold">Club Oficial</span>
-                            </div>
-                            <div className="flex items-center gap-2 rounded-lg border border-coral/20 bg-coral/10 px-3 py-2 text-coral">
-                                <Sparkles className="h-4 w-4" />
-                                <span className="text-sm font-semibold">Valor {formatPrice(club.price_cents, club.currency || "EUR")}</span>
-                            </div>
+                            {startLabel && (
+                                <span className="flex items-center gap-2 rounded-lg border border-coral/20 bg-coral/10 px-3 py-2 text-sm font-semibold text-coral">
+                                    <Calendar className="h-4 w-4" aria-hidden="true" />
+                                    Empieza el {startLabel}
+                                </span>
+                            )}
+                            <span className="flex items-center gap-2 rounded-lg border border-teal/20 bg-teal/10 px-3 py-2 text-sm font-semibold text-teal">
+                                <Users className="h-4 w-4" aria-hidden="true" />
+                                Club oficial
+                            </span>
+                            {priceLabel && (
+                                <span className="flex items-center gap-2 rounded-lg border border-coral/20 bg-coral/10 px-3 py-2 text-sm font-semibold text-coral">
+                                    <Sparkles className="h-4 w-4" aria-hidden="true" />
+                                    {priceLabel}
+                                </span>
+                            )}
                         </div>
 
-                        <div className="flex flex-col gap-3 sm:flex-row">
-                            <Button
-                                onClick={onViewDetails}
-                                className="bg-coral font-semibold text-white shadow-md transition-all hover:bg-coral/90 hover:shadow-lg"
-                            >
-                                Ver detalles del club
-                            </Button>
-                            <Link href="/register">
-                                <Button
-                                    variant="outline"
-                                    className="border-2 border-coral/30 font-semibold text-coral transition-all hover:bg-coral/5"
-                                >
-                                    Únete gratis
-                                </Button>
-                            </Link>
-                        </div>
+                        <Link
+                            href={clubHref(club)}
+                            className="inline-flex h-12 items-center justify-center rounded-2xl bg-coral px-8 font-semibold text-white shadow-sm shadow-coral/20 transition-all hover:bg-[#C25852]"
+                        >
+                            Ver el club
+                        </Link>
                     </div>
                 </div>
             </div>
-        </div>
+        </article>
     );
 }

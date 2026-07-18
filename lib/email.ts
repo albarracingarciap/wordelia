@@ -4,7 +4,14 @@
 
 const DEFAULT_FROM = "Wordelia <hola@wordelia.es>";
 
-export async function sendEmail(opts: { to: string; subject: string; html: string }): Promise<void> {
+export async function sendEmail(opts: {
+    to: string;
+    subject: string;
+    html: string;
+    // replyTo permite responder directamente al remitente original
+    // (p. ej. el visitante del formulario de contacto).
+    replyTo?: string;
+}): Promise<void> {
     const key = process.env.RESEND_API_KEY;
     if (!key) {
         console.log(`[email] omitido (sin RESEND_API_KEY): "${opts.subject}" → ${opts.to}`);
@@ -15,7 +22,13 @@ export async function sendEmail(opts: { to: string; subject: string; html: strin
         const res = await fetch("https://api.resend.com/emails", {
             method: "POST",
             headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
-            body: JSON.stringify({ from, to: opts.to, subject: opts.subject, html: opts.html }),
+            body: JSON.stringify({
+                from,
+                to: opts.to,
+                subject: opts.subject,
+                html: opts.html,
+                ...(opts.replyTo ? { reply_to: opts.replyTo } : {}),
+            }),
         });
         if (!res.ok) {
             console.error(`[email] envío fallido ${res.status}: ${await res.text()}`);

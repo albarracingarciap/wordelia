@@ -15,7 +15,7 @@ export default async function AdminClubsPage() {
             *,
             current_book: club_books(
                 *,
-                book: books(title, author: authors(name), preferred_edition:editions!books_preferred_edition_fk(cover_url))
+                book: books(title, author, preferred_edition:editions!books_preferred_edition_fk(cover_url))
             )
         `)
         .eq('is_official', true)

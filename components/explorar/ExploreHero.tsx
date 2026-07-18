@@ -1,53 +1,51 @@
-"use client";
-
-import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 
 export function ExploreHero() {
     return (
-        <section className="relative bg-gradient-to-br from-teal to-teal-dark rounded-2xl p-8 md:p-12 overflow-hidden shadow-xl">
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-teal to-teal-dark p-8 shadow-xl md:p-12">
             <div className="relative z-10 max-w-2xl">
-                <h1 className="text-3xl md:text-4xl lg:text-5xl font-serif mb-4">
+                <p className="mb-3 text-xs font-bold uppercase tracking-[0.22em] text-cream">
+                    Explorar
+                </p>
+                <h1 className="mb-4 text-3xl font-serif md:text-4xl lg:text-5xl">
                     <span className="text-white drop-shadow-md">Descubre libros por cómo te harán sentir,</span>{" "}
-                    <span className="italic text-cream font-bold drop-shadow-md">no solo por género</span>
+                    <span className="italic font-bold text-cream drop-shadow-md">no solo por género</span>
                 </h1>
 
-                <p className="text-white mb-6 text-base md:text-lg leading-relaxed">
-                    En Wordelia clasificamos libros por la <strong className="text-cream font-bold">experiencia de lectura</strong> que ofrecen.
-                    ¿Buscas tensión narrativa? ¿Universos complejos? ¿Prosa poética? Te mostramos exactamente qué esperar.
+                <p className="mb-6 text-base leading-relaxed text-white md:text-lg">
+                    En Wordelia agrupamos los libros por la{" "}
+                    <strong className="font-bold text-cream">experiencia de lectura</strong> que ofrecen.
+                    ¿Buscas tensión narrativa? ¿Universos complejos? ¿Prosa poética? Te mostramos qué esperar
+                    antes de empezar.
                 </p>
 
-                <div className="flex flex-col sm:flex-row gap-4">
-                    <Link href="/register">
-                        <Button
-                            style={{ color: '#234A4E' }}
-                            className="bg-cream hover:bg-white border-none font-bold shadow-lg hover:shadow-xl transition-all text-base"
-                        >
-                            Crear cuenta gratis
-                        </Button>
+                <div className="flex flex-col gap-4 sm:flex-row">
+                    <Link
+                        href="/register?source=explorar"
+                        className="inline-flex h-12 items-center justify-center rounded-2xl bg-cream px-8 font-semibold text-teal-dark shadow-lg transition-all hover:bg-white hover:shadow-xl"
+                    >
+                        Empezar
                     </Link>
-                    <Link href="/login">
-                        <Button
-                            variant="outline"
-                            className="border-2 border-white !text-white bg-transparent hover:bg-white hover:!text-teal-dark font-semibold transition-all"
-                        >
-                            Ya tengo cuenta
-                        </Button>
+                    <Link
+                        href="/genomas"
+                        className="inline-flex h-12 items-center justify-center rounded-2xl border-2 border-white bg-transparent px-8 font-semibold text-white transition-all hover:bg-white hover:text-teal-dark"
+                    >
+                        Ver los genomas literarios
                     </Link>
                 </div>
             </div>
 
             {/* Decorative background elements */}
-            <div className="absolute inset-0 overflow-hidden opacity-10 pointer-events-none">
-                <div className="absolute -right-20 -top-20 w-96 h-96 rounded-full bg-white/20 blur-3xl" />
-                <div className="absolute -left-20 -bottom-20 w-80 h-80 rounded-full bg-white/20 blur-3xl" />
+            <div className="pointer-events-none absolute inset-0 overflow-hidden opacity-10">
+                <div className="absolute -right-20 -top-20 h-96 w-96 rounded-full bg-white/20 blur-3xl" />
+                <div className="absolute -bottom-20 -left-20 h-80 w-80 rounded-full bg-white/20 blur-3xl" />
             </div>
 
             {/* Decorative book spines */}
-            <div className="absolute bottom-0 right-0 w-64 h-full hidden lg:block opacity-20 pointer-events-none">
-                <div className="absolute right-4 bottom-8 w-12 h-48 bg-white/30 rounded-sm transform rotate-12" />
-                <div className="absolute right-20 bottom-16 w-12 h-56 bg-white/30 rounded-sm transform -rotate-6" />
-                <div className="absolute right-36 bottom-20 w-12 h-44 bg-white/30 rounded-sm transform rotate-3" />
+            <div className="pointer-events-none absolute bottom-0 right-0 hidden h-full w-64 opacity-20 lg:block">
+                <div className="absolute bottom-8 right-4 h-48 w-12 rotate-12 transform rounded-sm bg-white/30" />
+                <div className="absolute bottom-16 right-20 h-56 w-12 -rotate-6 transform rounded-sm bg-white/30" />
+                <div className="absolute bottom-20 right-36 h-44 w-12 rotate-3 transform rounded-sm bg-white/30" />
             </div>
         </section>
     );

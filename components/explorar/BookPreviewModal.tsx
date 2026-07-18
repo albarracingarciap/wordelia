@@ -1,92 +1,66 @@
 "use client";
 
-import { BookSearchResult } from "@/lib/isbndb";
+import { useEffect, useMemo, useState } from "react";
 import Image from "next/image";
-import { X, Lock } from "lucide-react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { X, BookOpen, Clock, Users, Dna, ArrowRight } from "lucide-react";
+import { BookSearchResult } from "@/lib/isbndb";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/utils/supabase/client";
 import { addBookToLibrary } from "@/app/app/search/actions";
+import { getBookExtras, type BookExtras } from "@/app/explorar/actions";
 
 interface BookPreviewModalProps {
     book: BookSearchResult;
+    /** Id en nuestro catálogo, si la ficha viene de /explorar. Evita resolver por ISBN. */
+    bookId?: string;
+    /** Colección curada desde la que se abrió la ficha, para dar contexto real. */
+    collection?: { name: string; description: string; tag_line: string } | null;
     isOpen: boolean;
     onClose: () => void;
 }
 
-function InsightPreview({ locked }: { locked: boolean }) {
-    const content = (
-        <div className="space-y-4">
-            <div>
-                <h3 className="mb-2 text-sm font-bold uppercase tracking-widest text-grey/40">
-                    Mapa emocional
-                </h3>
-                {locked ? (
-                    <div className="h-24 rounded-lg bg-gradient-to-r from-teal/20 to-coral/20 sm:h-32" />
-                ) : (
-                    <div className="rounded-lg border border-teal/10 bg-gradient-to-r from-teal/10 to-coral/10 p-4">
-                        <p className="text-sm leading-relaxed text-grey/70">
-                            Un vistazo orientativo a la intensidad, tensión y tono emocional de esta lectura.
-                        </p>
-                    </div>
-                )}
-            </div>
+const WORDS_PER_PAGE = 250;
+const WORDS_PER_MINUTE = 250;
 
-            <div>
-                <h3 className="mb-2 text-sm font-bold uppercase tracking-widest text-grey/40">
-                    Reseñas de la comunidad
-                </h3>
-                {locked ? (
-                    <div className="space-y-2">
-                        <div className="h-14 rounded-lg bg-grey/10 sm:h-16" />
-                        <div className="h-14 rounded-lg bg-grey/10 sm:h-16" />
-                    </div>
-                ) : (
-                    <div className="space-y-2">
-                        <div className="rounded-lg bg-grey/10 p-3 text-sm text-grey/70">
-                            Lectores con gustos similares destacan su ritmo y tensión narrativa.
-                        </div>
-                        <div className="rounded-lg bg-grey/10 p-3 text-sm text-grey/70">
-                            Ideal si buscas una lectura absorbente y con atmósfera marcada.
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
+/** Tiempo de lectura estimado a partir de las páginas. Cálculo, no promesa. */
+function readingTime(pageCount?: number | null): string | null {
+    if (!pageCount || pageCount < 10) return null;
 
-    if (!locked) return content;
+    const minutes = (pageCount * WORDS_PER_PAGE) / WORDS_PER_MINUTE;
+    const hours = Math.round(minutes / 60);
 
-    return (
-        <div className="relative">
-            <div className="filter blur-sm select-none pointer-events-none">
-                <div className="opacity-40">{content}</div>
-            </div>
-
-            <div className="absolute inset-0 flex items-center justify-center">
-                <div className="rounded-full bg-white p-4 shadow-xl">
-                    <Lock className="h-7 w-7 text-teal sm:h-8 sm:w-8" />
-                </div>
-            </div>
-        </div>
-    );
+    if (hours < 1) return "menos de 1 h";
+    return `~${hours} h de lectura`;
 }
 
-export function BookPreviewModal({ book, isOpen, onClose }: BookPreviewModalProps) {
+function stripHtml(html: string): string {
+    return html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
+}
+
+function formatDate(value?: string | null): string | null {
+    if (!value) return null;
+    const [datePart] = value.split("T");
+    const [year, month, day] = datePart.split("-").map(Number);
+    if (!year || !month || !day) return null;
+
+    return new Intl.DateTimeFormat("es-ES", { day: "numeric", month: "long" })
+        .format(new Date(year, month - 1, day));
+}
+
+export function BookPreviewModal({ book, bookId, collection, isOpen, onClose }: BookPreviewModalProps) {
     const router = useRouter();
     const supabase = useMemo(() => createClient(), []);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
-    const [isCheckingSession, setIsCheckingSession] = useState(true);
     const [isAddingBook, setIsAddingBook] = useState(false);
     const [actionMessage, setActionMessage] = useState("");
     const [actionError, setActionError] = useState("");
+    const [extras, setExtras] = useState<BookExtras | null>(null);
 
     useEffect(() => {
         document.body.style.overflow = isOpen ? "hidden" : "unset";
-
         return () => {
             document.body.style.overflow = "unset";
         };
@@ -96,27 +70,30 @@ export function BookPreviewModal({ book, isOpen, onClose }: BookPreviewModalProp
         if (!isOpen) return;
 
         let isMounted = true;
-        setIsCheckingSession(true);
         setActionMessage("");
         setActionError("");
+        setExtras(null);
 
         supabase.auth.getUser().then(({ data }) => {
-            if (!isMounted) return;
-            setIsAuthenticated(Boolean(data.user));
-            setIsCheckingSession(false);
+            if (isMounted) setIsAuthenticated(Boolean(data.user));
+        });
+
+        // Datos propios de Wordelia sobre este libro (club oficial, guía).
+        getBookExtras(book.isbn || book.id || "", book.title, bookId).then((result) => {
+            if (isMounted) setExtras(result);
         });
 
         return () => {
             isMounted = false;
         };
-    }, [isOpen, supabase]);
+    }, [isOpen, supabase, book.isbn, book.id, book.title, bookId]);
 
     if (!isOpen) return null;
 
-    const stripHtml = (html: string) => html.replace(/<[^>]*>/g, "").replace(/&nbsp;/g, " ").trim();
-    const previewDescription = book.description
-        ? `${stripHtml(book.description).slice(0, 150)}...`
-        : "No hay descripción disponible.";
+    const synopsis = book.description ? stripHtml(book.description) : "";
+    const time = readingTime(book.page_count);
+    const year = book.published_date ? new Date(book.published_date).getFullYear() : null;
+    const clubStart = formatDate(extras?.club?.start_date);
 
     const handleAddToLibrary = async () => {
         if (isAddingBook) return;
@@ -150,6 +127,9 @@ export function BookPreviewModal({ book, isOpen, onClose }: BookPreviewModalProp
 
             <div className="fixed inset-0 z-[90] flex items-end justify-center p-0 pointer-events-none sm:items-center sm:p-4">
                 <div
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label={book.title}
                     className="max-h-[calc(100dvh-4.5rem)] w-full overflow-y-auto overscroll-contain rounded-t-2xl bg-white shadow-2xl pointer-events-auto animate-scale-in sm:max-h-[90dvh] sm:max-w-3xl sm:rounded-2xl"
                     onClick={(e) => e.stopPropagation()}
                 >
@@ -161,12 +141,18 @@ export function BookPreviewModal({ book, isOpen, onClose }: BookPreviewModalProp
                         <X className="h-5 w-5 text-grey" />
                     </button>
 
-                    <div className="p-5 pt-10 pb-28 sm:p-6 md:p-8">
+                    <div className="p-5 pt-10 pb-8 sm:p-6 md:p-8">
                         <div className="flex flex-col gap-5 sm:flex-row sm:gap-6 md:gap-8">
                             <div className="shrink-0 self-center sm:self-start">
-                                <div className="relative w-36 overflow-hidden rounded-lg bg-grey/10 shadow-lg aspect-[2/3] sm:w-44 md:w-48">
+                                <div className="relative aspect-[2/3] w-36 overflow-hidden rounded-lg bg-grey/10 shadow-lg sm:w-44 md:w-48">
                                     {book.cover_url ? (
-                                        <Image src={book.cover_url} alt={book.title} fill className="object-cover" sizes="(max-width: 640px) 144px, 192px" />
+                                        <Image
+                                            src={book.cover_url}
+                                            alt={`Portada de ${book.title}`}
+                                            fill
+                                            className="object-cover"
+                                            sizes="(max-width: 640px) 144px, 192px"
+                                        />
                                     ) : (
                                         <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-grey/20 to-grey/5 p-4">
                                             <p className="text-center font-serif text-sm text-grey/60">{book.title}</p>
@@ -175,12 +161,33 @@ export function BookPreviewModal({ book, isOpen, onClose }: BookPreviewModalProp
                                 </div>
                             </div>
 
-                            <div className="min-w-0 flex-1 space-y-4">
+                            <div className="min-w-0 flex-1 space-y-5">
                                 <div>
-                                    <h2 className="mb-2 text-2xl font-semibold leading-tight text-grey md:text-3xl">
+                                    <h2 className="mb-2 text-2xl font-semibold leading-tight text-teal-dark md:text-3xl">
                                         {book.title}
                                     </h2>
                                     <p className="text-base text-grey/70 md:text-lg">{book.authors.join(", ")}</p>
+                                </div>
+
+                                {/* Ficha de lectura: metadatos reales y tiempo calculado. */}
+                                <div className="flex flex-wrap gap-2 text-xs font-medium">
+                                    {book.page_count && (
+                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-cream px-3 py-1.5 text-teal-dark">
+                                            <BookOpen className="h-3.5 w-3.5" aria-hidden="true" />
+                                            {book.page_count} páginas
+                                        </span>
+                                    )}
+                                    {time && (
+                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-cream px-3 py-1.5 text-teal-dark">
+                                            <Clock className="h-3.5 w-3.5" aria-hidden="true" />
+                                            {time}
+                                        </span>
+                                    )}
+                                    {year && (
+                                        <span className="inline-flex items-center gap-1.5 rounded-full bg-cream px-3 py-1.5 text-teal-dark">
+                                            {year}
+                                        </span>
+                                    )}
                                 </div>
 
                                 {book.categories && book.categories.length > 0 && (
@@ -193,70 +200,127 @@ export function BookPreviewModal({ book, isOpen, onClose }: BookPreviewModalProp
                                     </div>
                                 )}
 
-                                <div className="space-y-1 text-sm text-grey/60">
-                                    {book.publisher && <p>Editorial: {book.publisher}</p>}
-                                    {book.published_date && <p>Publicado: {new Date(book.published_date).getFullYear()}</p>}
-                                    {book.page_count && <p>Páginas: {book.page_count}</p>}
-                                </div>
+                                {/* Por qué está en esta colección: contexto editorial real. */}
+                                {collection && (
+                                    <div className="rounded-xl border border-teal/10 bg-teal/5 p-4">
+                                        <p className="mb-1 text-xs font-bold uppercase tracking-[0.14em] text-teal">
+                                            Por qué está aquí
+                                        </p>
+                                        <p className="text-sm leading-relaxed text-grey/80">
+                                            Forma parte de <strong className="text-teal-dark">{collection.name}</strong>.{" "}
+                                            {collection.description}
+                                        </p>
+                                    </div>
+                                )}
 
-                                <div>
-                                    <h3 className="mb-2 text-sm font-bold uppercase tracking-widest text-grey/40">
-                                        Sinopsis
-                                    </h3>
-                                    <p className="text-sm leading-relaxed text-grey/80">{previewDescription}</p>
-                                </div>
+                                {synopsis && (
+                                    <div>
+                                        <h3 className="mb-2 text-sm font-bold uppercase tracking-widest text-grey/40">
+                                            Sinopsis
+                                        </h3>
+                                        <p className="whitespace-pre-line text-sm leading-relaxed text-grey/80">
+                                            {synopsis}
+                                        </p>
+                                    </div>
+                                )}
 
-                                <div className="relative">
-                                    <InsightPreview locked={!isAuthenticated} />
+                                {/* Club oficial que lo está leyendo. Solo si existe de verdad. */}
+                                {extras?.club && (
+                                    <Link
+                                        href={`/clubes/${extras.club.slug || extras.club.id}`}
+                                        className="block rounded-xl border border-coral/20 bg-coral/5 p-4 transition-colors hover:bg-coral/10"
+                                    >
+                                        <p className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-coral">
+                                            <Users className="h-3.5 w-3.5" aria-hidden="true" />
+                                            Se lee en un club de Wordelia
+                                        </p>
+                                        <p className="font-semibold text-teal-dark">
+                                            {extras.club.name}
+                                            {clubStart && (
+                                                <span className="font-normal text-grey/60"> · empieza el {clubStart}</span>
+                                            )}
+                                        </p>
+                                        {extras.club.hook_question && (
+                                            <p className="mt-2 font-serif text-sm italic leading-relaxed text-teal-dark">
+                                                “{extras.club.hook_question}”
+                                            </p>
+                                        )}
+                                        <span className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-coral">
+                                            Ver el club <ArrowRight className="h-3.5 w-3.5" aria-hidden="true" />
+                                        </span>
+                                    </Link>
+                                )}
 
-                                    <div className="mt-5 rounded-xl border border-teal/20 bg-gradient-to-r from-teal/10 to-coral/10 p-4 sm:mt-6 sm:p-6">
-                                        {isCheckingSession ? (
-                                            <>
-                                                <h3 className="mb-2 text-lg font-semibold text-teal">Preparando opciones</h3>
-                                                <p className="text-sm text-grey/70">
-                                                    Estamos comprobando tu sesión para mostrarte la acción adecuada.
-                                                </p>
-                                            </>
-                                        ) : isAuthenticated ? (
-                                            <>
-                                                <h3 className="mb-2 text-lg font-semibold text-teal">Guarda esta lectura</h3>
-                                                <p className="mb-4 text-sm text-grey/70">
-                                                    Añade este libro a tu biblioteca para tenerlo en tu lista Quiero leer.
-                                                </p>
-                                                <Button type="button" onClick={handleAddToLibrary} isLoading={isAddingBook} className="w-full bg-teal font-semibold text-white hover:bg-teal-dark">
-                                                    Añadir a Quiero leer
-                                                </Button>
-                                                {actionMessage && (
-                                                    <p className="mt-3 text-center text-xs font-medium text-teal">
-                                                        {actionMessage}{" "}
-                                                        <Link href="/app/mi-lectura/estanterias" className="underline">
-                                                            Ver biblioteca
-                                                        </Link>
-                                                    </p>
-                                                )}
-                                                {actionError && <p className="mt-3 text-center text-xs font-medium text-coral">{actionError}</p>}
-                                            </>
-                                        ) : (
-                                            <>
-                                                <h3 className="mb-2 text-lg font-semibold text-teal">Desbloquea el análisis completo</h3>
-                                                <p className="mb-4 text-sm text-grey/70">
-                                                    Regístrate gratis para ver el mapa emocional, reseñas de la comunidad,
-                                                    análisis de complejidad y mucho más.
-                                                </p>
-                                                <Link href="/register">
-                                                    <Button className="w-full bg-teal font-semibold text-white hover:bg-teal-dark">
-                                                        Crear cuenta gratis
-                                                    </Button>
-                                                </Link>
-                                                <p className="mt-3 text-center text-xs text-grey/50">
-                                                    ¿Ya tienes cuenta?{" "}
-                                                    <Link href="/login" className="text-teal hover:underline">
-                                                        Inicia sesión
+                                {/* Guía de discusión publicada para este libro. */}
+                                {extras?.guideSlug && (
+                                    <Link
+                                        href="/guias"
+                                        className="flex items-center gap-3 rounded-xl border border-teal/15 bg-white p-4 transition-colors hover:bg-teal/5"
+                                    >
+                                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal/10 text-teal">
+                                            <Dna className="h-5 w-5" aria-hidden="true" />
+                                        </span>
+                                        <span className="min-w-0">
+                                            <span className="block font-semibold text-teal-dark">
+                                                Hay guía de discusión para este libro
+                                            </span>
+                                            <span className="block text-sm text-grey/60">
+                                                Con checkpoints y preguntas por sesión
+                                            </span>
+                                        </span>
+                                        <ArrowRight className="ml-auto h-4 w-4 shrink-0 text-teal" aria-hidden="true" />
+                                    </Link>
+                                )}
+
+                                <div className="rounded-xl border border-teal/20 bg-gradient-to-r from-teal/10 to-coral/10 p-4 sm:p-6">
+                                    {isAuthenticated ? (
+                                        <>
+                                            <h3 className="mb-2 text-lg font-semibold text-teal">Guarda esta lectura</h3>
+                                            <p className="mb-4 text-sm text-grey/70">
+                                                Añádelo a tu biblioteca para tenerlo en tu lista Quiero leer.
+                                            </p>
+                                            <Button
+                                                type="button"
+                                                onClick={handleAddToLibrary}
+                                                isLoading={isAddingBook}
+                                                className="w-full bg-teal font-semibold text-white hover:bg-teal-dark"
+                                            >
+                                                Añadir a Quiero leer
+                                            </Button>
+                                            {actionMessage && (
+                                                <p className="mt-3 text-center text-xs font-medium text-teal">
+                                                    {actionMessage}{" "}
+                                                    <Link href="/app/mi-lectura/estanterias" className="underline">
+                                                        Ver biblioteca
                                                     </Link>
                                                 </p>
-                                            </>
-                                        )}
-                                    </div>
+                                            )}
+                                            {actionError && (
+                                                <p className="mt-3 text-center text-xs font-medium text-coral">{actionError}</p>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            <h3 className="mb-2 text-lg font-semibold text-teal">
+                                                Guárdalo para cuando lo leas
+                                            </h3>
+                                            <p className="mb-4 text-sm text-grey/70">
+                                                Crea tu cuenta para guardar libros en tus estanterías, seguir tu lectura
+                                                y acceder a las guías y genomas literarios de Wordelia.
+                                            </p>
+                                            <Link href="/register?source=explorar">
+                                                <Button className="w-full bg-teal font-semibold text-white hover:bg-teal-dark">
+                                                    Empezar
+                                                </Button>
+                                            </Link>
+                                            <p className="mt-3 text-center text-xs text-grey/50">
+                                                ¿Ya tienes cuenta?{" "}
+                                                <Link href="/login" className="text-teal hover:underline">
+                                                    Inicia sesión
+                                                </Link>
+                                            </p>
+                                        </>
+                                    )}
                                 </div>
                             </div>
                         </div>

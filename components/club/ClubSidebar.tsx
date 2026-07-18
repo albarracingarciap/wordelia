@@ -9,6 +9,7 @@ import { PollWidget } from "./polls/PollWidget";
 import { AlertCircle, BookOpen, CalendarClock, CheckCircle2, ChevronDown, Clock, Flag, ShieldAlert, X, XCircle } from "lucide-react";
 import { getMyClubReports, reportClubProblem, updateClubBookDetails } from "@/app/app/clubs/[id]/actions";
 import { createClient } from "@/utils/supabase/client";
+import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 interface PollOption {
     id: string;
@@ -265,7 +266,7 @@ function BookWidget({
     onOpen: () => void;
     onClose: () => void;
 }) {
-    const author = book.author?.name || book.authors?.name || "Autor desconocido";
+    const author = bookAuthorLabel(book);
 
     return (
         <div className="overflow-hidden rounded-xl border border-black/5 bg-white">

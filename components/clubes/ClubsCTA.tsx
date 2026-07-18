@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { Button } from "@/components/ui/Button";
 import { CheckCircle2 } from "lucide-react";
 
 export function ClubsCTA() {
@@ -9,54 +8,39 @@ export function ClubsCTA() {
                 ¿Listo para unirte a la conversación?
             </h2>
             <p className="mx-auto mb-8 max-w-2xl text-lg text-grey/70">
-                Todos nuestros clubs de lectura Wordelia Originals comienzan en las próximas semanas.
-                Regístrate hoy y prepárate para una experiencia de lectura transformadora.
+                Regístrate antes del 1 de septiembre y participa gratis en clubs de lectura de Wordelia
+                durante 2026 —1, 2 o 3 según tu plan—, con su guía y su genoma para siempre.
             </p>
 
             <div className="mx-auto mb-8 grid max-w-3xl gap-6 sm:grid-cols-3">
                 <div className="flex flex-col items-center gap-2">
-                    <CheckCircle2 className="h-6 w-6 text-teal" />
-                    <p className="text-sm text-grey/70">
-                        Guías profesionales de discusión
-                    </p>
+                    <CheckCircle2 className="h-6 w-6 text-teal" aria-hidden="true" />
+                    <p className="text-sm text-grey/70">Guías de discusión por checkpoints</p>
                 </div>
                 <div className="flex flex-col items-center gap-2">
-                    <CheckCircle2 className="h-6 w-6 text-teal" />
-                    <p className="text-sm text-grey/70">
-                        Mapas emocionales detallados
-                    </p>
+                    <CheckCircle2 className="h-6 w-6 text-teal" aria-hidden="true" />
+                    <p className="text-sm text-grey/70">Conversaciones sin spoilers</p>
                 </div>
                 <div className="flex flex-col items-center gap-2">
-                    <CheckCircle2 className="h-6 w-6 text-teal" />
-                    <p className="text-sm text-grey/70">
-                        Comunidad activa de lectores
-                    </p>
+                    <CheckCircle2 className="h-6 w-6 text-teal" aria-hidden="true" />
+                    <p className="text-sm text-grey/70">Registro de emociones de lectura</p>
                 </div>
             </div>
 
             <div className="flex flex-col justify-center gap-4 sm:flex-row">
-                <Link href="/register">
-                    <Button
-                        size="lg"
-                        className="bg-teal font-semibold text-white shadow-lg transition-all hover:bg-teal-dark hover:shadow-xl"
-                    >
-                        Crear cuenta gratis
-                    </Button>
+                <Link
+                    href="/register?source=clubes"
+                    className="inline-flex h-12 items-center justify-center rounded-2xl bg-coral px-8 font-semibold text-white shadow-sm shadow-coral/20 transition-all hover:bg-[#C25852]"
+                >
+                    Empezar
                 </Link>
-                <Link href="/app/adn">
-                    <Button
-                        size="lg"
-                        variant="outline"
-                        className="border-2 border-teal/30 text-teal hover:bg-teal/5"
-                    >
-                        Demo ADN literario
-                    </Button>
+                <Link
+                    href="/planes"
+                    className="inline-flex h-12 items-center justify-center rounded-2xl border-2 border-teal/30 px-8 font-semibold text-teal transition-all hover:bg-teal/5"
+                >
+                    Ver planes
                 </Link>
             </div>
-
-            <p className="mt-6 text-xs text-grey/50">
-                Sin tarjeta de crédito · Acceso instantáneo · Cancela cuando quieras
-            </p>
         </div>
     );
 }

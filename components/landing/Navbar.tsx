@@ -45,12 +45,16 @@ export function Navbar({ mode = "auto", centerLinks = true, minimal = false }: N
 
     const links = [
         { label: "Explorar", href: "/explorar", requiresAuth: false },
-        { label: "Clubes", href: "/clubes", requiresAuth: false },
-        { label: "Lista de deseos", href: "/deseos", requiresAuth: false },
-        { label: "ADN literario", href: "/app/adn", requiresAuth: true },
-        { label: "Beta", href: "/register?source=beta", requiresAuth: false },
+        { label: "Clubs", href: "/clubes", requiresAuth: false },
+        { label: "Guías", href: "/guias", requiresAuth: false },
+        { label: "Genomas", href: "/genomas", requiresAuth: false },
+        { label: "Planes", href: "/planes", requiresAuth: false },
     ];
-    const showPublicLinks = mode !== "public" && centerLinks && !minimal;
+
+    // El menú se muestra también en las páginas públicas: antes se ocultaba con
+    // mode="public", que usan las 14 páginas del sitio, así que no aparecía nunca.
+    // `minimal` (checkout) y centerLinks=false lo siguen ocultando a propósito.
+    const showPublicLinks = centerLinks && !minimal;
 
     return (
         <nav className="fixed top-0 z-50 w-full border-b border-black/5 bg-cream/95 backdrop-blur-md">
@@ -107,7 +111,7 @@ export function Navbar({ mode = "auto", centerLinks = true, minimal = false }: N
                                     variant="primary"
                                     size="sm"
                                     className="rounded-full px-6 shadow-coral/20"
-                                    onClick={() => handleNavigation("#planes")}
+                                    onClick={() => router.push("/register")}
                                 >
                                     Empezar
                                 </Button>
@@ -144,7 +148,7 @@ export function Navbar({ mode = "auto", centerLinks = true, minimal = false }: N
                             </Button>
                         ) : (
                             <>
-                                <Button fullWidth onClick={() => handleNavigation("#planes")}>
+                                <Button fullWidth onClick={() => router.push("/register")}>
                                     Empezar
                                 </Button>
                                 <Button variant="ghost" fullWidth onClick={() => router.push("/login")}>

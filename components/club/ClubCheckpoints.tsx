@@ -4,6 +4,7 @@ import * as React from "react";
 import { CheckpointDetailModal } from "./CheckpointDetailModal";
 import { TabsContext } from "../ui/Tabs";
 import { getMyClubBookProgress, markCheckpointCompleted, markCheckpointPending } from "@/app/app/clubs/[id]/actions";
+import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 interface Checkpoint {
     id: string;
@@ -77,7 +78,7 @@ export function ClubCheckpoints({
     const checkpoints = club?.currentBook?.checkpoints || [];
     const unitLabel = club?.currentBook?.pace_unit || "p.";
     const bookTitle = club?.currentBook?.book?.title;
-    const bookAuthor = club?.currentBook?.book?.author?.name || club?.currentBook?.book?.authors?.name || null;
+    const bookAuthor = bookAuthorName(club?.currentBook?.book);
     const bookId = club?.currentBook?.book?.id || null;
 
     React.useEffect(() => {

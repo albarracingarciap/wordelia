@@ -102,7 +102,7 @@ export async function getClubDetails(clubId: string) {
                 *,
                 book:books(
                     *,
-                    author:authors(name)
+                    author
                 )
             )
         `)
@@ -2564,7 +2564,7 @@ export async function getClubNextReadingRecommendations(clubId: string) {
                     id,
                     title,
                     description,
-                    author:authors(name),
+                    author,
                     preferred_edition:editions!books_preferred_edition_fk(cover_url, page_count, published_date)
                 )
             `)
@@ -2576,7 +2576,7 @@ export async function getClubNextReadingRecommendations(clubId: string) {
                 title,
                 description,
                 created_at,
-                author:authors(name),
+                author,
                 preferred_edition:editions!books_preferred_edition_fk(cover_url, page_count, published_date)
             `)
             .order("created_at", { ascending: false })

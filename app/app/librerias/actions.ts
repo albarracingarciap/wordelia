@@ -6,6 +6,7 @@ import { revalidatePath } from 'next/cache';
 import { Organization, OrganizationEvent, OrganizationLocation } from '@/types/organizations';
 import { isOrgProActive } from '@/lib/subscription-access';
 import { FREE_LOCATION_LIMIT, FREE_UPCOMING_EVENT_LIMIT } from '@/lib/org-limits';
+import { bookAuthorLabel } from '@/lib/book-author';
 
 async function orgIsPro(supabase: any, orgId: string): Promise<boolean> {
     const { data: sub } = await supabase
@@ -203,7 +204,7 @@ export async function getOrganizationClubs(orgId: string, opts: { publicOnly?: b
             *,
             current_book: club_books(
                 *,
-                book: books(*, author: authors(name))
+                book: books(*, author)
             )
         `)
         .eq('organization_id', orgId)
@@ -260,7 +261,7 @@ export async function getOrganizationClubs(orgId: string, opts: { publicOnly?: b
             currentBook: cb && cb.book ? {
                 bookId: cb.book_id,
                 title: cb.book.title,
-                author: cb.book.author?.name || 'Autor desconocido',
+                author: bookAuthorLabel(cb.book),
                 coverUrl: cb.book.cover_url,
                 isbn: isbnByBook.get(cb.book_id) || null,
             } : null,

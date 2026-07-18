@@ -113,12 +113,17 @@ export default async function ContactoPage({
                                 </div>
                             </div>
 
-                            <div className="rounded-3xl border border-teal/10 bg-white/70 p-5 text-sm leading-relaxed text-grey/80">
-                                ¿Buscas el acceso a la beta?{" "}
-                                <Link href="/register?source=beta" className="font-medium text-teal underline-offset-2 hover:underline">
-                                    Solicita tu plaza fundadora aquí
+                            <div className="rounded-3xl border border-teal/10 bg-white/70 p-5">
+                                <p className="font-semibold text-teal-dark">¿Aún no tienes cuenta?</p>
+                                <p className="mt-1 text-sm leading-relaxed text-grey/80">
+                                    Crea la tuya y consigue tu insignia de Miembro Fundador.
+                                </p>
+                                <Link
+                                    href="/register?source=contacto"
+                                    className="mt-4 inline-flex h-11 items-center justify-center rounded-2xl bg-coral px-8 text-base font-semibold text-white shadow-sm shadow-coral/20 transition-all hover:bg-[#C25852]"
+                                >
+                                    Empezar
                                 </Link>
-                                .
                             </div>
                         </div>
 

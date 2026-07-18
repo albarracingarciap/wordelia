@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 import { BookSearchResult } from '@/lib/isbndb';
 import { searchBooks as searchBooksCascade } from '@/lib/book-search';
 import { resolveBookFromResult } from '@/lib/book-resolution';
+import { bookAuthorLabel } from '@/lib/book-author';
 
 export async function searchBooks(query: string): Promise<BookSearchResult[]> {
     if (!query || query.length < 3) return [];
@@ -231,7 +232,7 @@ export async function getUserClubs() {
                     *,
                     book: books(
                         *,
-                        author: authors(name)
+                        author
                     )
                 )
             )
@@ -263,7 +264,7 @@ export async function getUserClubs() {
             memberCount: count || 0,
             currentBook: currentBook && currentBook.book ? {
                 title: currentBook.book.title,
-                author: currentBook.book.author?.name || 'Autor desconocido',
+                author: bookAuthorLabel(currentBook.book),
                 coverUrl: currentBook.book.cover_url
             } : null,
             role: m.role,
@@ -290,7 +291,7 @@ export async function getExploreClubs(search?: string, tags?: string[]) {
                 *,
                 book: books(
                     *,
-                    author: authors(name)
+                    author
                 )
             )
         `)
@@ -329,7 +330,7 @@ export async function getExploreClubs(search?: string, tags?: string[]) {
             memberCount: count,
             currentBook: currentBook && currentBook.book ? {
                 title: currentBook.book.title,
-                author: currentBook.book.author?.name || 'Autor desconocido',
+                author: bookAuthorLabel(currentBook.book),
                 coverUrl: currentBook.book.cover_url
             } : null,
         };

@@ -14,6 +14,7 @@ import { addBookToLibrary } from "@/app/app/search/actions";
 import { ReviewModal } from "@/components/reviews/ReviewModal";
 import { ReviewsListModal } from "@/components/reviews/ReviewsListModal";
 import { BookReviewsSection } from "@/components/reviews/BookReviewsSection";
+import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 function BookHelper() {
     const params = useParams();
@@ -52,7 +53,7 @@ function BookHelper() {
                         .from("books")
                         .select(`
                             id, title, description,
-                            authors (name),
+                            author,
                             preferred_edition:editions!books_preferred_edition_fk (
                                 isbn, isbn13, cover_url, page_count, published_date, language, publisher
                             )
@@ -67,13 +68,10 @@ function BookHelper() {
                         const ed = Array.isArray(dbBook.preferred_edition)
                             ? dbBook.preferred_edition[0]
                             : dbBook.preferred_edition;
-                        const author = Array.isArray(dbBook.authors)
-                            ? dbBook.authors[0]
-                            : dbBook.authors;
                         setBook({
                             id: dbBook.id,
                             title: dbBook.title,
-                            authors: author?.name ? [author.name] : [],
+                            authors: bookAuthorName(dbBook) ? [bookAuthorName(dbBook)!] : [],
                             cover_url: ed?.cover_url ?? null,
                             description: dbBook.description,
                             isbn: ed?.isbn13 ?? ed?.isbn ?? null,

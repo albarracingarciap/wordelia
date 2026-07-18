@@ -213,10 +213,10 @@ export function HomeBetaSection() {
     return (
         <Section id="beta" className="bg-cream py-16 md:py-24">
             <div className="overflow-hidden rounded-3xl bg-teal p-7 text-white shadow-xl md:p-10">
-                <div className="grid gap-8 md:grid-cols-[1fr_320px] md:items-center">
-                    <div className="max-w-3xl">
+                <div className="grid gap-8 md:grid-cols-[1fr_320px] md:items-stretch">
+                    <div className="flex h-full max-w-3xl flex-col">
                         <p className="text-xs font-bold uppercase tracking-[0.22em] text-cream">Wordelia Fundadores</p>
-                        <h2 className="mt-3 text-3xl leading-tight text-white md:text-5xl">
+                        <h2 className="mt-3 text-3xl leading-tight !text-white md:text-5xl">
                             Sé de los primeros en vivir Wordelia
                         </h2>
                         <p className="mt-4 text-base leading-relaxed text-white/85 md:text-lg">
@@ -224,15 +224,17 @@ export function HomeBetaSection() {
                             análisis literario y listas de deseos, y consigue tu insignia de Miembro Fundador antes
                             del 1 de septiembre. Lanzamiento público el 2 de agosto.
                         </p>
-                        <div className="mt-6 inline-flex max-w-xl items-start gap-3 rounded-2xl border border-white/15 bg-white/10 p-4">
-                            <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-cream" aria-hidden="true" />
-                            <p className="text-sm leading-relaxed text-white/90">
-                                Los lectores fundadores ganarán la insignia <strong>Miembro Fundador</strong>,
-                                con la que podrán acceder a ventajas futuras en el mundo de Wordelia.
-                            </p>
+                        <div className="mt-6 md:mt-auto md:pt-8">
+                            <div className="flex max-w-xl items-start gap-3 rounded-2xl border border-white/15 bg-white/10 p-4">
+                                <Sparkles className="mt-0.5 h-5 w-5 shrink-0 text-cream" aria-hidden="true" />
+                                <p className="text-sm leading-relaxed text-white/90">
+                                    Los lectores fundadores ganarán la insignia <strong>Miembro Fundador</strong>,
+                                    con la que podrán acceder a ventajas futuras en el mundo de Wordelia.
+                                </p>
+                            </div>
                         </div>
                     </div>
-                    <div className="flex flex-col items-center gap-5 rounded-3xl border border-white/15 bg-white/10 p-6 text-center">
+                    <div className="flex flex-col items-center justify-center gap-5 rounded-3xl border border-white/15 bg-white/10 p-6 text-center">
                         <div className="flex h-28 w-28 items-center justify-center rounded-full border border-cream/40 bg-cream/15 text-cream shadow-lg">
                             <Award className="h-14 w-14" aria-hidden="true" />
                         </div>
@@ -244,7 +246,7 @@ export function HomeBetaSection() {
                             href="/register?source=beta"
                             className="inline-flex h-14 w-full items-center justify-center gap-2 rounded-2xl bg-coral px-8 text-lg font-semibold text-white shadow-sm shadow-coral/20 transition-all hover:bg-[#C25852]"
                         >
-                            Solicitar acceso
+                            Empezar
                         </Link>
                     </div>
                 </div>

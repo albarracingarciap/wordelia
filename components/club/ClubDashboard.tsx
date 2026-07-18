@@ -22,6 +22,7 @@ import { ReadingSetup } from "@/components/club/management/ReadingSetup";
 import { CreatePollModal } from "@/components/club/polls/CreatePollModal";
 import { BookSearchResult } from "@/lib/isbndb"; // Or wherever types are
 import { ArrowLeft, Bell, BookOpen, CalendarClock, Sparkles, Users } from "lucide-react";
+import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 interface ClubDashboardClub {
     id: string;
@@ -173,7 +174,7 @@ function PlannedReadingCard({ planned, onActivate, onEdit, onCancel, onChooseOth
 }) {
     const book = planned.book || {};
     const cover = planned.cover_url || book.cover_url || null;
-    const author = book.author?.name || book.authors?.name || "Autor desconocido";
+    const author = bookAuthorLabel(book);
     const checkpointCount = planned.checkpoints?.length || 0;
 
     return (
@@ -303,7 +304,7 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
     const handleEditPlan = () => {
         if (!plannedBook) return;
         const b = plannedBook.book || {};
-        const authorName = b.author?.name || b.authors?.name || "";
+        const authorName = bookAuthorName(b) || "";
         setSelectedBook({
             id: b.id || "",
             title: b.title || "",

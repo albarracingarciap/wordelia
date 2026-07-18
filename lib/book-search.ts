@@ -13,6 +13,7 @@ import { BookSearchResult, searchISBNdbStructured } from "@/lib/isbndb";
 import { OpenLibraryWork, searchOpenLibraryWorks } from "@/lib/openlibrary";
 import { readingExperiences } from "@/lib/reading-experiences";
 import { createClient as createServerSupabaseClient } from "@/utils/supabase/server";
+import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 // Tipo del resultado de la RPC `find_books_by_experience`. Hasta que regeneres
 // `types/supabase.ts` tras aplicar la migración 20260529, los tipos auto-gen
@@ -43,7 +44,7 @@ const BOOK_SELECT_FIELDS = `
     external_ids,
     experience,
     genre,
-    authors:author_id ( id, name ),
+    author,
     preferred_edition:editions!books_preferred_edition_fk (
         id, isbn, isbn13, cover_url, page_count, published_date,
         publication_year, language, publisher, format
@@ -383,33 +384,25 @@ async function searchLocalCache(query: string, limit: number): Promise<BookSearc
             .limit(limit);
 
         // Si la query parece un nombre, buscamos también por autor.
-        const authorIdsPromise = isLikelyPersonQuery(query)
+        // Directo sobre books.author: antes pasaba por la tabla `authors` y
+        // author_id, que solo está poblado en una minoría de libros.
+        const authorPromise = isLikelyPersonQuery(query)
             ? supabase
-                  .from("authors")
-                  .select("id")
-                  .ilike("name", `%${query}%`)
-                  .limit(10)
-                  .then(({ data }) => (data ?? []).map((a) => a.id))
-            : Promise.resolve<string[]>([]);
+                  .from("books")
+                  .select(BOOK_SELECT_FIELDS)
+                  .ilike("author", `%${query}%`)
+                  .limit(limit)
+                  .then(({ data }) => data ?? [])
+            : Promise.resolve<unknown[]>([]);
 
-        const [{ data: titleMatches, error: titleError }, authorIds] = await Promise.all([
+        const [{ data: titleMatches, error: titleError }, authorMatches] = await Promise.all([
             titlePromise,
-            authorIdsPromise,
+            authorPromise,
         ]);
 
         if (titleError) {
             console.warn("[Search] Local title search failed:", titleError);
         }
-
-        const authorMatches = authorIds.length
-            ? (
-                  await supabase
-                      .from("books")
-                      .select(BOOK_SELECT_FIELDS)
-                      .in("author_id", authorIds)
-                      .limit(limit)
-              ).data ?? []
-            : [];
 
         const combined = [...(titleMatches ?? []), ...authorMatches] as unknown as LocalBookRow[];
         return dedupeByWork(combined.map(mapLocalBook));
@@ -532,7 +525,7 @@ function mapLocalBook(row: LocalBookRow): BookSearchResult {
     return {
         id: row.id,
         title: row.title,
-        authors: row.authors?.name ? [row.authors.name] : [],
+        authors: bookAuthorName(row) ? [bookAuthorName(row)!] : [],
         cover_url: edition?.cover_url ?? coverFromExternal,
         description: row.description,
         isbn: edition?.isbn13 ?? edition?.isbn ?? null,

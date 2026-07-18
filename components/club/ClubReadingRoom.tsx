@@ -10,6 +10,7 @@ import { ClubSummary } from "@/components/club/ClubSummary";
 import { ClubCollectiveReview } from "@/components/club/ClubCollectiveReview";
 import { ClubWeeklyDigest } from "@/components/club/ClubWeeklyDigest";
 import { EmotionPulseCard } from "@/components/club/ClubEmotionMap";
+import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 interface Checkpoint {
     id: string;
@@ -76,7 +77,7 @@ export function ClubReadingRoom({ club }: ClubReadingRoomProps) {
     const checkpoints = currentBook?.checkpoints || [];
     const active = getActiveCheckpoint(checkpoints);
     const unitLabel = currentBook?.pace_unit || "p.";
-    const author = book?.author?.name || book?.authors?.name || "Autor desconocido";
+    const author = bookAuthorLabel(book);
     const progressPercent = checkpoints.length > 0 && active
         ? Math.max(8, Math.round(((active.index + 1) / checkpoints.length) * 100))
         : 0;

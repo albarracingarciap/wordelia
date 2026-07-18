@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { isSubscriptionActive } from "@/lib/subscription-access";
+import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 // --- TYPES ---
 export interface ReadingStats {
@@ -365,7 +366,7 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
                 id,
                 title,
                 preferred_edition:editions!books_preferred_edition_fk (id, isbn13, isbn, cover_url, page_count),
-                authors (name)
+                author
             )
         `)
         .eq("user_id", user.id);
@@ -475,10 +476,9 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
         const q = filters.query.toLowerCase();
         filteredResults = userBookRows.filter((ub) => {
             const book = firstRelation(ub.books);
-            const author = firstRelation(book?.authors);
             return (
                 (book?.title || "").toLowerCase().includes(q) ||
-                (author?.name || "").toLowerCase().includes(q)
+                (bookAuthorName(book) || "").toLowerCase().includes(q)
             );
         });
     }
@@ -515,7 +515,7 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
         return {
             id: ub.book_id,
             title: book?.title || "Libro",
-            author: author?.name || "Autor Desconocido",
+            author: bookAuthorLabel(book, "Autor Desconocido"),
             coverUrl: edition?.cover_url ?? null,
             status: ub.status || undefined,
             progress: {
@@ -842,7 +842,7 @@ export async function getEmotionBookGroups(): Promise<EmotionBookGroup[]> {
             created_at,
             books (
                 title,
-                authors (name),
+                author,
                 preferred_edition:editions!books_preferred_edition_fk (cover_url)
             )
         `)
@@ -875,9 +875,6 @@ export async function getEmotionBookGroups(): Promise<EmotionBookGroup[]> {
 
         // PostgREST puede devolver embeds como objeto o como array; normalizamos.
         const book = Array.isArray(row.books) ? row.books[0] : row.books;
-        const author = book?.authors
-            ? (Array.isArray(book.authors) ? book.authors[0] : book.authors)
-            : null;
         const edition = book?.preferred_edition
             ? (Array.isArray(book.preferred_edition) ? book.preferred_edition[0] : book.preferred_edition)
             : null;
@@ -886,7 +883,7 @@ export async function getEmotionBookGroups(): Promise<EmotionBookGroup[]> {
         groups[row.emotion].books.push({
             id: row.book_id,
             title: book?.title || "Libro",
-            author: author?.name || "Autor desconocido",
+            author: bookAuthorLabel(book),
             coverUrl: edition?.cover_url || null,
             intensity: row.intensity || 3,
         });
@@ -906,7 +903,7 @@ export async function getRecentNotes(): Promise<Note[]> {
 
     const { data: notes } = await supabase
         .from("book_notes")
-        .select(`id, content, created_at, book_id, books (title, authors(name))`)
+        .select(`id, content, created_at, book_id, books (title, author)`)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false })
         .limit(3);
@@ -917,7 +914,7 @@ export async function getRecentNotes(): Promise<Note[]> {
         const typeMatch = n.content.match(/^\[(.*?)\]\s/);
         const type = typeMatch ? typeMatch[1] : "Nota";
         const cleanContent = typeMatch ? n.content.replace(/^\[.*?\]\s/, "") : n.content;
-        const author = n.books.authors?.name || (n.books.authors && n.books.authors[0]?.name) || "Autor Desconocido";
+        const author = bookAuthorLabel(n.books, "Autor Desconocido");
 
         return {
             id: n.id,
@@ -951,7 +948,7 @@ export async function getAllNotes(): Promise<Note[]> {
             is_private,
             is_highlighted,
             resolved_at,
-            books (title, authors(name))
+            books (title, author)
         `)
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
@@ -979,7 +976,7 @@ export async function getAllNotes(): Promise<Note[]> {
             cleanContent = cleanContent.replace(tagsRegex, "").trim();
         }
 
-        const author = n.books.authors?.name || (n.books.authors && n.books.authors[0]?.name) || "Autor Desconocido";
+        const author = bookAuthorLabel(n.books, "Autor Desconocido");
 
         return {
             id: n.id,
@@ -1036,7 +1033,7 @@ export async function getRecommendedBook(): Promise<RecommendedBook | null> {
             books (
                 title,
                 preferred_edition:editions!books_preferred_edition_fk(cover_url, isbn13, isbn),
-                authors (name)
+                author
             )
         `)
         .eq("user_id", user.id)
@@ -1049,7 +1046,7 @@ export async function getRecommendedBook(): Promise<RecommendedBook | null> {
 
     if (!bookData) return null;
 
-    const author = Array.isArray(bookData.authors) ? bookData.authors[0] : bookData.authors;
+    const authorName = bookAuthorLabel(bookData, "Autor Desconocido");
     const edition = Array.isArray(bookData.preferred_edition)
         ? bookData.preferred_edition[0]
         : bookData.preferred_edition;
@@ -1061,7 +1058,7 @@ export async function getRecommendedBook(): Promise<RecommendedBook | null> {
     return {
         id: randomEntry.book_id,
         title: bookData.title,
-        author: author?.name || "Autor Desconocido",
+        author: authorName,
         coverUrl: displayEdition?.cover_url ?? null,
         addedDate: new Date(randomEntry.created_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short', year: 'numeric' })
     };
@@ -1871,7 +1868,7 @@ export async function getRecentCommunityReviews(limit = 6): Promise<ReviewWithBo
             books (
                 id,
                 title,
-                authors (name),
+                author,
                 preferred_edition:editions!books_preferred_edition_fk (cover_url)
             )
         `)
@@ -1894,7 +1891,7 @@ export async function getRecentCommunityReviews(limit = 6): Promise<ReviewWithBo
                 id: book?.id || row.book_id,
                 title: book?.title || "Libro",
                 coverUrl: edition?.cover_url || null,
-                author: author?.name || null,
+                author: bookAuthorName(book),
             },
         };
     });
@@ -1946,7 +1943,7 @@ export async function getHelpfulCommunityReviews(limit = 4): Promise<ReviewWithB
             books (
                 id,
                 title,
-                authors (name),
+                author,
                 preferred_edition:editions!books_preferred_edition_fk (cover_url)
             )
         `)
@@ -1970,7 +1967,7 @@ export async function getHelpfulCommunityReviews(limit = 4): Promise<ReviewWithB
                     id: book?.id || row.book_id,
                     title: book?.title || "Libro",
                     coverUrl: edition?.cover_url || null,
-                    author: author?.name || null,
+                    author: bookAuthorName(book),
                 },
             };
         });

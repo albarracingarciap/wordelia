@@ -3,6 +3,7 @@
 import { createClient } from '@/utils/supabase/server';
 import { Club, ClubRole, ClubWithMembers } from '@/types/clubs';
 import { revalidatePath } from 'next/cache';
+import { bookAuthorName } from '@/lib/book-author';
 
 // Fetch clubs the user has joined or created
 export async function getUserClubs() {
@@ -24,7 +25,7 @@ export async function getUserClubs() {
                     *,
                     book: books(
                         *,
-                        author:authors(name)
+                        author
                     )
                 )
             )
@@ -60,7 +61,7 @@ export async function getUserClubs() {
             ownerName: club.owner?.full_name || null,
             currentBook: currentBook ? {
                 title: currentBook.book?.title,
-                author: currentBook.book?.author?.name || null,
+                author: bookAuthorName(currentBook.book),
                 coverUrl: currentBook.book?.cover_url
             } : null,
             role: m.role,
@@ -89,7 +90,7 @@ export async function getExploreClubs(search?: string, tags?: string[]) {
                 *,
                 book: books(
                     *,
-                    author:authors(name)
+                    author
                 )
             )
         `)
@@ -130,7 +131,7 @@ export async function getExploreClubs(search?: string, tags?: string[]) {
             ownerName: club.owner?.full_name || null,
             currentBook: currentBook ? {
                 title: currentBook.book?.title,
-                author: currentBook.book?.author?.name || null,
+                author: bookAuthorName(currentBook.book),
                 coverUrl: currentBook.book?.cover_url
             } : null,
         };

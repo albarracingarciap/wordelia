@@ -6,6 +6,7 @@ import { BookOpen, CheckCircle2, Clock, Sparkles } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { Badge } from "@/components/ui/Badge";
 import { ClubNextReadingRecommender } from "@/components/club/ClubNextReadingRecommender";
+import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 interface LibraryBook {
     id: string;
@@ -54,7 +55,7 @@ interface ClubLibraryProps {
 }
 
 function getAuthor(book?: LibraryBook["book"]) {
-    return book?.author?.name || book?.authors?.name || "Autor desconocido";
+    return bookAuthorLabel(book);
 }
 
 function normalizeTitle(title: string) {

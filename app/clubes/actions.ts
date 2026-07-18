@@ -1,22 +1,29 @@
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
-import { BookSearchResult } from '@/lib/isbndb';
+import { bookAuthorName } from '@/lib/book-author';
 
-export interface OfficialClub {
+/**
+ * Club oficial tal y como se muestra en las páginas públicas (/clubes y
+ * /clubes/[slug]). Se construye desde `clubs` + `club_books`, que es el modelo
+ * vivo: es donde escribe el panel de administración. La antigua tabla
+ * `official_clubs` quedó huérfana (sin portada, destacado ni pregunta de
+ * apertura) y ya no se consulta.
+ */
+export interface PublicClub {
     id: string;
-    slug: string;
+    slug: string | null;
     name: string;
-    description: string;
-    book_isbn: string;
-    book_data: BookSearchResult | null;
-    start_date: string;
-    theme_color: string;
-    theme_icon: string;
-    is_featured: boolean;
-    display_order: number;
-    price_cents?: number | null;
-    currency?: string | null;
+    description: string | null;
+    tags: string[] | null;
+    /** Precio en euros (clubs.price es decimal, no céntimos). */
+    price: number | null;
+    currency: string | null;
+    destacado: boolean;
+    /** Fecha de inicio de la lectura actual o programada. */
+    start_date: string | null;
+    hook_question: string | null;
+    book: { title: string | null; author: string | null; cover_url: string | null } | null;
 }
 
 export interface HomeClub {
@@ -33,19 +40,108 @@ export interface HomeClub {
     book?: { title?: string | null; author?: string | null; cover_url?: string | null } | null;
 }
 
+// Campos que necesitan las vistas públicas. El libro se toma de club_books:
+// primero la lectura en curso y, si no hay, la programada.
+const PUBLIC_CLUB_SELECT = `
+    id, name, slug, description, tags, price, currency, destacado,
+    club_books ( status, start_date, cover_url, pregunta_apertura, book:books ( title, author ) )
+`;
+
+function pickClubBook(club: any) {
+    const books = Array.isArray(club.club_books) ? club.club_books : [];
+    return books.find((b: any) => b.status === 'current')
+        || books.find((b: any) => b.status === 'planned')
+        || null;
+}
+
+function mapPublicClub(club: any): PublicClub {
+    const clubBook = pickClubBook(club);
+    const book = clubBook?.book || null;
+
+    return {
+        id: club.id,
+        slug: club.slug ?? null,
+        name: club.name,
+        description: club.description ?? null,
+        tags: club.tags ?? null,
+        price: club.price != null ? Number(club.price) : null,
+        currency: club.currency ?? null,
+        destacado: Boolean(club.destacado),
+        start_date: clubBook?.start_date ?? null,
+        hook_question: clubBook?.pregunta_apertura ?? null,
+        book: book
+            ? {
+                title: book.title ?? null,
+                author: bookAuthorName(book),
+                cover_url: clubBook?.cover_url ?? null,
+            }
+            : null,
+    };
+}
+
 /**
- * Clubs oficiales marcados para el home (clubs.portada), con el libro (current o
- * planned) de club_books. El destacado (clubs.destacado) va primero. Máx. 4.
+ * Todos los clubs oficiales activos para la página pública /clubes.
+ * El destacado va primero; el resto, por nombre.
+ */
+export async function getPublicClubs(): Promise<PublicClub[]> {
+    const supabase = await createClient();
+
+    const { data, error } = await supabase
+        .from('clubs')
+        .select(PUBLIC_CLUB_SELECT)
+        .eq('is_official', true)
+        .eq('is_archived', false)
+        .order('name', { ascending: true });
+
+    if (error) {
+        console.error('Error fetching public clubs:', error.message, '| code:', error.code);
+        return [];
+    }
+
+    const clubs = (data || []).map(mapPublicClub);
+    clubs.sort((a, b) => Number(b.destacado) - Number(a.destacado));
+    return clubs;
+}
+
+/**
+ * Un club oficial por slug para /clubes/[slug]. Acepta también el id, porque
+ * clubs.slug es nullable y algún club antiguo puede no tenerlo.
+ * Devuelve null si no existe: la página responde con notFound().
+ */
+export async function getPublicClubBySlug(slugOrId: string): Promise<PublicClub | null> {
+    const supabase = await createClient();
+
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slugOrId);
+
+    const { data, error } = await supabase
+        .from('clubs')
+        .select(PUBLIC_CLUB_SELECT)
+        .eq('is_official', true)
+        .eq('is_archived', false)
+        .eq(isUuid ? 'id' : 'slug', slugOrId)
+        // maybeSingle: sin resultados devuelve null sin registrar un error,
+        // a diferencia de single(), que trata "0 filas" como fallo.
+        .maybeSingle();
+
+    if (error) {
+        console.error(`Error fetching club ${slugOrId}:`, error.message, '| code:', error.code);
+        return null;
+    }
+
+    return data ? mapPublicClub(data) : null;
+}
+
+
+/**
+ * Clubs oficiales marcados para el home (clubs.portada). El destacado va
+ * primero. Máx. 4.
  */
 export async function getHomeClubs(): Promise<HomeClub[]> {
     const supabase = await createClient();
 
     const { data, error } = await supabase
         .from('clubs')
-        .select(`
-            id, name, slug, description, tags, price, currency, destacado,
-            club_books ( status, start_date, cover_url, pregunta_apertura, book:books ( title, author:authors(name) ) )
-        `)
+        .select(PUBLIC_CLUB_SELECT)
         .eq('is_official', true)
         .eq('portada', true)
         .eq('is_archived', false);
@@ -55,114 +151,7 @@ export async function getHomeClubs(): Promise<HomeClub[]> {
         return [];
     }
 
-    const clubs: HomeClub[] = (data || []).map((club: any) => {
-        const books = Array.isArray(club.club_books) ? club.club_books : [];
-        const clubBook = books.find((b: any) => b.status === 'current')
-            || books.find((b: any) => b.status === 'planned')
-            || null;
-        const book = clubBook?.book || null;
-
-        return {
-            id: club.id,
-            slug: club.slug ?? null,
-            name: club.name,
-            description: club.description ?? null,
-            tags: club.tags ?? null,
-            start_date: clubBook?.start_date ?? null,
-            hook_question: clubBook?.pregunta_apertura ?? null,
-            price: typeof club.price === 'number' ? club.price : (club.price != null ? Number(club.price) : null),
-            currency: club.currency ?? null,
-            destacado: Boolean(club.destacado),
-            book: book
-                ? {
-                    title: book.title ?? null,
-                    author: book.author?.name ?? null,
-                    cover_url: clubBook?.cover_url ?? null,
-                }
-                : null,
-        };
-    });
-
-    // Destacado primero; como mucho 4 clubs en el home.
+    const clubs = (data || []).map(mapPublicClub);
     clubs.sort((a, b) => Number(b.destacado) - Number(a.destacado));
     return clubs.slice(0, 4);
-}
-
-/**
- * Get all official clubs ordered by display_order
- */
-export async function getOfficialClubs(): Promise<OfficialClub[]> {
-    const supabase = await createClient();
-
-    const { data, error } = await supabase
-        .from('official_clubs')
-        .select('*')
-        .order('display_order', { ascending: true });
-
-    if (error) {
-        console.error('Error fetching official clubs:', error);
-        return [];
-    }
-
-    return data || [];
-}
-
-/**
- * Get the featured club (Club del Mes)
- */
-export async function getFeaturedClub(): Promise<OfficialClub | null> {
-    const supabase = await createClient();
-
-    const { data, error } = await supabase
-        .from('official_clubs')
-        .select('*')
-        .eq('is_featured', true)
-        .single();
-
-    if (error) {
-        console.error('Error fetching featured club:', error);
-        return null;
-    }
-
-    return data;
-}
-
-/**
- * Get a specific club by slug
- */
-export async function getClubBySlug(slug: string): Promise<OfficialClub | null> {
-    const supabase = await createClient();
-
-    const { data, error } = await supabase
-        .from('official_clubs')
-        .select('*')
-        .eq('slug', slug)
-        .single();
-
-    if (error) {
-        console.error(`Error fetching club ${slug}:`, error);
-        return null;
-    }
-
-    return data;
-}
-
-/**
- * Get non-featured clubs (the 4 official clubs excluding Club del Mes)
- */
-export async function getRegularClubs(): Promise<OfficialClub[]> {
-    const supabase = await createClient();
-
-    const { data, error } = await supabase
-        .from('official_clubs')
-        .select('*')
-        .eq('is_featured', false)
-        .order('display_order', { ascending: true });
-
-    if (error) {
-        console.error('Error fetching regular clubs:', error);
-        return [];
-    }
-
-    return data || [];
 }

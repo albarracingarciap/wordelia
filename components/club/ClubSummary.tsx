@@ -6,6 +6,7 @@ import { CheckpointDetailModal } from "./CheckpointDetailModal";
 import { TabsContext } from "../ui/Tabs";
 import { getClubAnnouncements, getClubStats, getMyClubBookProgress, markCheckpointCompleted, markCheckpointPending } from "@/app/app/clubs/[id]/actions";
 import { Activity, AlertTriangle, CalendarDays, Clock, HeartPulse, Megaphone, MessageSquare, ShieldAlert, Users } from "lucide-react";
+import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 interface Checkpoint {
     id: string;
@@ -282,7 +283,7 @@ export function ClubSummary({ club }: { club?: ClubSummaryData }) {
     const checkpoints: Checkpoint[] = club?.currentBook?.checkpoints || [];
     const unitLabel = club?.currentBook?.pace_unit || "p.";
     const book = club?.currentBook?.book;
-    const bookAuthor = book?.author?.name || book?.authors?.name || null;
+    const bookAuthor = bookAuthorName(book);
     const activeResult = getActiveCheckpoint(checkpoints);
     const activeCheckpoint = activeResult?.checkpoint || null;
     const activeIndex = activeResult?.index ?? 0;

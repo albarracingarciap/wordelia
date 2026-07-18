@@ -63,6 +63,69 @@ export function emailPaymentFailed(planLabel: string): { subject: string; html: 
     };
 }
 
+// Escapa texto de origen externo antes de incrustarlo en el HTML del email.
+// El formulario de contacto es público: nada de lo que llega es de fiar.
+function escapeHtml(value: string): string {
+    return value
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+const SUBJECT_LABELS: Record<string, string> = {
+    general: "Consulta general",
+    clubs: "Clubs y organizaciones",
+    librerias: "Librerías",
+    educacion: "Educación",
+    otro: "Otro",
+};
+
+// Aviso interno a hola@wordelia.es de un mensaje del formulario de contacto.
+export function emailContactNotification(msg: {
+    name: string;
+    email: string;
+    subject: string;
+    message: string;
+    source: string | null;
+}): { subject: string; html: string } {
+    const motivo = SUBJECT_LABELS[msg.subject] ?? msg.subject;
+    const meta = [
+        `<p style="margin:0 0 4px"><strong>De:</strong> ${escapeHtml(msg.name)} &lt;${escapeHtml(msg.email)}&gt;</p>`,
+        `<p style="margin:0 0 4px"><strong>Motivo:</strong> ${escapeHtml(motivo)}</p>`,
+        msg.source ? `<p style="margin:0 0 4px"><strong>Origen:</strong> ${escapeHtml(msg.source)}</p>` : "",
+    ].join("");
+    const body = escapeHtml(msg.message).replace(/\n/g, "<br>");
+
+    return {
+        subject: `[Contacto · ${motivo}] ${msg.name}`,
+        html: layout(
+            "Nuevo mensaje de contacto",
+            `${meta}
+             <div style="margin-top:16px;padding:14px 16px;background:${CREAM};border-radius:12px;white-space:pre-wrap">${body}</div>
+             <p style="margin-top:16px;font-size:13px;color:#777">Responde a este correo para contestar directamente a ${escapeHtml(msg.email)}.</p>`,
+        ),
+    };
+}
+
+// Acuse de recibo al visitante que escribe desde /contacto.
+// Deliberadamente SIN datos del remitente (ni nombre ni mensaje): va a un
+// email que nadie ha verificado, así que no debe transportar texto que haya
+// escrito quien rellena el formulario. Si no, el formulario se convierte en
+// un relé para enviar contenido arbitrario a terceros desde un dominio
+// verificado. Cualquier cambio aquí debe mantener el texto fijo.
+export function emailContactReceived(): { subject: string; html: string } {
+    return {
+        subject: "Hemos recibido tu mensaje",
+        html: layout(
+            "¡Gracias por escribirnos!",
+            `<p>Hemos recibido tu mensaje y te responderemos en 1-2 días laborables.</p>
+             <p>Mientras tanto, puedes seguir explorando Wordelia.</p>`,
+            { href: APP_URL, label: "Volver a Wordelia" },
+        ),
+    };
+}
+
 export function emailSubscriptionCancelled(planLabel: string, accessUntilLabel: string): { subject: string; html: string } {
     return {
         subject: `Tu suscripción ${planLabel} ha sido cancelada`,
