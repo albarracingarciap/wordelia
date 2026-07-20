@@ -5,8 +5,7 @@ import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { searchISBNdb } from "@/lib/isbndb";
 import type { BookSearchResult } from "@/lib/isbndb";
-
-const COVERS_BUCKET = "book-covers";
+import { attachEditionToBook } from "@/lib/editions";
 
 export type QueueBook = {
     id: string;
@@ -125,92 +124,14 @@ export async function searchEditions(query: string): Promise<Result<BookSearchRe
 }
 
 /**
- * Descarga la portada al bucket propio. Devuelve la URL pública, o null si
- * falla: preferimos una edición sin portada a no crear la edición.
- */
-async function storeCover(bookId: string, remoteUrl: string | null): Promise<string | null> {
-    if (!remoteUrl) return null;
-
-    try {
-        const res = await fetch(remoteUrl);
-        if (!res.ok) {
-            console.warn(`storeCover: descarga fallida ${res.status} para ${remoteUrl}`);
-            return null;
-        }
-
-        const contentType = res.headers.get("content-type") || "image/jpeg";
-        const ext = contentType.includes("png") ? "png" : contentType.includes("webp") ? "webp" : "jpg";
-        const buffer = Buffer.from(await res.arrayBuffer());
-        const path = `${bookId}.${ext}`;
-
-        const { error } = await admin().storage.from(COVERS_BUCKET)
-            .upload(path, buffer, { contentType, upsert: true });
-
-        if (error) {
-            console.error("storeCover: subida fallida", error);
-            return null;
-        }
-
-        const { data } = admin().storage.from(COVERS_BUCKET).getPublicUrl(path);
-        return data?.publicUrl ?? null;
-    } catch (error) {
-        console.error("storeCover:", error);
-        return null;
-    }
-}
-
-/**
- * Asocia una edición de ISBNdb al libro: guarda la portada en el bucket, crea
- * (o actualiza) la fila en `editions` y la marca como edición preferida.
+ * Asocia una edición de ISBNdb al libro y la marca como preferida. La lógica
+ * (portada + upsert por ISBN) vive en lib/editions.ts, compartida con el
+ * workspace de catálogo.
  */
 export async function attachEdition(bookId: string, edition: BookSearchResult): Promise<Result> {
     try {
         await assertAdmin();
-        const db = admin();
-
-        const coverUrl = await storeCover(bookId, edition.cover_url);
-
-        const payload = {
-            book_id: bookId,
-            isbn: edition.isbn ?? null,
-            isbn13: edition.isbn13 ?? null,
-            title: edition.title,
-            cover_url: coverUrl ?? edition.cover_url ?? null,
-            page_count: edition.page_count ?? null,
-            published_date: edition.published_date ?? null,
-            publication_year: edition.published_date
-                ? Number(edition.published_date.slice(0, 4)) || null
-                : null,
-            language: edition.language ?? null,
-            publisher: edition.publisher ?? null,
-            source: "isbndb",
-            source_id: edition.id ?? null,
-        };
-
-        // editions tiene índices únicos sobre isbn e isbn13: si ya existe esa
-        // edición se actualiza en lugar de intentar duplicarla.
-        const isbnKey = edition.isbn13 || edition.isbn;
-        let editionId: string | null = null;
-
-        if (isbnKey) {
-            const { data: existing } = await db.from("editions")
-                .select("id").or(`isbn13.eq.${isbnKey},isbn.eq.${isbnKey}`).maybeSingle();
-            editionId = existing?.id ?? null;
-        }
-
-        if (editionId) {
-            const { error } = await db.from("editions").update(payload).eq("id", editionId);
-            if (error) throw error;
-        } else {
-            const { data, error } = await db.from("editions").insert(payload).select("id").single();
-            if (error) throw error;
-            editionId = data.id;
-        }
-
-        const { error: bookError } = await db.from("books")
-            .update({ preferred_edition_id: editionId }).eq("id", bookId);
-        if (bookError) throw bookError;
-
+        await attachEditionToBook(admin(), bookId, edition, { setPreferred: true });
         revalidatePath("/app/admin/colecciones");
         return { success: true };
     } catch (error: any) {

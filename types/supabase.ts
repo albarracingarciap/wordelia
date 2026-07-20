@@ -170,6 +170,88 @@ export type Database = {
           },
         ]
       }
+      book_guides: {
+        Row: {
+          book_id: string
+          created_at: string
+          discussion_guide: Json | null
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          discussion_guide?: Json | null
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          discussion_guide?: Json | null
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_guides_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: true
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      book_literary_chromosomes: {
+        Row: {
+          book_id: string
+          chromosome_data: Json
+          chromosome_key: string
+          created_at: string
+          generated_at: string | null
+          id: string
+          published_at: string | null
+          status: string
+          updated_at: string
+          version: number
+        }
+        Insert: {
+          book_id: string
+          chromosome_data: Json
+          chromosome_key: string
+          created_at?: string
+          generated_at?: string | null
+          id?: string
+          published_at?: string | null
+          status?: string
+          updated_at?: string
+          version?: number
+        }
+        Update: {
+          book_id?: string
+          chromosome_data?: Json
+          chromosome_key?: string
+          created_at?: string
+          generated_at?: string | null
+          id?: string
+          published_at?: string | null
+          status?: string
+          updated_at?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "book_literary_chromosomes_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       book_notes: {
         Row: {
           book_id: string
@@ -222,55 +304,58 @@ export type Database = {
       }
       books: {
         Row: {
+          author: string | null
           author_id: string | null
           created_at: string
           description: string | null
           experience: string | null
           external_ids: Json | null
           first_publication_year: number | null
-          genome_data: Json | null
           genre: string | null
           id: string
           original_language: string | null
           original_title: string | null
           preferred_edition_id: string | null
           rating_avg: number | null
+          sinopsis_data: Json | null
           title: string
           title_normalized: string | null
           total_interactions: number | null
         }
         Insert: {
+          author?: string | null
           author_id?: string | null
           created_at?: string
           description?: string | null
           experience?: string | null
           external_ids?: Json | null
           first_publication_year?: number | null
-          genome_data?: Json | null
           genre?: string | null
           id?: string
           original_language?: string | null
           original_title?: string | null
           preferred_edition_id?: string | null
           rating_avg?: number | null
+          sinopsis_data?: Json | null
           title: string
           title_normalized?: string | null
           total_interactions?: number | null
         }
         Update: {
+          author?: string | null
           author_id?: string | null
           created_at?: string
           description?: string | null
           experience?: string | null
           external_ids?: Json | null
           first_publication_year?: number | null
-          genome_data?: Json | null
           genre?: string | null
           id?: string
           original_language?: string | null
           original_title?: string | null
           preferred_edition_id?: string | null
           rating_avg?: number | null
+          sinopsis_data?: Json | null
           title?: string
           title_normalized?: string | null
           total_interactions?: number | null
@@ -404,10 +489,12 @@ export type Database = {
           book_id: string
           checkpoints: Json | null
           club_id: string
+          cover_url: string | null
           created_at: string
           discussion_schedule: string | null
           id: string
           pace_config: Json | null
+          pregunta_apertura: string | null
           start_date: string | null
           status: string | null
           target_date: string | null
@@ -416,10 +503,12 @@ export type Database = {
           book_id: string
           checkpoints?: Json | null
           club_id: string
+          cover_url?: string | null
           created_at?: string
           discussion_schedule?: string | null
           id?: string
           pace_config?: Json | null
+          pregunta_apertura?: string | null
           start_date?: string | null
           status?: string | null
           target_date?: string | null
@@ -428,10 +517,12 @@ export type Database = {
           book_id?: string
           checkpoints?: Json | null
           club_id?: string
+          cover_url?: string | null
           created_at?: string
           discussion_schedule?: string | null
           id?: string
           pace_config?: Json | null
+          pregunta_apertura?: string | null
           start_date?: string | null
           status?: string | null
           target_date?: string | null
@@ -978,13 +1069,16 @@ export type Database = {
           created_at: string
           currency: string | null
           description: string | null
+          destacado: boolean
           id: string
           invite_code: string | null
           is_archived: boolean | null
           is_official: boolean | null
           join_code: string | null
           name: string
+          organization_id: string | null
           owner_id: string
+          portada: boolean
           price: number | null
           rules: Json | null
           slug: string | null
@@ -997,13 +1091,16 @@ export type Database = {
           created_at?: string
           currency?: string | null
           description?: string | null
+          destacado?: boolean
           id?: string
           invite_code?: string | null
           is_archived?: boolean | null
           is_official?: boolean | null
           join_code?: string | null
           name: string
+          organization_id?: string | null
           owner_id: string
+          portada?: boolean
           price?: number | null
           rules?: Json | null
           slug?: string | null
@@ -1016,13 +1113,16 @@ export type Database = {
           created_at?: string
           currency?: string | null
           description?: string | null
+          destacado?: boolean
           id?: string
           invite_code?: string | null
           is_archived?: boolean | null
           is_official?: boolean | null
           join_code?: string | null
           name?: string
+          organization_id?: string | null
           owner_id?: string
+          portada?: boolean
           price?: number | null
           rules?: Json | null
           slug?: string | null
@@ -1032,6 +1132,13 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "clubs_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "clubs_owner_id_fkey"
             columns: ["owner_id"]
             isOneToOne: false
@@ -1040,35 +1147,78 @@ export type Database = {
           },
         ]
       }
+      contact_messages: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          ip_hash: string | null
+          message: string
+          name: string
+          source: string | null
+          status: string
+          subject: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          ip_hash?: string | null
+          message: string
+          name: string
+          source?: string | null
+          status?: string
+          subject?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          ip_hash?: string | null
+          message?: string
+          name?: string
+          source?: string | null
+          status?: string
+          subject?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       curated_collection_books: {
         Row: {
-          book_data: Json | null
+          book_id: string
           collection_id: string
           created_at: string
           display_order: number
           id: string
-          isbn: string
           updated_at: string
         }
         Insert: {
-          book_data?: Json | null
+          book_id: string
           collection_id: string
           created_at?: string
           display_order: number
           id?: string
-          isbn: string
           updated_at?: string
         }
         Update: {
-          book_data?: Json | null
+          book_id?: string
           collection_id?: string
           created_at?: string
           display_order?: number
           id?: string
-          isbn?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "curated_collection_books_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "curated_collection_books_collection_id_fkey"
             columns: ["collection_id"]
@@ -1620,6 +1770,33 @@ export type Database = {
           },
         ]
       }
+      newsletter_subscribers: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          source: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          source?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       official_clubs: {
         Row: {
           book_data: Json | null
@@ -1671,6 +1848,411 @@ export type Database = {
           theme_color?: string
           theme_icon?: string
           updated_at?: string | null
+        }
+        Relationships: []
+      }
+      orders: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          currency: string
+          fulfilled_at: string | null
+          id: string
+          metadata: Json
+          plan_period: string | null
+          product_type: string
+          provider: string
+          provider_capture_id: string | null
+          provider_order_id: string | null
+          reference_id: string
+          resource_kind: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          currency?: string
+          fulfilled_at?: string | null
+          id?: string
+          metadata?: Json
+          plan_period?: string | null
+          product_type: string
+          provider?: string
+          provider_capture_id?: string | null
+          provider_order_id?: string | null
+          reference_id: string
+          resource_kind?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          fulfilled_at?: string | null
+          id?: string
+          metadata?: Json
+          plan_period?: string | null
+          product_type?: string
+          provider?: string
+          provider_capture_id?: string | null
+          provider_order_id?: string | null
+          reference_id?: string
+          resource_kind?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "orders_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_events: {
+        Row: {
+          cover_url: string | null
+          created_at: string
+          created_by: string | null
+          description: string | null
+          ends_at: string | null
+          event_type: string
+          format: string
+          id: string
+          location: string | null
+          location_id: string | null
+          organization_id: string
+          starts_at: string
+          title: string
+          updated_at: string
+          url: string | null
+        }
+        Insert: {
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_at?: string | null
+          event_type?: string
+          format?: string
+          id?: string
+          location?: string | null
+          location_id?: string | null
+          organization_id: string
+          starts_at: string
+          title: string
+          updated_at?: string
+          url?: string | null
+        }
+        Update: {
+          cover_url?: string | null
+          created_at?: string
+          created_by?: string | null
+          description?: string | null
+          ends_at?: string | null
+          event_type?: string
+          format?: string
+          id?: string
+          location?: string | null
+          location_id?: string | null
+          organization_id?: string
+          starts_at?: string
+          title?: string
+          updated_at?: string
+          url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_events_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_events_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "organization_locations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_events_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_locations: {
+        Row: {
+          address: string | null
+          city: string | null
+          country: string | null
+          created_at: string
+          id: string
+          is_primary: boolean
+          lat: number | null
+          lng: number | null
+          name: string
+          organization_id: string
+          phone: string | null
+          region: string | null
+          updated_at: string
+        }
+        Insert: {
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          lat?: number | null
+          lng?: number | null
+          name: string
+          organization_id: string
+          phone?: string | null
+          region?: string | null
+          updated_at?: string
+        }
+        Update: {
+          address?: string | null
+          city?: string | null
+          country?: string | null
+          created_at?: string
+          id?: string
+          is_primary?: boolean
+          lat?: number | null
+          lng?: number | null
+          name?: string
+          organization_id?: string
+          phone?: string | null
+          region?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_locations_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_members: {
+        Row: {
+          created_at: string
+          id: string
+          organization_id: string
+          role: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          organization_id: string
+          role?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          organization_id?: string
+          role?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_members_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: false
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "organization_members_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organization_subscriptions: {
+        Row: {
+          billing_period: string | null
+          created_at: string
+          current_period_end: string | null
+          external_ref: string | null
+          id: string
+          metadata: Json
+          organization_id: string
+          provider: string
+          provider_plan_id: string | null
+          provider_subscription_id: string | null
+          started_at: string
+          status: string
+          tier: string
+          updated_at: string
+        }
+        Insert: {
+          billing_period?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          external_ref?: string | null
+          id?: string
+          metadata?: Json
+          organization_id: string
+          provider?: string
+          provider_plan_id?: string | null
+          provider_subscription_id?: string | null
+          started_at?: string
+          status?: string
+          tier?: string
+          updated_at?: string
+        }
+        Update: {
+          billing_period?: string | null
+          created_at?: string
+          current_period_end?: string | null
+          external_ref?: string | null
+          id?: string
+          metadata?: Json
+          organization_id?: string
+          provider?: string
+          provider_plan_id?: string | null
+          provider_subscription_id?: string | null
+          started_at?: string
+          status?: string
+          tier?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organization_subscriptions_organization_id_fkey"
+            columns: ["organization_id"]
+            isOneToOne: true
+            referencedRelation: "organizations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      organizations: {
+        Row: {
+          address: string | null
+          brand_color: string | null
+          buy_link_template: string | null
+          city: string | null
+          contact_email: string | null
+          country: string | null
+          cover_url: string | null
+          created_at: string
+          description: string | null
+          id: string
+          is_active: boolean
+          lat: number | null
+          lng: number | null
+          logo_url: string | null
+          name: string
+          owner_id: string
+          phone: string | null
+          region: string | null
+          slug: string
+          type: string
+          updated_at: string
+          website: string | null
+        }
+        Insert: {
+          address?: string | null
+          brand_color?: string | null
+          buy_link_template?: string | null
+          city?: string | null
+          contact_email?: string | null
+          country?: string | null
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          lat?: number | null
+          lng?: number | null
+          logo_url?: string | null
+          name: string
+          owner_id: string
+          phone?: string | null
+          region?: string | null
+          slug: string
+          type?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Update: {
+          address?: string | null
+          brand_color?: string | null
+          buy_link_template?: string | null
+          city?: string | null
+          contact_email?: string | null
+          country?: string | null
+          cover_url?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          lat?: number | null
+          lng?: number | null
+          logo_url?: string | null
+          name?: string
+          owner_id?: string
+          phone?: string | null
+          region?: string | null
+          slug?: string
+          type?: string
+          updated_at?: string
+          website?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "organizations_owner_id_fkey"
+            columns: ["owner_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      payment_webhook_events: {
+        Row: {
+          event_type: string
+          id: string
+          payload: Json
+          processed_at: string
+          provider: string
+          resource_type: string | null
+        }
+        Insert: {
+          event_type: string
+          id: string
+          payload?: Json
+          processed_at?: string
+          provider?: string
+          resource_type?: string | null
+        }
+        Update: {
+          event_type?: string
+          id?: string
+          payload?: Json
+          processed_at?: string
+          provider?: string
+          resource_type?: string | null
         }
         Relationships: []
       }
@@ -2071,6 +2653,59 @@ export type Database = {
           },
         ]
       }
+      subscription_payments: {
+        Row: {
+          amount_cents: number
+          created_at: string
+          currency: string
+          id: string
+          metadata: Json
+          product_type: string | null
+          provider: string
+          provider_payment_id: string | null
+          provider_subscription_id: string | null
+          reference_id: string | null
+          status: string
+          user_id: string | null
+        }
+        Insert: {
+          amount_cents: number
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json
+          product_type?: string | null
+          provider?: string
+          provider_payment_id?: string | null
+          provider_subscription_id?: string | null
+          reference_id?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount_cents?: number
+          created_at?: string
+          currency?: string
+          id?: string
+          metadata?: Json
+          product_type?: string | null
+          provider?: string
+          provider_payment_id?: string | null
+          provider_subscription_id?: string | null
+          reference_id?: string | null
+          status?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscription_payments_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_badges: {
         Row: {
           awarded_at: string
@@ -2178,6 +2813,63 @@ export type Database = {
           },
         ]
       }
+      user_book_resource_access: {
+        Row: {
+          access_source: string
+          book_id: string
+          created_at: string
+          expires_at: string | null
+          granted_at: string
+          id: string
+          metadata: Json
+          purchased_at: string | null
+          resource_kind: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_source?: string
+          book_id: string
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          id?: string
+          metadata?: Json
+          purchased_at?: string | null
+          resource_kind: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_source?: string
+          book_id?: string
+          created_at?: string
+          expires_at?: string | null
+          granted_at?: string
+          id?: string
+          metadata?: Json
+          purchased_at?: string | null
+          resource_kind?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_book_resource_access_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "user_book_resource_access_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_books: {
         Row: {
           book_id: string
@@ -2240,6 +2932,59 @@ export type Database = {
             foreignKeyName: "user_books_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_subscriptions: {
+        Row: {
+          created_at: string
+          current_period_end: string | null
+          external_ref: string | null
+          id: string
+          period: string | null
+          plan: string
+          provider: string
+          provider_plan_id: string | null
+          provider_subscription_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          current_period_end?: string | null
+          external_ref?: string | null
+          id?: string
+          period?: string | null
+          plan: string
+          provider?: string
+          provider_plan_id?: string | null
+          provider_subscription_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          current_period_end?: string | null
+          external_ref?: string | null
+          id?: string
+          period?: string | null
+          plan?: string
+          provider?: string
+          provider_plan_id?: string | null
+          provider_subscription_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_subscriptions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -2428,9 +3173,7 @@ export type Database = {
         Returns: string
       }
       check_user_badges: {
-        Args: {
-          target_user_id: string
-        }
+        Args: { target_user_id: string }
         Returns: undefined
       }
       find_book_candidates_for_edition: {
@@ -2449,6 +3192,13 @@ export type Database = {
           is_exact: boolean
         }[]
       }
+      find_books_by_experience: {
+        Args: { p_experience_label: string; p_genres: Json; p_limit?: number }
+        Returns: {
+          book_id: string
+          score: number
+        }[]
+      }
       get_founder_membership_stats: {
         Args: Record<PropertyKey, never>
         Returns: {
@@ -2458,57 +3208,39 @@ export type Database = {
         }[]
       }
       get_public_profile_summary: {
-        Args: {
-          profile_username: string
-        }
+        Args: { profile_username: string }
         Returns: Json
       }
       gtrgm_compress: {
-        Args: {
-          "": unknown
-        }
+        Args: { "": unknown }
         Returns: unknown
       }
       gtrgm_decompress: {
-        Args: {
-          "": unknown
-        }
+        Args: { "": unknown }
         Returns: unknown
       }
       gtrgm_in: {
-        Args: {
-          "": unknown
-        }
+        Args: { "": unknown }
         Returns: unknown
       }
       gtrgm_options: {
-        Args: {
-          "": unknown
-        }
+        Args: { "": unknown }
         Returns: undefined
       }
       gtrgm_out: {
-        Args: {
-          "": unknown
-        }
+        Args: { "": unknown }
         Returns: unknown
       }
       is_club_admin_or_moderator: {
-        Args: {
-          target_club_id: string
-        }
+        Args: { target_club_id: string }
         Returns: boolean
       }
       normalize_title: {
-        Args: {
-          p_title: string
-        }
+        Args: { p_title: string }
         Returns: string
       }
       redeem_founder_free_official_club: {
-        Args: {
-          target_club_id: string
-        }
+        Args: { target_club_id: string }
         Returns: {
           club_id: string
           redemption_id: string
@@ -2516,9 +3248,7 @@ export type Database = {
         }[]
       }
       set_limit: {
-        Args: {
-          "": number
-        }
+        Args: { "": number }
         Returns: number
       }
       show_limit: {
@@ -2526,15 +3256,11 @@ export type Database = {
         Returns: number
       }
       show_trgm: {
-        Args: {
-          "": string
-        }
+        Args: { "": string }
         Returns: string[]
       }
       wordelia_slugify: {
-        Args: {
-          value: string
-        }
+        Args: { value: string }
         Returns: string
       }
     }
@@ -2547,27 +3273,29 @@ export type Database = {
   }
 }
 
-type PublicSchema = Database[Extract<keyof Database, "public">]
+type DefaultSchema = Database[Extract<keyof Database, "public">]
 
 export type Tables<
-  PublicTableNameOrOptions extends
-    | keyof (PublicSchema["Tables"] & PublicSchema["Views"])
+  DefaultSchemaTableNameOrOptions extends
+    | keyof (DefaultSchema["Tables"] & DefaultSchema["Views"])
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-        Database[PublicTableNameOrOptions["schema"]]["Views"])
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+        Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? (Database[PublicTableNameOrOptions["schema"]]["Tables"] &
-      Database[PublicTableNameOrOptions["schema"]]["Views"])[TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? (Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
+      Database[DefaultSchemaTableNameOrOptions["schema"]]["Views"])[TableName] extends {
       Row: infer R
     }
     ? R
     : never
-  : PublicTableNameOrOptions extends keyof (PublicSchema["Tables"] &
-        PublicSchema["Views"])
-    ? (PublicSchema["Tables"] &
-        PublicSchema["Views"])[PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])
+    ? (DefaultSchema["Tables"] &
+        DefaultSchema["Views"])[DefaultSchemaTableNameOrOptions] extends {
         Row: infer R
       }
       ? R
@@ -2575,20 +3303,22 @@ export type Tables<
     : never
 
 export type TablesInsert<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Insert: infer I
     }
     ? I
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Insert: infer I
       }
       ? I
@@ -2596,20 +3326,22 @@ export type TablesInsert<
     : never
 
 export type TablesUpdate<
-  PublicTableNameOrOptions extends
-    | keyof PublicSchema["Tables"]
+  DefaultSchemaTableNameOrOptions extends
+    | keyof DefaultSchema["Tables"]
     | { schema: keyof Database },
-  TableName extends PublicTableNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicTableNameOrOptions["schema"]]["Tables"]
+  TableName extends DefaultSchemaTableNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"]
     : never = never,
-> = PublicTableNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicTableNameOrOptions["schema"]]["Tables"][TableName] extends {
+> = DefaultSchemaTableNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaTableNameOrOptions["schema"]]["Tables"][TableName] extends {
       Update: infer U
     }
     ? U
     : never
-  : PublicTableNameOrOptions extends keyof PublicSchema["Tables"]
-    ? PublicSchema["Tables"][PublicTableNameOrOptions] extends {
+  : DefaultSchemaTableNameOrOptions extends keyof DefaultSchema["Tables"]
+    ? DefaultSchema["Tables"][DefaultSchemaTableNameOrOptions] extends {
         Update: infer U
       }
       ? U
@@ -2617,21 +3349,23 @@ export type TablesUpdate<
     : never
 
 export type Enums<
-  PublicEnumNameOrOptions extends
-    | keyof PublicSchema["Enums"]
+  DefaultSchemaEnumNameOrOptions extends
+    | keyof DefaultSchema["Enums"]
     | { schema: keyof Database },
-  EnumName extends PublicEnumNameOrOptions extends { schema: keyof Database }
-    ? keyof Database[PublicEnumNameOrOptions["schema"]]["Enums"]
+  EnumName extends DefaultSchemaEnumNameOrOptions extends {
+    schema: keyof Database
+  }
+    ? keyof Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"]
     : never = never,
-> = PublicEnumNameOrOptions extends { schema: keyof Database }
-  ? Database[PublicEnumNameOrOptions["schema"]]["Enums"][EnumName]
-  : PublicEnumNameOrOptions extends keyof PublicSchema["Enums"]
-    ? PublicSchema["Enums"][PublicEnumNameOrOptions]
+> = DefaultSchemaEnumNameOrOptions extends { schema: keyof Database }
+  ? Database[DefaultSchemaEnumNameOrOptions["schema"]]["Enums"][EnumName]
+  : DefaultSchemaEnumNameOrOptions extends keyof DefaultSchema["Enums"]
+    ? DefaultSchema["Enums"][DefaultSchemaEnumNameOrOptions]
     : never
 
 export type CompositeTypes<
   PublicCompositeTypeNameOrOptions extends
-    | keyof PublicSchema["CompositeTypes"]
+    | keyof DefaultSchema["CompositeTypes"]
     | { schema: keyof Database },
   CompositeTypeName extends PublicCompositeTypeNameOrOptions extends {
     schema: keyof Database
@@ -2640,7 +3374,14 @@ export type CompositeTypes<
     : never = never,
 > = PublicCompositeTypeNameOrOptions extends { schema: keyof Database }
   ? Database[PublicCompositeTypeNameOrOptions["schema"]]["CompositeTypes"][CompositeTypeName]
-  : PublicCompositeTypeNameOrOptions extends keyof PublicSchema["CompositeTypes"]
-    ? PublicSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
+  : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
+    ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
     : never
 
+export const Constants = {
+  public: {
+    Enums: {
+      reading_status: ["WANT_TO_READ", "READING", "READ", "DNF", "PAUSED"],
+    },
+  },
+} as const

@@ -7,9 +7,11 @@ const BETA_TOTAL_SPOTS = 200;
 
 type HeroProps = {
     founderCount?: number;
+    /** Ventana de fundador abierta: controla si se anuncian las plazas. */
+    founderWindowOpen?: boolean;
 };
 
-export function Hero({ founderCount = 38 }: HeroProps) {
+export function Hero({ founderCount = 38, founderWindowOpen = true }: HeroProps) {
     const reservedSpots = Math.min(Math.max(founderCount, 0), BETA_TOTAL_SPOTS);
     const availableSpots = Math.max(BETA_TOTAL_SPOTS - reservedSpots, 0);
 
@@ -64,9 +66,11 @@ export function Hero({ founderCount = 38 }: HeroProps) {
                         </Link>
                     </div>
 
-                    <p className="text-sm font-medium text-teal-dark">
-                        {availableSpots} plazas disponibles para lectores fundadores.
-                    </p>
+                    {founderWindowOpen && (
+                        <p className="text-sm font-medium text-teal-dark">
+                            {availableSpots} plazas disponibles para lectores fundadores.
+                        </p>
+                    )}
                 </div>
             </div>
         </Section>

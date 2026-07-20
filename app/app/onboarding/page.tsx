@@ -1,11 +1,13 @@
 "use client";
 
-import { useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
+import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import Image from "next/image";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { completeOnboarding } from "./actions";
 import { createClient } from "@/utils/supabase/client";
+import { PLANS, type PlanId } from "@/lib/plans";
+import { isSubscriptionActive } from "@/lib/subscription-access";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     ChevronRight,
@@ -68,8 +70,46 @@ export default function OnboardingPage() {
     const [readerType, setReaderType] = useState<ReaderType | null>(null);
     const [favoriteGenres, setFavoriteGenres] = useState<string[]>([]);
     const [goals, setGoals] = useState<string[]>([]);
+
+    // Paso 3: plan.
+    const [selectedPlanId, setSelectedPlanId] = useState<PlanId | null>(null);
+    const [isAnnual, setIsAnnual] = useState(false);
+    // Caso "ya suscrito": si pagó antes de terminar, el paso 3 solo confirma.
+    const [hasActiveSub, setHasActiveSub] = useState(false);
+    const [activePlanId, setActivePlanId] = useState<string | null>(null);
+
     // Import supabase client for client-side checks/uploads
     const supabase = createClient();
+
+    // Al montar: preselecciona el plan que venía del registro y detecta si el
+    // usuario ya tiene una suscripción activa.
+    useEffect(() => {
+        const client = createClient();
+        let active = true;
+        (async () => {
+            const { data: { user } } = await client.auth.getUser();
+            if (!user || !active) return;
+
+            const requested = user.user_metadata?.requested_plan;
+            if (requested === "explorador" || requested === "voraz" || requested === "ai") {
+                setSelectedPlanId(requested);
+            }
+            if (user.user_metadata?.billing_period === "annual") setIsAnnual(true);
+
+            const { data: sub } = await client
+                .from("user_subscriptions")
+                .select("plan, status, current_period_end")
+                .eq("user_id", user.id)
+                .maybeSingle();
+            if (active && sub && isSubscriptionActive(sub.status, sub.current_period_end)) {
+                setHasActiveSub(true);
+                setActivePlanId(sub.plan);
+            }
+        })();
+        return () => {
+            active = false;
+        };
+    }, []);
 
     const handleStart = () => {
         setSubmitError("");
@@ -201,6 +241,22 @@ export default function OnboardingPage() {
         });
     };
 
+    // Paso 2 → paso 3: valida preferencias y avanza a la elección de plan.
+    const handlePreferencesContinue = () => {
+        setSubmitError("");
+
+        if (!readerType) {
+            setSubmitError("Elige el tipo de lector que mejor te describe.");
+            return;
+        }
+        if (favoriteGenres.length < 3) {
+            setSubmitError("Selecciona al menos 3 géneros para continuar.");
+            return;
+        }
+
+        setStep(3);
+    };
+
     const handleSubmit = async () => {
         if (loading) return;
         setSubmitError("");
@@ -215,6 +271,12 @@ export default function OnboardingPage() {
             return;
         }
 
+        // Con suscripción activa no hace falta elegir; en caso contrario, sí.
+        if (!hasActiveSub && !selectedPlanId) {
+            setSubmitError("Elige un plan para continuar.");
+            return;
+        }
+
         setLoading(true);
 
         try {
@@ -226,6 +288,8 @@ export default function OnboardingPage() {
             if (readerType) formData.append("readerType", readerType);
             formData.append("favoriteGenres", JSON.stringify(favoriteGenres));
             formData.append("goals", JSON.stringify(goals));
+            formData.append("selectedPlan", hasActiveSub ? (activePlanId ?? "") : (selectedPlanId ?? ""));
+            formData.append("billingPeriod", isAnnual ? "annual" : "monthly");
 
             const result = await completeOnboarding(formData);
             if (result?.error) {
@@ -252,7 +316,7 @@ export default function OnboardingPage() {
                                 {step}
                             </div>
                             <span className="text-sm font-medium text-grey/60 uppercase tracking-widest">
-                                Paso {step} de 2
+                                Paso {step} de 3
                             </span>
                         </div>
                     )}
@@ -485,13 +549,111 @@ export default function OnboardingPage() {
                                 </p>
                             )}
                             <Button
-                                onClick={handleSubmit}
-                                isLoading={loading}
+                                onClick={handlePreferencesContinue}
                                 disabled={!readerType || favoriteGenres.length < 3}
                                 fullWidth
                                 className="md:w-auto"
                             >
-                                Finalizar y entrar <ChevronRight className="ml-2 w-4 h-4" />
+                                Continuar <ChevronRight className="ml-2 w-4 h-4" />
+                            </Button>
+                        </div>
+                    </motion.div>
+                )}
+
+                {step === 3 && (
+                    <motion.div
+                        key="plan"
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        exit={{ opacity: 0, x: -20 }}
+                        className="w-full max-w-4xl space-y-7 pb-48 pt-16 md:pb-28 md:pt-0"
+                    >
+                        <div className="text-center space-y-2">
+                            <h2 className="font-serif text-2xl sm:text-3xl text-teal-dark">Elige tu plan</h2>
+                            <p className="text-grey/70">Cambia o cancela cuando quieras. Puedes empezar gratis.</p>
+                        </div>
+
+                        {hasActiveSub ? (
+                            <div className="mx-auto max-w-md rounded-2xl border border-teal/10 bg-white p-6 text-center shadow-sm">
+                                <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-teal/10 text-teal">
+                                    <Check className="h-6 w-6" />
+                                </div>
+                                <h3 className="font-bold text-teal-dark">
+                                    Ya tienes el plan {PLANS.find((p) => p.id === activePlanId)?.name ?? "activo"}
+                                </h3>
+                                <p className="mt-1 text-sm text-grey/70">
+                                    Todo listo para empezar a leer con Wordelia.
+                                </p>
+                            </div>
+                        ) : (
+                            <>
+                                <div className="flex items-center justify-center gap-4">
+                                    <span className={`text-sm font-medium ${!isAnnual ? "text-teal-dark" : "text-grey/50"}`}>Mensual</span>
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsAnnual((v) => !v)}
+                                        className={`relative h-8 w-14 rounded-full transition-colors ${isAnnual ? "bg-teal" : "bg-grey/30"}`}
+                                        aria-label="Cambiar entre facturación mensual y anual"
+                                    >
+                                        <span className={`absolute left-1 top-1 h-6 w-6 rounded-full bg-white shadow-sm transition-transform ${isAnnual ? "translate-x-6" : "translate-x-0"}`} />
+                                    </button>
+                                    <span className={`text-sm font-medium ${isAnnual ? "text-teal-dark" : "text-grey/50"}`}>
+                                        Anual <span className="text-xs font-bold text-coral">-20%</span>
+                                    </span>
+                                </div>
+
+                                <div className="grid gap-3 md:grid-cols-3">
+                                    {PLANS.map((plan) => {
+                                        const selected = selectedPlanId === plan.id;
+                                        const price = isAnnual ? plan.annualPrice : plan.monthlyPrice;
+                                        const isFree = plan.id === "explorador";
+                                        return (
+                                            <button
+                                                key={plan.id}
+                                                type="button"
+                                                onClick={() => setSelectedPlanId(plan.id)}
+                                                className={`relative flex flex-col rounded-2xl border-2 p-5 text-left transition-all ${selected ? "border-teal bg-teal/5" : "border-transparent bg-white hover:border-teal/20"}`}
+                                            >
+                                                {plan.popular && (
+                                                    <span className="absolute -top-2.5 left-4 rounded-full bg-coral px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-white">
+                                                        Recomendado
+                                                    </span>
+                                                )}
+                                                {selected && <Check className="absolute right-4 top-4 h-5 w-5 text-teal" aria-hidden="true" />}
+                                                <h3 className="font-bold text-teal-dark">{plan.name}</h3>
+                                                <p className="mt-1 text-2xl font-bold text-teal-dark">
+                                                    {price}
+                                                    <span className="text-sm font-medium text-grey/60">
+                                                        {isFree ? "" : isAnnual ? "/año" : "/mes"}
+                                                    </span>
+                                                </p>
+                                                <p className="mt-2 text-sm leading-relaxed text-grey/70">{plan.description}</p>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
+                            </>
+                        )}
+
+                        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] z-[60] flex justify-end bg-cream/95 p-4 shadow-[0_-8px_24px_rgba(35,74,78,0.08)] md:static md:bg-transparent md:p-0 md:shadow-none">
+                            {submitError && (
+                                <p className="absolute -top-14 left-4 right-4 rounded-xl border border-coral/30 bg-white px-4 py-3 text-sm text-coral shadow-sm md:static md:mr-4 md:max-w-md">
+                                    {submitError}
+                                </p>
+                            )}
+                            <Button
+                                onClick={handleSubmit}
+                                isLoading={loading}
+                                disabled={!hasActiveSub && !selectedPlanId}
+                                fullWidth
+                                className="md:w-auto"
+                            >
+                                {hasActiveSub
+                                    ? "Entrar en Wordelia"
+                                    : selectedPlanId && selectedPlanId !== "explorador"
+                                        ? "Continuar al pago"
+                                        : "Finalizar y entrar"}
+                                <ChevronRight className="ml-2 w-4 h-4" />
                             </Button>
                         </div>
                     </motion.div>

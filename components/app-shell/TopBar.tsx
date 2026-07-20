@@ -5,7 +5,7 @@ import Image from "next/image";
 import { SearchInput } from "../ui/SearchInput";
 import { Avatar } from "../ui/Avatar";
 import { Badge } from "../ui/Badge";
-import { Sparkles } from "lucide-react";
+import { Sparkles, LayoutDashboard } from "lucide-react";
 import { signout } from "@/app/auth/actions";
 
 import { createClient } from "@/utils/supabase/client";
@@ -15,6 +15,7 @@ type Profile = {
     username?: string | null;
     full_name?: string | null;
     avatar_url?: string | null;
+    role?: string | null;
 };
 
 export function TopBar() {
@@ -61,6 +62,10 @@ export function TopBar() {
         : (profile?.full_name
             ? profile.full_name.split(" ").map((n: string) => n[0]).join("").substring(0, 2).toUpperCase()
             : "YO");
+
+    // Solo admin. El layout de /app/admin también admite editores, pero el
+    // atajo del menú se reserva de momento a administradores.
+    const canAccessAdmin = profile?.role === "admin";
 
     const handleSignOut = async () => {
         await signout();
@@ -155,6 +160,19 @@ export function TopBar() {
                                     <Sparkles className="h-4 w-4" aria-hidden="true" />
                                     Mi plan
                                 </Link>
+                                {canAccessAdmin && (
+                                    <>
+                                        <div className="my-1 border-t border-teal/5" />
+                                        <Link
+                                            href="/app/admin"
+                                            onClick={() => setIsDropdownOpen(false)}
+                                            className="w-full text-left px-4 py-2 text-sm text-teal hover:bg-teal/5 transition-colors flex items-center gap-2"
+                                        >
+                                            <LayoutDashboard className="h-4 w-4" aria-hidden="true" />
+                                            Administración
+                                        </Link>
+                                    </>
+                                )}
                                 <div className="my-1 border-t border-teal/5" />
                                 <button
                                     onClick={handleSignOut}

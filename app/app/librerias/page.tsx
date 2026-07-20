@@ -7,6 +7,7 @@ import {
     getOrganizationLocations,
 } from "./actions";
 import { LibreriasDashboardClient } from "./LibreriasDashboardClient";
+import { getAppSettings } from "@/lib/app-settings";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,20 @@ export default async function LibreriasDashboardPage({
     searchParams: Promise<{ org?: string }>;
 }) {
     const { org } = await searchParams;
+
+    // Feature gate: el espacio de librerías puede apagarse desde Ajustes → General.
+    const { flags } = await getAppSettings();
+    if (!flags.librerias) {
+        return (
+            <div className="mx-auto max-w-md py-20 text-center">
+                <h1 className="text-2xl font-serif text-teal">Espacio de librerías</h1>
+                <p className="mt-2 text-grey/70">
+                    Esta sección no está disponible por ahora. Vuelve pronto.
+                </p>
+            </div>
+        );
+    }
+
     const organizations = await getMyOrganizations();
     const active = organizations.find((o) => o.id === org) || organizations[0] || null;
 

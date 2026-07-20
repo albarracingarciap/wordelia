@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useFeatureFlags } from "@/lib/useFeatureFlags";
 
 // Icons (Simple SVGs for now)
 const Icons = {
@@ -27,13 +28,19 @@ const NAV_ITEMS = [
 
 export function SideNav() {
     const pathname = usePathname();
+    const flags = useFeatureFlags();
+
+    // El espacio de librerías se oculta del menú cuando el flag está desactivado.
+    const navItems = NAV_ITEMS.filter(
+        (item) => item.href !== "/app/librerias" || flags.librerias,
+    );
 
     return (
         <aside className="hidden lg:flex flex-col w-[260px] xl:w-[280px] h-[calc(100vh-72px)] sticky top-[72px] border-r border-teal/5 bg-cream/30 p-6 overflow-y-auto">
 
             <div className="space-y-1">
                 <p className="px-4 text-xs font-bold text-grey/40 uppercase tracking-widest mb-4 mt-2">Menú</p>
-                {NAV_ITEMS.map((item) => {
+                {navItems.map((item) => {
                     const isActive = pathname.startsWith(item.href);
                     const Icon = item.icon;
                     return (

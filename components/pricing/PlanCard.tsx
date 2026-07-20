@@ -11,6 +11,8 @@ interface PlanCardProps {
     action: React.ReactNode;
     /** Oculta la píldora "Más elegido" (p. ej. cuando la tarjeta ya muestra "Tu elección"). */
     hidePopularBadge?: boolean;
+    /** Muestra la caja "Beneficio fundador". Se oculta cuando la ventana está cerrada. */
+    showFounderBenefit?: boolean;
 }
 
 /**
@@ -18,7 +20,7 @@ interface PlanCardProps {
  * /planes. El contenido (nombre, precio, features, beneficio fundador) es idéntico
  * en ambas superficies; solo cambia `action`, que cada superficie decide.
  */
-export function PlanCard({ plan, price, period, action, hidePopularBadge = false }: PlanCardProps) {
+export function PlanCard({ plan, price, period, action, hidePopularBadge = false, showFounderBenefit = true }: PlanCardProps) {
     return (
         <article
             className={`relative flex h-full flex-col rounded-3xl border bg-white p-5 shadow-sm transition-all md:p-8 ${plan.popular
@@ -41,16 +43,18 @@ export function PlanCard({ plan, price, period, action, hidePopularBadge = false
                 <p className="text-sm leading-relaxed text-grey/80">{plan.description}</p>
             </div>
 
-            <div className="mb-5 rounded-2xl border border-coral/20 bg-coral/5 p-3">
-                <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-coral">
-                    <Gift className="h-3.5 w-3.5" aria-hidden="true" />
-                    Beneficio fundador
-                </p>
-                <p className="mt-1.5 text-sm font-semibold text-teal-dark">
-                    {plan.founderClubs} {plan.founderClubs === 1 ? "club de lectura gratis" : "clubs de lectura gratis"} durante 2026
-                </p>
-                <p className="mt-0.5 text-xs leading-relaxed text-grey">Incluye su guía y genoma, para siempre.</p>
-            </div>
+            {showFounderBenefit && (
+                <div className="mb-5 rounded-2xl border border-coral/20 bg-coral/5 p-3">
+                    <p className="flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.14em] text-coral">
+                        <Gift className="h-3.5 w-3.5" aria-hidden="true" />
+                        Beneficio fundador
+                    </p>
+                    <p className="mt-1.5 text-sm font-semibold text-teal-dark">
+                        {plan.founderClubs} {plan.founderClubs === 1 ? "club de lectura gratis" : "clubs de lectura gratis"} durante 2026
+                    </p>
+                    <p className="mt-0.5 text-xs leading-relaxed text-grey">Incluye su guía y genoma, para siempre.</p>
+                </div>
+            )}
 
             <ul className="mb-7 space-y-3">
                 {plan.features.map((feature) => (

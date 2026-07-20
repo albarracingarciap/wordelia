@@ -209,7 +209,11 @@ export function HomeWishlistSection() {
     );
 }
 
-export function HomeBetaSection() {
+export function HomeBetaSection({ founderWindowOpen = true }: { founderWindowOpen?: boolean }) {
+    // Sección puramente de captación fundador: si la ventana está cerrada, no se
+    // muestra (evita prometer una insignia/beneficio que ya no se concede).
+    if (!founderWindowOpen) return null;
+
     return (
         <Section id="beta" className="bg-cream py-16 md:py-24">
             <div className="overflow-hidden rounded-3xl bg-teal p-7 text-white shadow-xl md:p-10">

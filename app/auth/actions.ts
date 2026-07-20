@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
+import { getAppSettings } from '@/lib/app-settings'
 
 type AuthActionState = {
     error: string;
@@ -87,9 +88,10 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
     const rawBillingPeriod = cleanOptionalValue(formData.get('billing_period'))
     const billingPeriod = rawBillingPeriod === 'annual' || rawBillingPeriod === 'monthly' ? rawBillingPeriod : null
     const newsletterOptIn = formData.get('newsletter_opt_in') === 'on'
-    // Si venimos de /planes con un plan elegido, volvemos ahí a pagar; si no,
-    // al onboarding. El onboarding igualmente se fuerza al entrar en /app.
-    const nextUrl = getSafeRedirect(formData.get('next'), '/app/onboarding')
+    // Todo registro pasa siempre por el onboarding: allí se elige el plan de
+    // forma explícita (paso 3). El plan solicitado viaja en los metadatos
+    // (requested_plan) para preseleccionarlo. El pago, si lo hay, se completa
+    // después en /planes.
 
     if (!name) {
         return { error: 'Introduce tu nombre completo.' }
@@ -101,6 +103,13 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
 
     if (password.length < 8) {
         return { error: 'La contraseña debe tener al menos 8 caracteres.' }
+    }
+
+    // Registro cerrado por flag (lista de espera). Default seguro: si no se puede
+    // leer la config, se considera abierto para no bloquear altas por error.
+    const settings = await getAppSettings()
+    if (!settings.flags.registro_abierto) {
+        return { error: 'El registro está temporalmente cerrado. Escríbenos a hola@wordelia.es y te avisaremos en cuanto reabramos.' }
     }
 
     const { error } = await supabase.auth.signUp({
@@ -123,7 +132,7 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
     }
 
     revalidatePath('/', 'layout')
-    redirect(nextUrl)
+    redirect('/app/onboarding')
 }
 
 export async function signout() {

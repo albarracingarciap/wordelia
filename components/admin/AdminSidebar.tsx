@@ -2,17 +2,19 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, BookOpen, Trophy, Settings, LogOut, Mail, Layers } from "lucide-react";
+import { LayoutDashboard, Users, UsersRound, BookOpen, Trophy, Settings, LogOut, Mail, Layers, Store } from "lucide-react";
 
 export function AdminSidebar() {
     const pathname = usePathname();
 
     const links = [
         { href: "/app/admin", label: "Dashboard", icon: LayoutDashboard, exact: true },
+        { href: "/app/admin/usuarios", label: "Usuarios", icon: UsersRound },
         { href: "/app/admin/clubes", label: "Clubes Originals", icon: Users },
         { href: "/app/admin/retos", label: "Retos", icon: Trophy },
         { href: "/app/admin/catalogo", label: "Catálogo", icon: BookOpen },
         { href: "/app/admin/colecciones", label: "Colecciones", icon: Layers },
+        { href: "/app/admin/librerias", label: "Librerías", icon: Store },
         { href: "/app/admin/mensajes", label: "Mensajes", icon: Mail },
         { href: "/app/admin/ajustes", label: "Ajustes", icon: Settings },
     ];

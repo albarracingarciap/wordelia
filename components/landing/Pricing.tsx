@@ -9,7 +9,7 @@ import { Button } from "../ui/Button";
 import { PlanCard } from "../pricing/PlanCard";
 import { PLANS, type PlanId } from "@/lib/plans";
 
-export function Pricing() {
+export function Pricing({ founderWindowOpen = true }: { founderWindowOpen?: boolean }) {
     const [isAnnual, setIsAnnual] = useState(false);
     const router = useRouter();
     const { isLoggedIn } = useAuth();
@@ -30,13 +30,16 @@ export function Pricing() {
     return (
         <Section id="planes" className="bg-[#D8E2DC] py-16 md:py-24">
             <div className="mx-auto mb-8 max-w-3xl space-y-4 px-4 text-center md:mb-14">
-                <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">Planes fundador hasta el 1 de septiembre</p>
+                <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">
+                    {founderWindowOpen ? "Planes fundador hasta el 1 de septiembre" : "Nuestros planes"}
+                </p>
                 <h2 className="text-3xl leading-tight text-teal md:text-5xl">
                     Elige cómo quieres vivir tus lecturas
                 </h2>
                 <p className="mx-auto max-w-2xl text-base leading-relaxed text-grey md:text-lg">
-                    Wordelia se lanza al público el 2 de agosto. Regístrate antes del 1 de septiembre y bloquea tu
-                    beneficio fundador: participación gratuita en clubs de lectura de Wordelia.
+                    {founderWindowOpen
+                        ? "Wordelia se lanza al público el 2 de agosto. Regístrate antes del 1 de septiembre y bloquea tu beneficio fundador: participación gratuita en clubs de lectura de Wordelia."
+                        : "Desde la organización esencial hasta el análisis literario más avanzado con Inteligencia Artificial. Cambia o cancela cuando quieras."}
                 </p>
 
                 <div className="inline-flex items-center gap-2 rounded-full bg-white p-1.5 text-sm font-semibold shadow-sm">
@@ -68,6 +71,7 @@ export function Pricing() {
                             plan={plan}
                             price={price}
                             period={period}
+                            showFounderBenefit={founderWindowOpen}
                             action={
                                 <Button
                                     variant={plan.popular ? "primary" : "outline"}

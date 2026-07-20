@@ -25,7 +25,6 @@ function RegisterContent() {
     const billingPeriod = searchParams.get("billing") || "";
     const next = searchParams.get("next") || "";
     const loginHref = next ? `/login?next=${encodeURIComponent(next)}` : "/login";
-    const isBetaSignup = source === "beta" || intent.includes("beta") || Boolean(requestedPlan);
     const errorMessage = clientError || state?.error;
 
     const handleSubmit = (event: React.FormEvent<HTMLFormElement>) => {
@@ -84,11 +83,6 @@ function RegisterContent() {
 
                 <div className="w-full max-w-sm space-y-6">
                     <div className="text-center">
-                        {isBetaSignup && (
-                            <p className="mb-3 inline-flex rounded-full bg-coral/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-coral">
-                                Acceso fundador
-                            </p>
-                        )}
                         <h2 className="text-2xl font-bold text-teal-dark">Crear cuenta</h2>
                         <p className="mt-2 text-sm text-grey/60">Únete a la comunidad de lectura sin prisas</p>
                     </div>

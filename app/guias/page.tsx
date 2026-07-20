@@ -5,8 +5,8 @@ import { ArrowLeft, ArrowRight, CheckCircle2, Sparkles } from "lucide-react";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
 import { discussionGuides } from "@/lib/guides";
-import { createClient } from "@/utils/supabase/server";
-import { GuidesCatalogTable, type CatalogGuide } from "./GuidesCatalogTable";
+import { getCatalogBooks } from "@/lib/catalog-books";
+import { GuidesCatalogTable } from "./GuidesCatalogTable";
 
 export const metadata: Metadata = {
     title: "Guías de discusión | Wordelia",
@@ -17,80 +17,9 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-type BookGuideRow = {
-    book_id: string;
-};
-
-type BookRow = {
-    id: string;
-    title: string;
-    author: string | null;
-    genre: string | null;
-    first_publication_year: number | null;
-};
-
-type SupabaseTableClient = {
-    from: (table: string) => {
-        select: (columns: string) => {
-            order: (
-                column: string,
-                options: { ascending: boolean }
-            ) => Promise<{ data: BookGuideRow[] | BookRow[] | null; error: { message: string } | null }>;
-            in: (
-                column: string,
-                values: string[]
-            ) => {
-                order: (
-                    column: string,
-                    options: { ascending: boolean }
-                ) => Promise<{ data: BookRow[] | null; error: { message: string } | null }>;
-            };
-        };
-    };
-};
-
-async function getDiscussionGuideBooks(): Promise<CatalogGuide[]> {
-    const supabase = (await createClient()) as unknown as SupabaseTableClient;
-
-    const { data: guideRows, error: guideError } = await supabase
-        .from("book_guides")
-        .select("book_id")
-        .order("book_id", { ascending: true });
-
-    if (guideError) {
-        console.error("[Guias] Error fetching book guides:", guideError.message);
-        return [];
-    }
-
-    const bookIds = Array.from(new Set(((guideRows || []) as BookGuideRow[]).map((row) => row.book_id)));
-
-    if (bookIds.length === 0) {
-        return [];
-    }
-
-    const { data: books, error: booksError } = await supabase
-        .from("books")
-        .select("id, title, author, genre, first_publication_year")
-        .in("id", bookIds)
-        .order("title", { ascending: true });
-
-    if (booksError) {
-        console.error("[Guias] Error fetching books for guides:", booksError.message);
-        return [];
-    }
-
-    return (books || []).map((book) => ({
-        id: book.id,
-        title: book.title,
-        author: book.author,
-        genre: book.genre,
-        firstPublicationYear: book.first_publication_year,
-    }));
-}
-
 export default async function GuidesPage() {
     const freeGuide = discussionGuides.find((guide) => guide.isFree) || discussionGuides[0];
-    const guideBooks = await getDiscussionGuideBooks();
+    const guideBooks = await getCatalogBooks("book_guides");
 
     return (
         <main className="min-h-screen bg-cream">

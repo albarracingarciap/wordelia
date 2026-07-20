@@ -1,8 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import Image from "next/image";
 import Link from "next/link";
-import { BookOpenCheck, ChevronLeft, ChevronRight, Dna } from "lucide-react";
+import { BookOpenCheck, ChevronLeft, ChevronRight, Dna, Search } from "lucide-react";
 
 export type CatalogGuide = {
     id: string;
@@ -10,6 +11,7 @@ export type CatalogGuide = {
     author: string | null;
     genre: string | null;
     firstPublicationYear: number | null;
+    coverUrl: string | null;
 };
 
 const rowsPerPage = 10;
@@ -47,14 +49,31 @@ export function GuidesCatalogTable({
     registerSource = "guia-catalogo",
 }: GuidesCatalogTableProps) {
     const [currentPage, setCurrentPage] = useState(1);
-    const pageCount = Math.max(1, Math.ceil(guides.length / rowsPerPage));
+    const [query, setQuery] = useState("");
     const Icon = iconName === "dna" ? Dna : BookOpenCheck;
     const registerHref = `/register?source=${registerSource}`;
 
+    const filteredGuides = useMemo(() => {
+        const q = query.trim().toLowerCase();
+        if (!q) return guides;
+        return guides.filter(
+            (g) =>
+                g.title.toLowerCase().includes(q) ||
+                (g.author ?? "").toLowerCase().includes(q),
+        );
+    }, [guides, query]);
+
+    const pageCount = Math.max(1, Math.ceil(filteredGuides.length / rowsPerPage));
+
+    // Al filtrar cambia el número de páginas; nunca dejar el índice fuera de rango.
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [query]);
+
     const visibleGuides = useMemo(() => {
         const start = (currentPage - 1) * rowsPerPage;
-        return guides.slice(start, start + rowsPerPage);
-    }, [currentPage, guides]);
+        return filteredGuides.slice(start, start + rowsPerPage);
+    }, [currentPage, filteredGuides]);
 
     return (
         <section>
@@ -66,7 +85,7 @@ export function GuidesCatalogTable({
                 </div>
             </div>
 
-            <p className="mb-6 rounded-2xl border border-teal/10 bg-white px-4 py-3 text-sm text-grey shadow-sm">
+            <p className="mb-4 rounded-2xl border border-teal/10 bg-white px-4 py-3 text-sm text-grey shadow-sm">
                 La compra de {noun} se realiza desde tu cuenta.{" "}
                 <Link href={registerHref} className="font-semibold text-coral transition-colors hover:text-[#C25852]">
                     Regístrate gratis
@@ -78,21 +97,65 @@ export function GuidesCatalogTable({
                 .
             </p>
 
+            {/* Buscador por título o autor: el catálogo ya supera las 170 obras. */}
+            <div className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="relative w-full sm:max-w-sm">
+                    <Search
+                        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-grey/50"
+                        aria-hidden="true"
+                    />
+                    <input
+                        type="search"
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        placeholder="Buscar por título o autor…"
+                        aria-label="Buscar por título o autor"
+                        className="w-full rounded-2xl border border-teal/15 bg-white py-2.5 pl-9 pr-4 text-sm text-grey shadow-sm transition-colors placeholder:text-grey/50 focus:border-teal/40 focus:outline-none focus:ring-2 focus:ring-teal/10"
+                    />
+                </div>
+                <p className="text-sm text-grey/70">
+                    {filteredGuides.length}{" "}
+                    {filteredGuides.length === 1 ? "obra" : "obras"}
+                    {query.trim() && ` · "${query.trim()}"`}
+                </p>
+            </div>
+
             <div className="overflow-hidden rounded-3xl border border-teal/10 bg-white shadow-sm">
                 <div className="overflow-x-auto">
-                    <table className="w-full min-w-[720px] border-collapse text-left">
+                    <table className="w-full min-w-[640px] border-collapse text-left">
                         <thead className="bg-offwhite text-xs font-bold uppercase tracking-[0.14em] text-teal">
                             <tr>
+                                <th className="w-16 px-5 py-4">
+                                    <span className="sr-only">Portada</span>
+                                </th>
                                 <th className="px-5 py-4">Libro</th>
                                 <th className="px-5 py-4">Autor</th>
                                 <th className="px-5 py-4">Género</th>
                                 <th className="px-5 py-4 text-right">Precio Oferta</th>
-                                <th className="px-5 py-4 text-right">Acceso</th>
                             </tr>
                         </thead>
                         <tbody>
                             {visibleGuides.length > 0 ? visibleGuides.map((guide) => (
                                 <tr key={guide.id} className="border-t border-teal/10 transition-colors hover:bg-cream/70">
+                                    <td className="py-3 pl-5 pr-0">
+                                        <div className="relative h-14 w-10 overflow-hidden rounded bg-grey/10 shadow-sm">
+                                            {guide.coverUrl ? (
+                                                <Image
+                                                    src={guide.coverUrl}
+                                                    alt={`Portada de ${guide.title}`}
+                                                    fill
+                                                    sizes="40px"
+                                                    className="object-cover"
+                                                />
+                                            ) : (
+                                                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-grey/20 to-grey/5 p-1">
+                                                    <span className="line-clamp-3 text-center text-[8px] leading-tight text-grey/60">
+                                                        {guide.title}
+                                                    </span>
+                                                </div>
+                                            )}
+                                        </div>
+                                    </td>
                                     <td className="px-5 py-4 font-semibold text-teal-dark">{guide.title}</td>
                                     <td className="px-5 py-4 text-grey">{guide.author || "Autor desconocido"}</td>
                                     <td className="px-5 py-4">
@@ -108,19 +171,13 @@ export function GuidesCatalogTable({
                                         </span>
                                         <span className="font-semibold text-emerald-700">{formatPrice(price)}</span>
                                     </td>
-                                    <td className="px-5 py-4 text-right">
-                                        <Link
-                                            href={registerHref}
-                                            className="inline-flex h-9 items-center justify-center rounded-xl border border-coral/40 px-4 text-sm font-semibold text-coral transition-colors hover:bg-coral hover:text-white"
-                                        >
-                                            Regístrate para comprar
-                                        </Link>
-                                    </td>
                                 </tr>
                             )) : (
                                 <tr className="border-t border-teal/10">
                                     <td colSpan={5} className="px-5 py-10 text-center text-grey">
-                                        {emptyLabel}
+                                        {query.trim()
+                                            ? `No hemos encontrado ${noun} para "${query.trim()}".`
+                                            : emptyLabel}
                                     </td>
                                 </tr>
                             )}

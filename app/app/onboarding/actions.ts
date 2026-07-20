@@ -3,6 +3,9 @@
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { isSubscriptionActive } from "@/lib/subscription-access";
+
+const PAID_PLANS = new Set(["voraz", "ai"]);
 
 type OnboardingResult = {
     success?: true;
@@ -38,6 +41,10 @@ function getProfileErrorMessage(message: string) {
 
 export async function completeOnboarding(formData: FormData): Promise<OnboardingResult> {
     let completed = false;
+    // Destino tras finalizar. Se calcula dentro del try (con la sesión abierta)
+    // pero el redirect() se hace fuera: lanzar redirect() dentro de un try/catch
+    // lo capturaría como si fuese un error.
+    let destination = "/app/mi-lectura";
 
     try {
         const supabase = await createClient();
@@ -95,6 +102,23 @@ export async function completeOnboarding(formData: FormData): Promise<Onboarding
             return { error: getProfileErrorMessage(updateError.message) };
         }
 
+        // Destino según el plan elegido en el paso 3.
+        // Si ya hay una suscripción activa (p. ej. la pagó antes de terminar el
+        // onboarding), nunca lo mandamos a pagar de nuevo: directo a la app.
+        const selectedPlan = String(formData.get("selectedPlan") || "");
+        const billingPeriod = String(formData.get("billingPeriod") || "") === "annual" ? "annual" : "monthly";
+
+        const { data: sub } = await supabase
+            .from("user_subscriptions")
+            .select("status, current_period_end")
+            .eq("user_id", user.id)
+            .maybeSingle();
+        const hasActiveSub = sub ? isSubscriptionActive(sub.status, sub.current_period_end) : false;
+
+        if (!hasActiveSub && PAID_PLANS.has(selectedPlan)) {
+            destination = `/planes?plan=${selectedPlan}&billing=${billingPeriod}`;
+        }
+
         completed = true;
     } catch (error: unknown) {
         console.error("Server Action Exception:", error);
@@ -103,7 +127,7 @@ export async function completeOnboarding(formData: FormData): Promise<Onboarding
 
     if (completed) {
         revalidatePath("/", "layout");
-        redirect("/app/mi-lectura");
+        redirect(destination);
     }
 
     return { success: true };

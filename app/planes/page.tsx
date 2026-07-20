@@ -13,6 +13,7 @@ import { createClient } from "@/utils/supabase/client";
 import { PayPalSubscriptionProvider, PayPalSubscribeButton } from "@/components/payments/PayPalSubscribe";
 import { PLANS, type PlanId } from "@/lib/plans";
 import { isSubscriptionActive } from "@/lib/subscription-access";
+import { isFounderWindowOpen, type FounderWindowLike } from "@/lib/founder-window";
 
 function PlansContent() {
     const router = useRouter();
@@ -22,6 +23,9 @@ function PlansContent() {
     const [isAnnual, setIsAnnual] = React.useState(searchParams.get("billing") === "annual");
     const [userId, setUserId] = React.useState<string | null>(null);
     const [authReady, setAuthReady] = React.useState(false);
+    // Ventana de fundador (fila pública de app_settings). Por defecto abierta:
+    // no ocultamos el beneficio ante un error/lectura transitoria.
+    const [founderWindowOpen, setFounderWindowOpen] = React.useState(true);
     // Plan de pago activo del usuario (null = ninguno / plan gratis).
     const [currentPlan, setCurrentPlan] = React.useState<string | null>(null);
     const period: "monthly" | "annual" = isAnnual ? "annual" : "monthly";
@@ -44,6 +48,24 @@ function PlansContent() {
             }
             setAuthReady(true);
         })();
+    }, []);
+
+    React.useEffect(() => {
+        let active = true;
+        const supabase = createClient();
+        (async () => {
+            const { data } = await supabase
+                .from("app_settings")
+                .select("value")
+                .eq("key", "founder_window")
+                .maybeSingle();
+            if (active && data?.value) {
+                setFounderWindowOpen(isFounderWindowOpen(data.value as FounderWindowLike));
+            }
+        })();
+        return () => {
+            active = false;
+        };
     }, []);
 
     // Al llegar con ?plan=X la página actúa como confirmación: salta al plan elegido.
@@ -77,7 +99,11 @@ function PlansContent() {
                     </button>
                 </div>
                 <p className="text-xs font-bold uppercase tracking-[0.22em] text-coral">
-                    {selectedPlan ? "Último paso" : "Planes fundador hasta el 1 de septiembre"}
+                    {selectedPlan
+                        ? "Último paso"
+                        : founderWindowOpen
+                            ? "Planes fundador hasta el 1 de septiembre"
+                            : "Nuestros planes"}
                 </p>
                 <SectionHeader
                     title={selectedPlan ? "Confirma tu plan" : "Elige tu plan"}
@@ -129,6 +155,7 @@ function PlansContent() {
                                     price={price}
                                     period={displayPeriod}
                                     hidePopularBadge={isSelected}
+                                    showFounderBenefit={founderWindowOpen}
                                     action={<PlanAction planId={plan.id} cta={plan.cta} period={period} authReady={authReady} userId={userId} currentPlan={currentPlan} router={router} />}
                                 />
                             </div>
@@ -144,10 +171,12 @@ function PlansContent() {
                         <h4 className="mb-2 font-bold text-teal-dark">¿Puedo cambiar de plan en cualquier momento?</h4>
                         <p className="text-sm text-grey/80">Sí, puedes mejorar o cancelar tu suscripción en cualquier momento desde tu perfil.</p>
                     </div>
-                    <div className="rounded-xl border border-teal/5 bg-white p-6">
-                        <h4 className="mb-2 font-bold text-teal-dark">¿Qué es el beneficio fundador?</h4>
-                        <p className="text-sm text-grey/80">Si te registras antes del 1 de septiembre, obtienes participación gratuita en clubs de lectura de Wordelia (1, 2 o 3 según tu plan) durante 2026, con su guía y genoma para siempre.</p>
-                    </div>
+                    {founderWindowOpen && (
+                        <div className="rounded-xl border border-teal/5 bg-white p-6">
+                            <h4 className="mb-2 font-bold text-teal-dark">¿Qué es el beneficio fundador?</h4>
+                            <p className="text-sm text-grey/80">Si te registras antes del 1 de septiembre, obtienes participación gratuita en clubs de lectura de Wordelia (1, 2 o 3 según tu plan) durante 2026, con su guía y genoma para siempre.</p>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
@@ -187,15 +216,33 @@ function PlanAction({
 
     // Plan gratis.
     if (planId === "explorador") {
-        // Logueado sin plan de pago → el gratis ES su plan actual.
-        if (userId && !hasActiveSub) return <CurrentPlanBadge />;
+        // Logueado: el gratis es una elección accionable, no solo una etiqueta.
+        // Sin esto, un usuario recién registrado que aterriza aquí solo veía
+        // botones de pago y sentía que estaba obligado a suscribirse.
+        if (userId) {
+            return (
+                <div className="space-y-2">
+                    <Button
+                        variant={hasActiveSub ? "outline" : "primary"}
+                        className="w-full"
+                        onClick={() => router.push("/app/mi-lectura")}
+                    >
+                        {hasActiveSub ? "Ir a la app" : "Empezar gratis"}
+                    </Button>
+                    {!hasActiveSub && (
+                        <p className="text-center text-xs text-grey/60">Es tu plan actual, sin coste.</p>
+                    )}
+                </div>
+            );
+        }
+        // Sin sesión → registro con el plan gratis preseleccionado.
         return (
             <Button
                 variant="outline"
                 className="w-full"
-                onClick={() => router.push(userId ? "/app/mi-lectura" : `/register?source=beta&intent=plan-explorador&plan=explorador`)}
+                onClick={() => router.push(`/register?source=planes&intent=plan-explorador&plan=explorador`)}
             >
-                {userId ? "Ir a la app" : cta}
+                {cta}
             </Button>
         );
     }
