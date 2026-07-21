@@ -13,6 +13,7 @@ const footerGroups = [
         links: [
             { label: "Clubs públicos", href: "/clubes" },
             { label: "Libros", href: "/explorar" },
+            { label: "Librerías", href: "/librerias" },
             { label: "Planes", href: "/planes" },
         ],
     },
@@ -20,7 +21,7 @@ const footerGroups = [
         title: "Wordelia",
         links: [
             { label: "Para clubs", href: "/register?source=footer&intent=create-club" },
-            { label: "Librerías", href: "/contacto?source=librerias" },
+            { label: "Para librerías", href: "/contacto?source=librerias" },
             { label: "Educación", href: "/contacto?source=educacion" },
             { label: "Contacto", href: "/contacto" },
         ],

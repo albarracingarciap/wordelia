@@ -2,6 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Award, BookOpen, Calendar, ChevronLeft, FileText, Lock, MapPin, User } from "lucide-react";
 import { createClient } from "@/utils/supabase/server";
+import { getFollowState } from "../follow-actions";
+import { FollowButton } from "@/components/social/FollowButton";
+import { FollowCounts } from "@/components/social/FollowCounts";
 
 export const dynamic = "force-dynamic";
 
@@ -54,7 +57,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     });
 
     if (error) {
-        console.error("Error loading public profile:", error);
+        console.error("Error loading public profile:", error?.message, error?.details ?? "", error?.hint ?? "", error?.code ?? "");
     }
 
     if (!data) {
@@ -63,6 +66,15 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
 
     const summary = data as PublicProfileSummary;
     const profile = summary.profile;
+
+    // Id del perfil objetivo (para el grafo de follows).
+    const cleanUsername = decodeURIComponent(username).replace(/^@/, "");
+    let targetId = profile.id ?? null;
+    if (!targetId) {
+        const { data: prof } = await supabase.from("profiles").select("id").eq("username", cleanUsername).maybeSingle();
+        targetId = prof?.id ?? null;
+    }
+    const follow = targetId ? await getFollowState(targetId) : null;
     const memberSince = profile.created_at
         ? new Date(profile.created_at).toLocaleDateString("es-ES", { month: "short", year: "numeric" })
         : null;
@@ -89,17 +101,17 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
                 <section className="overflow-hidden rounded-2xl border border-grey/10 bg-white shadow-sm sm:rounded-3xl">
                     <div className="h-28" style={{ backgroundColor: bannerColor }} />
                     <div className="px-4 pb-6 sm:px-6">
-                        <div className="-mt-12 flex flex-col gap-4 sm:flex-row sm:items-end">
-                            <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-3xl border-4 border-white bg-grey/10 shadow-md">
+                        <div className="flex flex-col gap-4 sm:flex-row">
+                            <div className="-mt-12 flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-3xl border-4 border-white bg-grey/10 shadow-md">
                                 {profile.avatar_url ? (
                                     <img src={profile.avatar_url} alt={profile.full_name || profile.username} className="h-full w-full object-cover" />
                                 ) : (
                                     <User className="h-10 w-10 text-teal/60" />
                                 )}
                             </div>
-                            <div className="min-w-0 flex-1">
+                            <div className="min-w-0 flex-1 sm:pt-3">
                                 <h2 className="break-words text-3xl font-bold text-teal-dark">{profile.full_name || profile.username}</h2>
-                                <div className="mt-2 flex flex-wrap gap-3 text-sm text-grey/60">
+                                <div className="mt-3 flex flex-wrap gap-3 text-sm text-grey/60">
                                     {profile.location && (
                                         <span className="inline-flex items-center gap-1">
                                             <MapPin className="h-4 w-4" /> {profile.location}
@@ -111,6 +123,15 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
                                         </span>
                                     )}
                                 </div>
+
+                                {follow && targetId && (
+                                    <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
+                                        <FollowCounts userId={targetId} followers={follow.followers} following={follow.following} />
+                                        {!follow.isSelf && (
+                                            <FollowButton targetId={targetId} initialFollowing={follow.isFollowing} />
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
 

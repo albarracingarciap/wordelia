@@ -1,15 +1,25 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowLeft, Store } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
-import { LibreriaCard } from "@/components/librerias/LibreriaCard";
 import { getOrganizations } from "@/app/app/librerias/actions";
+import { SITE_URL } from "@/lib/site";
+import { LibrariesSearch } from "./LibrariesSearch";
 
 export const metadata: Metadata = {
     title: "Librerías | Wordelia — Clubs de lectura en tu librería",
     description:
         "Descubre librerías que organizan clubs de lectura con Wordelia: guías de discusión, genomas literarios y encuentros en tienda.",
+    alternates: { canonical: `${SITE_URL}/librerias` },
+    openGraph: {
+        title: "Librerías independientes en Wordelia",
+        description:
+            "Descubre librerías de barrio que organizan clubs de lectura con Wordelia: guías, genomas y encuentros en tienda.",
+        url: `${SITE_URL}/librerias`,
+        siteName: "Wordelia",
+        type: "website",
+    },
 };
 
 export const dynamic = "force-dynamic";
@@ -42,23 +52,7 @@ export default async function LibreriasPage() {
                         </p>
                     </section>
 
-                    {organizations.length > 0 ? (
-                        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-                            {organizations.map((org) => (
-                                <LibreriaCard key={org.id} organization={org} />
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="rounded-2xl border border-dashed border-teal/15 bg-white/50 py-16 text-center">
-                            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-teal/5 text-teal/40">
-                                <Store className="h-6 w-6" aria-hidden="true" />
-                            </div>
-                            <p className="text-grey/70">Aún no hay librerías publicadas.</p>
-                            <Link href="/app/librerias" className="mt-4 inline-flex text-sm font-semibold text-teal hover:text-coral">
-                                ¿Tienes una librería? Regístrala aquí
-                            </Link>
-                        </div>
-                    )}
+                    <LibrariesSearch initialOrganizations={organizations} />
                 </div>
             </main>
 

@@ -29,6 +29,7 @@ const dancingScript = Dancing_Script({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://wordelia.es"),
   title: "Wordelia - Donde importan las palabras",
   description: "Wordelia, una experiencia de lectura pausada para guardar lo que te mueve, descubrir libros y compartir lecturas en clubs cuidados.",
   icons: {

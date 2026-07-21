@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/Card";
 import Link from "next/link";
-import { Star, MessageSquare, Quote, Heart, BookOpen, User } from "lucide-react";
-import { getGlobalActivityFeed, toggleActivityLike, ActivityFeedItem } from "./actions";
+import { Star, MessageSquare, Quote, Heart, BookOpen, User, Users } from "lucide-react";
+import { getGlobalActivityFeed, getFollowingActivityFeed, toggleActivityLike, ActivityFeedItem } from "./actions";
+import { FollowingReadingStrip } from "./FollowingReadingStrip";
+
+type FeedTab = "siguiendo" | "comunidad";
 
 // Optional mapping for icons based on activity type
 const typeToIcon = (type: string) => {
@@ -20,21 +23,23 @@ const typeToIcon = (type: string) => {
 export function ActivityFeed() {
     const [feedItems, setFeedItems] = useState<ActivityFeedItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [tab, setTab] = useState<FeedTab>("comunidad");
+
+    const loadFeed = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const items = tab === "siguiendo" ? await getFollowingActivityFeed(15) : await getGlobalActivityFeed(10);
+            setFeedItems(items);
+        } catch (error) {
+            console.error("Failed to load activity feed:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [tab]);
 
     useEffect(() => {
-        const loadFeed = async () => {
-            try {
-                const items = await getGlobalActivityFeed(10);
-                setFeedItems(items);
-            } catch (error) {
-                console.error("Failed to load activity feed:", error);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-
         loadFeed();
-    }, []);
+    }, [loadFeed]);
 
     const handleToggleLike = async (id: string, e: React.MouseEvent) => {
         e.preventDefault(); // Prevent triggering any potential parent link
@@ -62,8 +67,7 @@ export function ActivityFeed() {
             } else if (!result.success) {
                 // Revert optimistic update
                 console.error("Failed to toggle like:", result.error);
-                const items = await getGlobalActivityFeed(10);
-                setFeedItems(items);
+                loadFeed();
             }
         } catch (error) {
             console.error("Error toggling like:", error);
@@ -72,25 +76,37 @@ export function ActivityFeed() {
 
     return (
         <Card className="bg-white border-teal/10 overflow-hidden flex flex-col h-full max-h-[500px]">
-            <div className="p-4 border-b border-teal/5 bg-cream/30 sticky top-0 z-10 flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                    <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-teal opacity-75"></span>
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-teal"></span>
-                    </span>
-                    <h3 className="font-serif text-teal text-sm uppercase tracking-wider font-bold">Comunidad</h3>
-                </div>
-                <span className="text-[10px] text-grey/40 uppercase tracking-widest font-semibold">Live</span>
+            <div className="p-2 border-b border-teal/5 bg-cream/30 sticky top-0 z-10 flex items-center gap-1">
+                {(["siguiendo", "comunidad"] as FeedTab[]).map((t) => (
+                    <button
+                        key={t}
+                        onClick={() => setTab(t)}
+                        className={`flex-1 rounded-lg px-3 py-1.5 text-xs font-bold uppercase tracking-wider transition-colors ${
+                            tab === t ? "bg-teal text-white" : "text-grey/50 hover:bg-teal/5 hover:text-teal"
+                        }`}
+                    >
+                        {t === "siguiendo" ? "Siguiendo" : "Comunidad"}
+                    </button>
+                ))}
             </div>
+
+            {tab === "siguiendo" && <FollowingReadingStrip />}
 
             <div className="overflow-y-auto custom-scrollbar flex-1 p-0">
                 {isLoading ? (
                     <div className="p-8 text-center text-sm text-grey/50">Cargando actividad...</div>
                 ) : feedItems.length === 0 ? (
-                    <div className="p-8 text-center text-sm text-grey/50">
-                        La comunidad está muy tranquila ahora mismo.<br />
-                        ¡Sé el primero en compartir algo!
-                    </div>
+                    tab === "siguiendo" ? (
+                        <div className="p-8 text-center text-sm text-grey/50">
+                            <Users className="mx-auto mb-2 h-6 w-6 opacity-40" />
+                            Sigue a lectores para ver aquí lo que leen y reseñan.
+                        </div>
+                    ) : (
+                        <div className="p-8 text-center text-sm text-grey/50">
+                            La comunidad está muy tranquila ahora mismo.<br />
+                            ¡Sé el primero en compartir algo!
+                        </div>
+                    )
                 ) : (
                     <div className="divide-y divide-teal/5">
                         {feedItems.map((item) => {

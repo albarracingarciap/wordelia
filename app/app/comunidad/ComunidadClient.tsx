@@ -7,6 +7,7 @@ import { MessageSquare, Star, BookOpen, Quote, Heart } from "lucide-react";
 import { getGlobalActivityFeed, toggleActivityLike, ActivityFeedItem } from "@/components/dashboard/actions";
 import { getHelpfulCommunityReviews, getRecentCommunityReviews, type ReviewWithBook } from "@/app/app/mi-lectura/actions";
 import { ReviewCard } from "@/components/reviews/ReviewCard";
+import { PeopleDiscover } from "@/components/social/PeopleDiscover";
 import Link from "next/link";
 
 const ICONS = {
@@ -96,6 +97,10 @@ export function ComunidadClient() {
                 <h1 className="text-3xl font-serif text-teal-dark mb-2 tracking-tight">Comunidad Wordelia</h1>
                 <p className="text-grey/80">Descubre qué están leyendo, opinando y guardando otros lectores.</p>
             </div>
+
+            <section className="mb-8">
+                <PeopleDiscover />
+            </section>
 
             <section className="mb-8">
                 <div className="mb-3 flex items-center justify-between gap-4">

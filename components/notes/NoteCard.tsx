@@ -1,5 +1,6 @@
 import * as React from "react";
 import { CheckCircle2, Lock, Pencil, Sparkles, Trash2 } from "lucide-react";
+import { ShareQuoteButton } from "./ShareQuoteButton";
 
 export interface Note {
     id: string;
@@ -122,6 +123,11 @@ export function NoteCard({
                     <p className="mt-1 text-[10px] text-grey/35">{note.date}</p>
                 </div>
                 <div className="flex shrink-0 gap-1.5 sm:opacity-0 sm:transition-opacity sm:group-hover:opacity-100">
+                    {isQuote && (
+                        <div onClick={(event) => event.stopPropagation()}>
+                            <ShareQuoteButton noteId={note.id} isPrivate={note.isPrivate} />
+                        </div>
+                    )}
                     {isQuote && onToggleHighlight && (
                         <button
                             type="button"

@@ -1,5 +1,5 @@
 import * as React from "react";
-import { AlertCircle, Lightbulb, MessageCircleQuestion, Puzzle, Quote, X } from "lucide-react";
+import { AlertCircle, Globe, Lightbulb, Lock, MessageCircleQuestion, Puzzle, Quote, X } from "lucide-react";
 import { Modal } from "../ui/Modal";
 import { Button } from "../ui/Button";
 import { Select } from "../ui/Select";
@@ -33,6 +33,7 @@ const NOTE_TYPES = [
 export function CreateNoteModal({ isOpen, onClose, books, initialBookId, initialNote, onSuccess }: CreateNoteModalProps) {
     const [bookId, setBookId] = React.useState(initialBookId || books?.[0]?.id || "");
     const [type, setType] = React.useState("Nota");
+    const [isPublic, setIsPublic] = React.useState(false);
     const [content, setContent] = React.useState("");
     const [location, setLocation] = React.useState("");
     const [tagInput, setTagInput] = React.useState("");
@@ -46,6 +47,7 @@ export function CreateNoteModal({ isOpen, onClose, books, initialBookId, initial
         if (initialNote) {
             setBookId(initialNote.bookId || initialBookId || books?.[0]?.id || "");
             setType(initialNote.type || "Nota");
+            setIsPublic((initialNote.type || "Nota") === "Cita");
             setContent(initialNote.content || "");
             setLocation(initialNote.location?.replace(/^p\.\s*/, "") || "");
             setTags(initialNote.tags || []);
@@ -56,6 +58,7 @@ export function CreateNoteModal({ isOpen, onClose, books, initialBookId, initial
 
         setBookId(initialBookId || books?.[0]?.id || "");
         setType("Nota");
+        setIsPublic(false);
         setContent("");
         setLocation("");
         setTags([]);
@@ -65,7 +68,8 @@ export function CreateNoteModal({ isOpen, onClose, books, initialBookId, initial
 
     const handleTypeChipClick = (label: string) => {
         setType(label);
-        setContent((current) => (current ? `${current} ${label}` : label));
+        // Sugerencia sensata: las citas se comparten, el resto por defecto no.
+        setIsPublic(label === "Cita");
     };
 
     const normalizeTag = (value: string) => value.trim().replace(/^#/, "");
@@ -122,8 +126,8 @@ export function CreateNoteModal({ isOpen, onClose, books, initialBookId, initial
             }
 
             const result = initialNote?.id
-                ? await updateNote(initialNote.id, bookId, finalContent, type, location)
-                : await saveNote(bookId, finalContent, type, location);
+                ? await updateNote(initialNote.id, bookId, finalContent, type, location, isPublic)
+                : await saveNote(bookId, finalContent, type, location, isPublic);
 
             if (result.error) {
                 setFormError(result.error);
@@ -236,6 +240,29 @@ export function CreateNoteModal({ isOpen, onClose, books, initialBookId, initial
                         )}
                     </div>
                 </div>
+
+                <button
+                    type="button"
+                    onClick={() => setIsPublic((v) => !v)}
+                    className={`flex w-full items-center justify-between gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${
+                        isPublic ? "border-teal/30 bg-teal/5" : "border-teal/10 bg-cream/30"
+                    }`}
+                >
+                    <span className="flex items-center gap-2.5">
+                        {isPublic ? <Globe className="h-4 w-4 text-teal" /> : <Lock className="h-4 w-4 text-grey/50" />}
+                        <span>
+                            <span className="block text-sm font-medium text-teal-dark">
+                                {isPublic ? "Pública" : "Privada"}
+                            </span>
+                            <span className="block text-xs text-grey/50">
+                                {isPublic ? "Aparece en la comunidad y podrás compartirla" : "Solo tú la ves"}
+                            </span>
+                        </span>
+                    </span>
+                    <span className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${isPublic ? "bg-teal" : "bg-grey/30"}`}>
+                        <span className={`absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${isPublic ? "translate-x-5" : ""}`} />
+                    </span>
+                </button>
 
                 <div className="sticky bottom-0 z-10 -mx-5 grid grid-cols-2 gap-3 border-t border-teal/5 bg-white/95 px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 backdrop-blur sm:static sm:mx-0 sm:flex sm:justify-end sm:border-t-0 sm:bg-transparent sm:p-0 sm:pt-2 sm:backdrop-blur-none">
                     <Button type="button" variant="ghost" onClick={onClose} className="h-12 px-4 text-base sm:px-8" disabled={isSubmitting}>

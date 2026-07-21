@@ -7,6 +7,7 @@ import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
 import { getOrganizationBySlug, getOrganizationClubs, getOrganizationEvents, getOrganizationLocations } from "@/app/app/librerias/actions";
 import { buildBuyLink } from "@/lib/buy-link";
+import { SITE_URL } from "@/lib/site";
 import type { OrganizationEventFormat, OrganizationEventType } from "@/types/organizations";
 
 const EVENT_TYPE_LABELS: Record<OrganizationEventType, string> = {
@@ -30,9 +31,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const { slug } = await params;
     const org = await getOrganizationBySlug(slug);
     if (!org) return { title: "Librería | Wordelia" };
+    const canonical = `${SITE_URL}/librerias/${slug}`;
+    const description = org.description || `Clubs de lectura organizados por ${org.name} en Wordelia.`;
     return {
         title: `${org.name} | Librerías Wordelia`,
-        description: org.description || `Clubs de lectura organizados por ${org.name} en Wordelia.`,
+        description,
+        alternates: { canonical },
+        openGraph: {
+            type: "profile",
+            title: org.name,
+            description,
+            url: canonical,
+            siteName: "Wordelia",
+            images: org.cover_url || org.logo_url ? [{ url: (org.cover_url || org.logo_url)! }] : undefined,
+        },
     };
 }
 
@@ -53,6 +65,9 @@ export default async function LibreriaProfilePage({ params }: PageProps) {
     const brandStyle = org.brand_color ? { color: org.brand_color } : undefined;
     const brandChipStyle = org.brand_color ? { color: org.brand_color, backgroundColor: `${org.brand_color}1a` } : undefined;
     const brandBtnStyle = org.brand_color ? { color: org.brand_color, borderColor: org.brand_color, backgroundColor: `${org.brand_color}14` } : undefined;
+    // Si la librería tiene enlace de compra propio, el botón la nombra ("Comprar en X");
+    // si no, cae a Todostuslibros y la etiqueta debe ser honesta (búsqueda indie).
+    const hasOwnStore = !!org.buy_link_template?.trim();
 
     return (
         <div className="flex min-h-screen flex-col bg-cream">
@@ -75,7 +90,7 @@ export default async function LibreriaProfilePage({ params }: PageProps) {
                         Todas las librerías
                     </Link>
 
-                    <header className="-mt-2 flex flex-col gap-4 sm:flex-row sm:items-end">
+                    <header className="mt-5 flex flex-col gap-4 sm:flex-row sm:items-end">
                         {org.logo_url && (
                             <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl border-2 border-white bg-white shadow-sm">
                                 <Image src={org.logo_url} alt={org.name} fill className="object-cover" sizes="80px" />
@@ -114,7 +129,6 @@ export default async function LibreriaProfilePage({ params }: PageProps) {
                                             template: org.buy_link_template,
                                             isbn: club.currentBook.isbn,
                                             title: club.currentBook.title,
-                                            bookshopAffiliateId: process.env.NEXT_PUBLIC_BOOKSHOP_AFFILIATE_ID || null,
                                         })
                                         : null;
                                     return (
@@ -149,11 +163,12 @@ export default async function LibreriaProfilePage({ params }: PageProps) {
                                                 <a
                                                     href={buyUrl}
                                                     target="_blank"
-                                                    rel="noopener noreferrer sponsored"
-                                                    style={brandBtnStyle}
+                                                    rel={hasOwnStore ? "noopener noreferrer sponsored" : "noopener noreferrer"}
+                                                    style={hasOwnStore ? brandBtnStyle : undefined}
                                                     className="inline-flex items-center justify-center gap-2 rounded-xl border border-teal/15 bg-teal/5 px-4 py-2 text-sm font-semibold text-teal transition-colors hover:bg-teal/10"
                                                 >
-                                                    <ShoppingBag className="h-4 w-4" aria-hidden="true" /> Comprar en {org.name}
+                                                    <ShoppingBag className="h-4 w-4" aria-hidden="true" />
+                                                    {hasOwnStore ? `Comprar en ${org.name}` : "Buscar en librerías independientes"}
                                                 </a>
                                             )}
                                         </div>

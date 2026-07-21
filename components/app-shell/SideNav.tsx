@@ -14,15 +14,17 @@ const Icons = {
     User: (props: any) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" /><circle cx="12" cy="7" r="4" /></svg>,
     Heart: (props: any) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z" /></svg>,
     Store: (props: any) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" /><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8" /><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" /><path d="M2 7h20" /><path d="M22 7v3a2 2 0 0 1-2 2 2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12a2 2 0 0 1-2-2V7" /></svg>,
+    Building: (props: any) => <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" {...props}><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z" /><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2" /><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2" /><path d="M10 6h4" /><path d="M10 10h4" /><path d="M10 14h4" /><path d="M10 18h4" /></svg>,
 }
 
 const NAV_ITEMS = [
     { label: "Mi lectura", href: "/app/mi-lectura", icon: Icons.Home },
     { label: "Explorar", href: "/app/explorar", icon: Icons.Compass },
     { label: "Clubs", href: "/app/clubs", icon: Icons.Users },
+    { label: "Librerías", href: "/app/librerias/descubrir", icon: Icons.Building },
     { label: "Lista de deseos", href: "/app/wishes", icon: Icons.Heart },
     { label: "Guardados", href: "/app/guardados", icon: Icons.Bookmark },
-    { label: "Mi librería", href: "/app/librerias", icon: Icons.Store },
+    { label: "Mi librería", href: "/app/librerias", icon: Icons.Store, exact: true },
     { label: "Perfil", href: "/app/perfil", icon: Icons.User },
 ];
 
@@ -41,7 +43,9 @@ export function SideNav() {
             <div className="space-y-1">
                 <p className="px-4 text-xs font-bold text-grey/40 uppercase tracking-widest mb-4 mt-2">Menú</p>
                 {navItems.map((item) => {
-                    const isActive = pathname.startsWith(item.href);
+                    // "Mi librería" usa coincidencia exacta para no activarse también
+                    // en la ruta anidada de descubrimiento (/app/librerias/descubrir).
+                    const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
                     const Icon = item.icon;
                     return (
                         <Link

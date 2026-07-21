@@ -198,6 +198,15 @@ function ShelvesPageContent() {
                 }}
             />
 
+            <div className="flex justify-end -mt-2">
+                <Link
+                    href="/app/mi-lectura/importar"
+                    className="inline-flex items-center gap-1.5 text-sm text-teal transition-colors hover:text-teal-dark"
+                >
+                    <FolderInput className="h-4 w-4" /> Importar de Goodreads / StoryGraph
+                </Link>
+            </div>
+
             {loadError && <InlineError message={loadError} />}
             {actionError && <InlineError message={actionError} />}
 

@@ -184,7 +184,8 @@ export async function getOrganizations(search?: string): Promise<Organization[]>
         .eq('is_active', true)
         .order('created_at', { ascending: false });
 
-    if (search) query = query.ilike('name', `%${search}%`);
+    const safe = (search || '').replace(/[%,()]/g, ' ').trim();
+    if (safe) query = query.or(`name.ilike.%${safe}%,city.ilike.%${safe}%,region.ilike.%${safe}%`);
 
     const { data, error } = await query;
     if (error) {

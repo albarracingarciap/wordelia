@@ -165,6 +165,11 @@ function BookHelper() {
         fetchBook();
     }, [id]);
 
+    // Abre el modal de reseña si venimos de la ficha pública con ?review=1.
+    useEffect(() => {
+        if (searchParams.get("review") === "1" && dbBookId) setIsReviewOpen(true);
+    }, [searchParams, dbBookId]);
+
     const handleAdd = async () => {
         if (!book || isAdded) return;
         setIsAdding(true);

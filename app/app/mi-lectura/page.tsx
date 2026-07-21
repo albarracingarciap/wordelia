@@ -17,6 +17,7 @@ import { ReviewModal } from "@/components/reviews/ReviewModal";
 import { DashboardSkeleton } from "@/components/dashboard/DashboardSkeleton";
 import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { PlanStatusCard } from "@/components/pricing/PlanStatusCard";
+import { ReadingChallengeWidget } from "@/components/dashboard/ReadingChallengeWidget";
 import { getCurrentBooks, getReadingStats, getRecentNotes, CurrentBook, ReadingStats, Note, deleteBook, getRecommendedBook, RecommendedBook, startReadingBook, convertBookEmotionToNote, getEmotionBookGroups, EmotionBookGroup, getReaderResourceContext, ReaderResourceContext } from "@/app/app/mi-lectura/actions";
 import { getUpcomingMilestones } from "@/app/app/clubs/[id]/actions";
 import { Search, BookOpen, CalendarDays, AlertCircle, Plus, Timer, Library, Users, StickyNote, BookOpenText, Dna, ShieldCheck, Lock } from "lucide-react";
@@ -621,6 +622,9 @@ export default function MiLecturaPage() {
 
                     {/* Plan status + upsell (oculto para el plan máximo) */}
                     <PlanStatusCard plan={resourceContext.plan} />
+
+                    {/* Reto de lectura anual */}
+                    <ReadingChallengeWidget />
 
                     {/* Section 4: Actions */}
                     <section className="order-1 hidden lg:block">

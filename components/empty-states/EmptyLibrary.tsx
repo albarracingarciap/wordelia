@@ -63,9 +63,7 @@ export function EmptyLibrary() {
                 <Button
                     variant="outline"
                     className="h-auto justify-start border-dashed border-teal/20 px-4 py-4 text-grey hover:border-teal/40 hover:bg-teal/5 hover:text-teal"
-                    onClick={() => {
-                        // Placeholder for a future import flow.
-                    }}
+                    onClick={() => router.push("/app/mi-lectura/importar")}
                 >
                     <div className="mr-3 rounded-lg bg-teal/10 p-2">
                         <FolderInput size={18} className="text-teal" />

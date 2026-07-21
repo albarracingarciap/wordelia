@@ -1369,7 +1369,8 @@ export async function saveNote(
     bookId: string,
     content: string,
     type: string,
-    location?: string
+    location?: string,
+    isPublic?: boolean
 ) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -1384,8 +1385,9 @@ export async function saveNote(
         // Schema: user_id, book_id, content, page_number, chapter
         const finalContent = type ? `[${type}] ${content}` : content;
 
-        // By default, only direct quotes appear in the community feed.
-        const isPrivate = type !== "Cita";
+        // La privacidad la controla el usuario (isPublic). Si no viene, se mantiene
+        // el comportamiento previo: solo las citas eran públicas.
+        const isPrivate = isPublic !== undefined ? !isPublic : type !== "Cita";
 
         const { error, data: noteData } = await supabase
             .from("book_notes")
@@ -1445,7 +1447,8 @@ export async function updateNote(
     bookId: string,
     content: string,
     type: string,
-    location?: string
+    location?: string,
+    isPublic?: boolean
 ) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -1461,16 +1464,18 @@ export async function updateNote(
         // ideally we shouldn't have to re-prefix if backend stored types, but we do what we must
         const finalContent = type ? `[${type}] ${content}` : content;
 
+        const updatePayload: Record<string, unknown> = {
+            book_id: bookId, // Allow changing book if needed
+            content: finalContent,
+            page_number: finalPageNum,
+            chapter: chapter,
+        };
+        // Solo tocamos la privacidad si el usuario la indicó explícitamente.
+        if (isPublic !== undefined) updatePayload.is_private = !isPublic;
+
         const { error } = await supabase
             .from("book_notes")
-            .update({
-                book_id: bookId, // Allow changing book if needed
-                content: finalContent,
-                page_number: finalPageNum,
-                chapter: chapter,
-                // updated_at is auto-handled by DB usually, or we can set it
-                // let's rely on DB trigger or just ignore date update for now
-            })
+            .update(updatePayload)
             .eq("id", noteId)
             .eq("user_id", user.id);
 
@@ -1483,6 +1488,23 @@ export async function updateNote(
         console.error("updateNote Error:", e);
         return { error: e.message };
     }
+}
+
+// Cambia la visibilidad de una nota (para poder compartir una cita privada).
+export async function setNoteVisibilityAction(noteId: string, isPublic: boolean) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "No autenticado" };
+
+    const { error } = await supabase
+        .from("book_notes")
+        .update({ is_private: !isPublic })
+        .eq("id", noteId)
+        .eq("user_id", user.id);
+
+    if (error) return { error: error.message };
+    revalidatePath("/app/mi-lectura");
+    return { success: true };
 }
 
 export async function deleteNote(noteId: string) {

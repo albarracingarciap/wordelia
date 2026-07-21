@@ -322,6 +322,15 @@ export function BookPreviewModal({ book, bookId, collection, isOpen, onClose }: 
                                         </>
                                     )}
                                 </div>
+
+                                {bookId && (
+                                    <Link
+                                        href={`/libro/${bookId}`}
+                                        className="mt-3 inline-flex w-full items-center justify-center gap-1.5 text-sm font-semibold text-teal transition-colors hover:text-coral"
+                                    >
+                                        Ver ficha completa y reseñas <ArrowRight className="h-4 w-4" />
+                                    </Link>
+                                )}
                             </div>
                         </div>
                     </div>
