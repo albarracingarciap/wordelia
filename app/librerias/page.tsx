@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { Navbar } from "@/components/landing/Navbar";
 import { Footer } from "@/components/landing/Footer";
 import { getOrganizations } from "@/app/app/librerias/actions";
+import { getMyLibrariesWithAuth } from "@/app/librerias/my-library-actions";
 import { SITE_URL } from "@/lib/site";
 import { LibrariesSearch } from "./LibrariesSearch";
 
@@ -25,11 +26,14 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function LibreriasPage() {
-    const organizations = await getOrganizations();
+    const [organizations, { isAuthed, libraries }] = await Promise.all([
+        getOrganizations(),
+        getMyLibrariesWithAuth(),
+    ]);
 
     return (
         <div className="flex min-h-screen flex-col bg-cream">
-            <Navbar mode="public" />
+            <Navbar />
 
             <main className="flex-1 pt-[72px]">
                 <div className="mx-auto max-w-6xl px-6 pb-16 pt-6 md:px-10">
@@ -52,7 +56,7 @@ export default async function LibreriasPage() {
                         </p>
                     </section>
 
-                    <LibrariesSearch initialOrganizations={organizations} />
+                    <LibrariesSearch initialOrganizations={organizations} adopted={libraries} showAdopt={isAuthed} />
                 </div>
             </main>
 

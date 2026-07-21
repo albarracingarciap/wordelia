@@ -3,12 +3,12 @@ import Image from "next/image";
 import { BookOpen, MapPin } from "lucide-react";
 import type { Organization } from "@/types/organizations";
 
-export function LibreriaCard({ organization }: { organization: Organization }) {
+export function LibreriaCard({ organization, hrefBase = "/librerias" }: { organization: Organization; hrefBase?: string }) {
     const location = [organization.city, organization.region].filter(Boolean).join(", ");
 
     return (
         <Link
-            href={`/librerias/${organization.slug}`}
+            href={`${hrefBase}/${organization.slug}`}
             className="group flex flex-col overflow-hidden rounded-2xl border border-teal/10 bg-white shadow-sm transition-all hover:-translate-y-0.5 hover:border-teal/25 hover:shadow-md"
         >
             <div className="relative h-28 w-full bg-[#D8E2DC]">

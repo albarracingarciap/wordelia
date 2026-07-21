@@ -3,6 +3,10 @@ import type { Metadata } from "next";
 import { Star, ArrowRight, BookOpen, ThumbsUp, ShoppingBag, Store } from "lucide-react";
 import { fetchPublicBook, type PublicReview } from "@/lib/public-book";
 import { getBookBuyOptions } from "@/lib/book-buy";
+import { getMyPrimaryLibrary } from "@/app/librerias/my-library-actions";
+import { getBookRecommenders } from "@/app/app/librerias/recommendation-actions";
+import { RecommendersView } from "@/components/librerias/RecommendersView";
+import { buildBuyLink } from "@/lib/buy-link";
 import { SITE_URL } from "@/lib/site";
 import { ShareBookButton } from "@/components/book/ShareBookButton";
 
@@ -107,8 +111,19 @@ export default async function PublicBookPage({ params }: { params: Promise<{ id:
     }
 
     const total = book.rating.count;
-    const buy = await getBookBuyOptions(book.id, { title: book.title, preferredEditionId: book.preferredEditionId });
-    const hasBuyOptions = buy.stores.length > 0 || !!buy.indieSearchUrl;
+    const [buy, primaryLibrary] = await Promise.all([
+        getBookBuyOptions(book.id, { title: book.title, preferredEditionId: book.preferredEditionId }),
+        getMyPrimaryLibrary(),
+    ]);
+    // Librería principal del lector con enlace propio → opción destacada arriba.
+    const primaryBuyUrl = primaryLibrary?.buyLinkTemplate
+        ? buildBuyLink({ template: primaryLibrary.buyLinkTemplate, isbn: buy.isbn, title: book.title, fallback: false })
+        : null;
+    // No repetir la principal en la lista de "librerías que leen este libro".
+    const otherStores = primaryLibrary ? buy.stores.filter((s) => s.id !== primaryLibrary.id) : buy.stores;
+    const hasBuyOptions = !!primaryBuyUrl || otherStores.length > 0 || !!buy.indieSearchUrl;
+    // Librerías que avalan este libro con una nota del librero (prueba social humana).
+    const recommenders = await getBookRecommenders(book.id, buy.isbn);
 
     return (
         <main className="min-h-screen bg-gradient-to-b from-cream to-[#F0F4F1] px-4 py-10">
@@ -168,15 +183,34 @@ export default async function PublicBookPage({ params }: { params: Promise<{ id:
                             </div>
                         </div>
 
-                        {buy.stores.length > 0 && (
+                        {primaryBuyUrl && primaryLibrary && (
+                            <a
+                                href={primaryBuyUrl}
+                                target="_blank"
+                                rel="noopener noreferrer sponsored"
+                                style={primaryLibrary.brandColor ? { backgroundColor: primaryLibrary.brandColor } : undefined}
+                                className="mt-4 flex items-center justify-between gap-3 rounded-xl bg-teal px-4 py-3 text-white transition-opacity hover:opacity-95"
+                            >
+                                <span className="min-w-0">
+                                    <span className="block text-[11px] font-semibold uppercase tracking-wider text-white/70">Tu librería</span>
+                                    <span className="block truncate text-sm font-bold">Comprar en {primaryLibrary.name}</span>
+                                </span>
+                                <ShoppingBag className="h-5 w-5 shrink-0" aria-hidden="true" />
+                            </a>
+                        )}
+
+                        {otherStores.length > 0 && (
                             <div className="mt-4 space-y-2">
                                 <p className="text-xs font-bold uppercase tracking-wider text-grey/40">Librerías que leen este libro</p>
                                 <div className="flex flex-col gap-2">
-                                    {buy.stores.map((s) => (
+                                    {otherStores.map((s) => (
                                         <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl border border-teal/10 bg-cream/40 px-3 py-2.5">
                                             <Link href={s.slug ? `/librerias/${s.slug}` : "/librerias"} className="inline-flex min-w-0 items-center gap-2 text-sm font-semibold text-teal-dark hover:text-teal">
                                                 <Store className="h-4 w-4 shrink-0 text-teal/60" aria-hidden="true" />
-                                                <span className="truncate">{s.name}</span>
+                                                <span className="min-w-0">
+                                                    <span className="block truncate">{s.name}</span>
+                                                    {s.city && <span className="block text-xs font-normal text-grey/50">{s.city}</span>}
+                                                </span>
                                             </Link>
                                             <a
                                                 href={s.url}
@@ -208,6 +242,9 @@ export default async function PublicBookPage({ params }: { params: Promise<{ id:
                         </p>
                     </section>
                 )}
+
+                {/* Recomendado por librerías — prueba social humana (anti-algoritmo) */}
+                <RecommendersView recommenders={recommenders} />
 
                 {/* Distribución de valoraciones */}
                 {total > 0 && (

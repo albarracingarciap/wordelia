@@ -10,6 +10,7 @@ export interface StoreBuyOption {
     id: string;
     name: string;
     slug: string | null;
+    city: string | null;
     logoUrl: string | null;
     brandColor: string | null;
     url: string; // enlace propio de la librería (plantilla), nunca el fallback global
@@ -20,6 +21,8 @@ export interface BookBuyOptions {
     stores: StoreBuyOption[];
     /** Búsqueda en Todostuslibros.com (red de librerías independientes de CEGAL) por ISBN o título. null si no hay ninguno. */
     indieSearchUrl: string | null;
+    /** ISBN resuelto del libro (para construir el enlace de la librería principal del lector). */
+    isbn: string | null;
 }
 
 /** Un ISBN utilizable para el libro (edición preferida primero, si no cualquiera). */
@@ -67,7 +70,7 @@ export async function getBookBuyOptions(
             if (orgIds.length) {
                 const { data: orgRows } = await admin
                     .from("organizations")
-                    .select("id, name, slug, logo_url, brand_color, buy_link_template")
+                    .select("id, name, slug, city, logo_url, brand_color, buy_link_template")
                     .in("id", orgIds)
                     .eq("is_active", true);
 
@@ -77,7 +80,7 @@ export async function getBookBuyOptions(
                         // repetir el mismo enlace de Todostuslibros N veces; el global se
                         // renderiza una sola vez abajo).
                         const url = buildBuyLink({ template: o.buy_link_template, isbn, title: opts.title, fallback: false });
-                        return url ? { id: o.id, name: o.name, slug: o.slug ?? null, logoUrl: o.logo_url ?? null, brandColor: o.brand_color ?? null, url } : null;
+                        return url ? { id: o.id, name: o.name, slug: o.slug ?? null, city: o.city ?? null, logoUrl: o.logo_url ?? null, brandColor: o.brand_color ?? null, url } : null;
                     })
                     .filter(Boolean) as StoreBuyOption[];
             }
@@ -91,5 +94,5 @@ export async function getBookBuyOptions(
     const keyword = isbn || opts.title;
     const indieSearchUrl = keyword ? todosTusLibrosUrl(keyword) : null;
 
-    return { stores, indieSearchUrl };
+    return { stores, indieSearchUrl, isbn };
 }

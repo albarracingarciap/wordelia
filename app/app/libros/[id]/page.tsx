@@ -14,6 +14,8 @@ import { addBookToLibrary } from "@/app/app/search/actions";
 import { ReviewModal } from "@/components/reviews/ReviewModal";
 import { ReviewsListModal } from "@/components/reviews/ReviewsListModal";
 import { BookReviewsSection } from "@/components/reviews/BookReviewsSection";
+import { BuyBookButton } from "@/components/book/BuyBookButton";
+import { BookRecommenders } from "@/components/librerias/BookRecommenders";
 import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 function BookHelper() {
@@ -326,7 +328,12 @@ function BookHelper() {
                                     <MessageSquare size={20} className="mr-2" /> {reviewButtonLabel}
                                 </Button>
                             )}
+
+                            <BuyBookButton isbn={book.isbn} title={book.title} className="w-full sm:w-auto" />
                         </div>
+
+                        <BookRecommenders bookId={dbBookId} isbn={book.isbn13 ?? book.isbn} />
+
 
                         {/* Synopsis */}
                         <div className="prose prose-teal max-w-none text-left">

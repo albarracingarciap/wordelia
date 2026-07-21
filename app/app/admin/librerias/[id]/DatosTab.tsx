@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Loader2, CheckCircle2, AlertTriangle, StickyNote } from "lucide-react";
 import type { LibraryWorkspace } from "../data";
 import { updateLibraryProfileAction, updateLibraryNotesAction } from "../actions";
+import { BuyLinkTemplateField } from "@/components/librerias/BuyLinkTemplateField";
 
 const inputCls =
     "w-full bg-background border border-input rounded-md text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-teal";
@@ -99,9 +100,11 @@ export function DatosTab({ org }: { org: LibraryWorkspace["org"] }) {
                     <Field label="Región"><input className={inputCls} value={f.region} onChange={(e) => set("region", e.target.value)} /></Field>
                     <Field label="País"><input className={inputCls} value={f.country} onChange={(e) => set("country", e.target.value)} /></Field>
                     <div className="md:col-span-2">
-                        <Field label="Plantilla de enlace de compra">
-                            <input className={inputCls} value={f.buy_link_template} onChange={(e) => set("buy_link_template", e.target.value)} placeholder="https://…/{isbn}" />
-                        </Field>
+                        <BuyLinkTemplateField
+                            label="Plantilla de enlace de compra"
+                            value={f.buy_link_template}
+                            onChange={(v) => set("buy_link_template", v)}
+                        />
                     </div>
                 </div>
 

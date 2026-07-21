@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { getOrganizations } from "../actions";
+import { getMyLibrariesWithAuth } from "@/app/librerias/my-library-actions";
 import { LibrariesSearch } from "@/app/librerias/LibrariesSearch";
 
 export const metadata: Metadata = {
@@ -9,7 +10,10 @@ export const metadata: Metadata = {
 export const dynamic = "force-dynamic";
 
 export default async function DiscoverLibrariesPage() {
-    const organizations = await getOrganizations();
+    const [organizations, { isAuthed, libraries }] = await Promise.all([
+        getOrganizations(),
+        getMyLibrariesWithAuth(),
+    ]);
 
     return (
         <div className="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
@@ -22,7 +26,7 @@ export default async function DiscoverLibrariesPage() {
                 </p>
             </header>
 
-            <LibrariesSearch initialOrganizations={organizations} />
+            <LibrariesSearch initialOrganizations={organizations} adopted={libraries} showAdopt={isAuthed} hrefBase="/app/librerias" />
         </div>
     );
 }

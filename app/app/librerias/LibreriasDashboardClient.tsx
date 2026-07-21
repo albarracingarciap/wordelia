@@ -9,6 +9,8 @@ import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
 import { Modal } from "@/components/ui/Modal";
 import { Select } from "@/components/ui/Select";
+import { BuyLinkTemplateField } from "@/components/librerias/BuyLinkTemplateField";
+import { RecommendationsSection } from "@/components/librerias/RecommendationsSection";
 import { createClient } from "@/utils/supabase/client";
 import { createOrganization, updateOrganization, createOrganizationEvent, updateOrganizationEvent, deleteOrganizationEvent, createLocation, updateLocation, deleteLocation, type OrganizationAnalytics, type OrganizationMember } from "./actions";
 import { FREE_LOCATION_LIMIT, FREE_UPCOMING_EVENT_LIMIT } from "@/lib/org-limits";
@@ -321,6 +323,8 @@ function Dashboard({ organizations, organization, clubs, analytics, events, memb
             </section>
 
             <MembersSection members={members} clubs={clubs} />
+
+            <RecommendationsSection orgId={organization.id} />
 
             <LocationsSection orgId={organization.id} locations={locations} isPro={isPro} />
 
@@ -1009,12 +1013,9 @@ function EditProfileModal({
                     ))}
                 </div>
 
-                <Input
-                    label="Enlace de compra (afiliación)"
+                <BuyLinkTemplateField
                     value={form.buy_link_template ?? ""}
-                    placeholder="https://tulibreria.com/buscar?isbn={isbn}"
-                    onChange={(e) => setForm({ ...form, buy_link_template: e.target.value })}
-                    helperText="Plantilla de tu tienda online. Usa {isbn} y/o {title}; se sustituyen por el libro. Si lo dejas vacío, se usa un enlace de respaldo."
+                    onChange={(v) => setForm({ ...form, buy_link_template: v })}
                 />
 
                 <div>
