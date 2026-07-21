@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, Users, UsersRound, BookOpen, Trophy, Settings, LogOut, Mail, Layers, Store } from "lucide-react";
+import { LayoutDashboard, Users, UsersRound, BookOpen, Trophy, Settings, LogOut, Mail, Layers, Store, MessageSquareQuote } from "lucide-react";
 
 export function AdminSidebar() {
     const pathname = usePathname();
@@ -15,6 +15,7 @@ export function AdminSidebar() {
         { href: "/app/admin/catalogo", label: "Catálogo", icon: BookOpen },
         { href: "/app/admin/colecciones", label: "Colecciones", icon: Layers },
         { href: "/app/admin/librerias", label: "Librerías", icon: Store },
+        { href: "/app/admin/prompts", label: "Prompts", icon: MessageSquareQuote },
         { href: "/app/admin/mensajes", label: "Mensajes", icon: Mail },
         { href: "/app/admin/ajustes", label: "Ajustes", icon: Settings },
     ];

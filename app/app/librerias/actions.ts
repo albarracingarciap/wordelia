@@ -452,6 +452,42 @@ export async function getOrganizationMembers(orgId: string): Promise<Organizatio
 
 const EVENT_FIELDS = ['title', 'description', 'event_type', 'starts_at', 'ends_at', 'format', 'location', 'location_id', 'url', 'cover_url'] as const;
 
+export interface UpcomingLibraryEvent {
+    id: string;
+    title: string;
+    startsAt: string;
+    eventType: string;
+    format: string;
+    location: string | null;
+    orgName: string;
+    orgSlug: string | null;
+}
+
+/** Próximos eventos de TODAS las librerías activas (para el feed de comunidad). */
+export async function getUpcomingLibraryEvents(limit = 4): Promise<UpcomingLibraryEvent[]> {
+    const supabase = await createClient();
+    const { data: events } = await supabase
+        .from('organization_events')
+        .select('id, organization_id, title, event_type, starts_at, format, location')
+        .gte('starts_at', new Date().toISOString())
+        .order('starts_at', { ascending: true })
+        .limit(limit * 3);
+    const rows = (events ?? []) as any[];
+    if (rows.length === 0) return [];
+
+    const orgIds = [...new Set(rows.map((e) => e.organization_id))];
+    const { data: orgs } = await supabase.from('organizations').select('id, name, slug, is_active').in('id', orgIds);
+    const orgById = new Map<string, any>(((orgs ?? []) as any[]).filter((o) => o.is_active).map((o) => [o.id, o]));
+
+    return rows
+        .filter((e) => orgById.has(e.organization_id))
+        .slice(0, limit)
+        .map((e) => {
+            const o = orgById.get(e.organization_id);
+            return { id: e.id, title: e.title, startsAt: e.starts_at, eventType: e.event_type, format: e.format, location: e.location ?? null, orgName: o.name, orgSlug: o.slug ?? null };
+        });
+}
+
 export async function getOrganizationEvents(orgId: string, opts: { upcomingOnly?: boolean } = {}): Promise<OrganizationEvent[]> {
     const supabase = await createClient();
     let query = supabase

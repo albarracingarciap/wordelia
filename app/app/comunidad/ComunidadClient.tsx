@@ -1,15 +1,23 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import Image from "next/image";
 import { Card } from "@/components/ui/Card";
-import { MessageSquare, Star, BookOpen, Quote, Heart } from "lucide-react";
+import { MessageSquare, Star, BookOpen, Quote, Heart, PenLine, BookHeart, ChevronRight, Store } from "lucide-react";
 import { getGlobalActivityFeed, toggleActivityLike, ActivityFeedItem } from "@/components/dashboard/actions";
 import { getMySavedActivityIds } from "@/app/app/guardados/actions";
 import { SaveButton } from "@/components/social/SaveButton";
+import { CommunityComposer } from "@/components/community/CommunityComposer";
+import { CommentThread } from "@/components/community/CommentThread";
+import { ReactionBar } from "@/components/community/ReactionBar";
+import { SpoilerReveal } from "@/components/community/SpoilerReveal";
+import { getCommentCounts, getReactions, getGenresForBooks, type ReactionState } from "@/app/app/comunidad/actions";
+import { getActivePrompt, type CommunityPrompt } from "@/app/app/comunidad/prompt-actions";
+import { getUpcomingLibraryEvents, type UpcomingLibraryEvent } from "@/app/app/librerias/actions";
 import { getHelpfulCommunityReviews, getRecentCommunityReviews, type ReviewWithBook } from "@/app/app/mi-lectura/actions";
 import { ReviewCard } from "@/components/reviews/ReviewCard";
 import { PeopleDiscover } from "@/components/social/PeopleDiscover";
+import { SimilarReaders } from "@/components/social/SimilarReaders";
 import Link from "next/link";
 
 const ICONS = {
@@ -19,6 +27,7 @@ const ICONS = {
     start_reading: BookOpen,
     quote: Quote,
     note: Quote,
+    post: PenLine,
 };
 
 const COLORS = {
@@ -28,11 +37,19 @@ const COLORS = {
     start_reading: { bg: "bg-teal/20", text: "text-teal-dark" },
     quote: { bg: "bg-purple-100", text: "text-purple-600" },
     note: { bg: "bg-purple-100", text: "text-purple-600" },
+    post: { bg: "bg-teal/10", text: "text-teal" },
 };
 
 export function ComunidadClient() {
     const [feedItems, setFeedItems] = useState<ActivityFeedItem[]>([]);
     const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
+    const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+    const [reactions, setReactions] = useState<Record<string, ReactionState>>({});
+    const [genreByBook, setGenreByBook] = useState<Record<string, string>>({});
+    const [genreFilter, setGenreFilter] = useState<string | null>(null);
+    const [activePrompt, setActivePrompt] = useState<CommunityPrompt | null>(null);
+    const [respondingPrompt, setRespondingPrompt] = useState<{ id: string; question: string } | null>(null);
+    const [libraryEvents, setLibraryEvents] = useState<UpcomingLibraryEvent[]>([]);
     const [recentReviews, setRecentReviews] = useState<ReviewWithBook[]>([]);
     const [helpfulReviews, setHelpfulReviews] = useState<ReviewWithBook[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -51,6 +68,15 @@ export function ComunidadClient() {
                 setSavedIds(new Set(saved));
                 setRecentReviews(reviews);
                 setHelpfulReviews(helpful);
+                const ids = items.map((i) => i.id);
+                const bookIds = items.map((i) => i.metadata?.book_id).filter(Boolean) as string[];
+                const [cc, rx, genres] = await Promise.all([getCommentCounts(ids), getReactions(ids), getGenresForBooks(bookIds)]);
+                setCommentCounts(cc);
+                setReactions(rx);
+                setGenreByBook(genres);
+                const [prompt, libEvents] = await Promise.all([getActivePrompt(), getUpcomingLibraryEvents(4)]);
+                setActivePrompt(prompt);
+                setLibraryEvents(libEvents);
             } catch (error) {
                 console.error("Failed to load activity feed:", error);
             } finally {
@@ -61,6 +87,26 @@ export function ComunidadClient() {
 
         loadFeed();
     }, []);
+
+    // Recarga ligera del feed tras publicar un post.
+    const reloadFeed = useCallback(async () => {
+        const [items, saved] = await Promise.all([getGlobalActivityFeed(30), getMySavedActivityIds()]);
+        setFeedItems(items);
+        setSavedIds(new Set(saved));
+        const ids = items.map((i) => i.id);
+        const bookIds = items.map((i) => i.metadata?.book_id).filter(Boolean) as string[];
+        const [cc, rx, genres] = await Promise.all([getCommentCounts(ids), getReactions(ids), getGenresForBooks(bookIds)]);
+        setCommentCounts(cc);
+        setReactions(rx);
+        setGenreByBook(genres);
+    }, []);
+
+    // Filtro por género (ligero): géneros presentes en el feed + feed filtrado.
+    const availableGenres = React.useMemo(() => [...new Set(Object.values(genreByBook))].sort((a, b) => a.localeCompare(b)), [genreByBook]);
+    const displayedFeed = React.useMemo(
+        () => (genreFilter ? feedItems.filter((i) => i.metadata?.book_id && genreByBook[i.metadata.book_id] === genreFilter) : feedItems),
+        [feedItems, genreFilter, genreByBook],
+    );
 
     const handleToggleLike = async (id: string, e: React.MouseEvent) => {
         e.preventDefault(); // Prevent triggering parent links if any
@@ -106,6 +152,44 @@ export function ComunidadClient() {
             <section className="mb-8">
                 <PeopleDiscover />
             </section>
+
+            <section className="mb-8">
+                <SimilarReaders />
+            </section>
+
+            <section className="mb-8">
+                <Link href="/app/lectura-pareja" className="flex items-center justify-between gap-3 rounded-2xl border border-teal/10 bg-white p-4 shadow-sm transition-colors hover:border-teal/25">
+                    <span className="flex items-center gap-3">
+                        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-coral/10 text-coral"><BookHeart className="h-5 w-5" /></span>
+                        <span>
+                            <span className="block text-sm font-semibold text-teal-dark">Lecturas en pareja</span>
+                            <span className="block text-xs text-grey/55">Lee un libro a la vez que un amigo, con vuestro ritmo y conversación.</span>
+                        </span>
+                    </span>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-teal" />
+                </Link>
+            </section>
+
+            {libraryEvents.length > 0 && (
+                <section className="mb-8">
+                    <div className="rounded-2xl border border-teal/10 bg-white p-4 shadow-sm">
+                        <h3 className="mb-3 flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-grey/40">
+                            <Store className="h-4 w-4 text-teal" /> En las librerías
+                        </h3>
+                        <div className="space-y-2">
+                            {libraryEvents.map((ev) => (
+                                <Link key={ev.id} href={ev.orgSlug ? `/librerias/${ev.orgSlug}` : "/librerias"} className="flex items-center justify-between gap-3 rounded-xl border border-teal/5 bg-cream/40 p-3 transition-colors hover:border-teal/20">
+                                    <div className="min-w-0">
+                                        <p className="truncate text-sm font-semibold text-teal-dark">{ev.title}</p>
+                                        <p className="truncate text-xs text-grey/55">{ev.orgName} · {new Date(ev.startsAt).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</p>
+                                    </div>
+                                    <ChevronRight className="h-4 w-4 shrink-0 text-grey/30" />
+                                </Link>
+                            ))}
+                        </div>
+                    </div>
+                </section>
+            )}
 
             <section className="mb-8">
                 <div className="mb-3 flex items-center justify-between gap-4">
@@ -166,6 +250,35 @@ export function ComunidadClient() {
                 )}
             </section>
 
+            {activePrompt && (
+                <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-coral/20 bg-gradient-to-br from-coral/5 to-cream/40 p-4">
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-bold uppercase tracking-widest text-coral">Conversación de la semana</p>
+                        <p className="mt-1 font-serif text-lg text-teal-dark">{activePrompt.question}</p>
+                    </div>
+                    <button
+                        onClick={() => { setRespondingPrompt({ id: activePrompt.id, question: activePrompt.question }); window.scrollTo({ top: 0, behavior: "smooth" }); }}
+                        className="shrink-0 rounded-full bg-teal px-4 py-2 text-sm font-semibold text-white hover:bg-teal-dark"
+                    >
+                        Responder
+                    </button>
+                </div>
+            )}
+
+            <div className="mb-5">
+                <CommunityComposer onPosted={() => { setRespondingPrompt(null); void reloadFeed(); }} prompt={respondingPrompt} onClearPrompt={() => setRespondingPrompt(null)} />
+            </div>
+
+            {availableGenres.length > 1 && (
+                <div className="mb-4 flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-semibold text-grey/40">Filtrar:</span>
+                    <button onClick={() => setGenreFilter(null)} className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${genreFilter === null ? "border-teal bg-teal text-white" : "border-teal/15 bg-white text-teal hover:bg-teal/5"}`}>Todos</button>
+                    {availableGenres.map((g) => (
+                        <button key={g} onClick={() => setGenreFilter(g)} className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${genreFilter === g ? "border-teal bg-teal text-white" : "border-teal/15 bg-white text-teal hover:bg-teal/5"}`}>{g}</button>
+                    ))}
+                </div>
+            )}
+
             <Card className="p-0 overflow-hidden shadow-sm">
                 {isLoading ? (
                     <div className="flex flex-col p-6 gap-6">
@@ -179,15 +292,15 @@ export function ComunidadClient() {
                             </div>
                         ))}
                     </div>
-                ) : feedItems.length === 0 ? (
+                ) : displayedFeed.length === 0 ? (
                     <div className="text-center py-16">
                         <MessageSquare className="w-12 h-12 text-teal/20 mx-auto mb-4" />
-                        <p className="text-grey/60 font-medium">La comunidad está muy tranquila ahora mismo.</p>
-                        <p className="text-sm text-grey/40 mt-1">¡Sé el primero en compartir algo!</p>
+                        <p className="text-grey/60 font-medium">{genreFilter ? `Nada de "${genreFilter}" por aquí todavía.` : "La comunidad está muy tranquila ahora mismo."}</p>
+                        <p className="text-sm text-grey/40 mt-1">{genreFilter ? "Prueba con otro género o quita el filtro." : "¡Sé el primero en compartir algo!"}</p>
                     </div>
                 ) : (
                     <div className="flex flex-col divide-y divide-teal/5">
-                        {feedItems.map((item) => {
+                        {displayedFeed.map((item) => {
                             const Icon = ICONS[item.type as keyof typeof ICONS] || MessageSquare;
                             const colors = COLORS[item.type as keyof typeof COLORS] || { bg: "bg-grey/10", text: "text-grey" };
 
@@ -224,8 +337,8 @@ export function ComunidadClient() {
                                                 </p>
                                             </div>
 
-                                            {/* Subtext (The "Meat" of the post) */}
-                                            {item.subtext && (
+                                            {/* Subtext (The "Meat" of the post) — no para posts nativos (tienen su propio bloque) */}
+                                            {item.subtext && item.type !== "post" && (
                                                 <div className="mt-2.5 mb-3 text-sm text-grey-dark bg-white font-serif tracking-wide border border-teal/10 rounded-xl p-4 shadow-sm relative overflow-hidden group">
                                                     {isQuote && (
                                                         <Quote className="absolute top-2 left-2 w-8 h-8 text-teal/5 -rotate-12 select-none" />
@@ -235,6 +348,35 @@ export function ComunidadClient() {
                                                     </div>
                                                 </div>
                                             )}
+
+                                            {/* Post nativo: cuerpo + foto + libro (envueltos en spoiler si aplica) */}
+                                            {item.type === "post" && (() => {
+                                                const body = (
+                                                    <>
+                                                        {item.subtext && <p className="mt-2 mb-3 whitespace-pre-wrap text-sm leading-relaxed text-grey-dark">{item.subtext}</p>}
+                                                        {item.metadata?.imageUrl && (
+                                                            // eslint-disable-next-line @next/next/no-img-element
+                                                            <img src={item.metadata.imageUrl} alt="" className="mt-1 mb-3 max-h-96 w-full rounded-xl border border-teal/10 object-cover" />
+                                                        )}
+                                                        {item.metadata?.book?.title && (
+                                                            <Link
+                                                                href={item.metadata.book.isbn ? `/app/libros/${item.metadata.book.isbn}` : "/app/explorar"}
+                                                                className="mb-3 flex items-center gap-3 rounded-xl border border-teal/10 bg-cream/30 p-2.5 transition-colors hover:border-teal/25"
+                                                            >
+                                                                <div className="relative h-14 w-10 shrink-0 overflow-hidden rounded bg-grey/10">
+                                                                    {item.metadata.book.coverUrl ? (
+                                                                        <Image src={item.metadata.book.coverUrl} alt="" fill className="object-cover" sizes="40px" />
+                                                                    ) : (
+                                                                        <div className="flex h-full w-full items-center justify-center text-grey/30"><BookOpen className="h-4 w-4" /></div>
+                                                                    )}
+                                                                </div>
+                                                                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-teal-dark">{item.metadata.book.title}</span>
+                                                            </Link>
+                                                        )}
+                                                    </>
+                                                );
+                                                return item.metadata?.spoiler ? <div className="mt-1"><SpoilerReveal>{body}</SpoilerReveal></div> : body;
+                                            })()}
 
                                             {/* Actions & Footer */}
                                             <div className="mt-3 flex items-center justify-between border-t border-teal/5 pt-3">
@@ -256,6 +398,8 @@ export function ComunidadClient() {
                                                         <SaveButton itemType="activity" itemId={item.id} initialSaved={savedIds.has(item.id)} />
                                                     )}
 
+                                                    <ReactionBar activityId={item.id} initial={reactions[item.id]} />
+
                                                     {/* Context Links based on metadata */}
                                                     {item.metadata?.book_id && (
                                                         <Link
@@ -275,6 +419,10 @@ export function ComunidadClient() {
                                                     )}
                                                 </div>
                                                 <span className="text-xs font-medium text-grey/40">{item.time}</span>
+                                            </div>
+
+                                            <div className="mt-2">
+                                                <CommentThread activityId={item.id} initialCount={commentCounts[item.id] || 0} />
                                             </div>
                                         </div>
                                     </div>

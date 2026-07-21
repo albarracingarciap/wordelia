@@ -11,6 +11,7 @@ import {
     ChevronRight,
     Compass,
     Cookie,
+    Dna,
     Edit2,
     FileText,
     Flame,
@@ -534,6 +535,14 @@ export default function UserProfile({
                                 className="inline-flex h-10 w-full items-center justify-center rounded-2xl border border-teal/15 bg-white/80 px-4 text-sm font-medium text-teal-dark shadow-sm transition-all hover:bg-teal/5 md:w-auto"
                             >
                                 Ver público
+                            </Link>
+                        )}
+                        {profile.username && (
+                            <Link
+                                href={`/lector/${profile.username}`}
+                                className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-2xl border border-teal/15 bg-white/80 px-4 text-sm font-medium text-teal-dark shadow-sm transition-all hover:bg-teal/5 md:w-auto"
+                            >
+                                <Dna className="h-4 w-4 text-coral" /> Mi ADN lector
                             </Link>
                         )}
                         <Link

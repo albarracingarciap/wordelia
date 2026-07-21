@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 
 export interface FollowState {
     isSelf: boolean;
@@ -103,6 +104,61 @@ export async function getFollowListAction(userId: string, kind: "followers" | "f
     const { data: profiles } = await supabase.from("profiles").select("id, username, full_name, avatar_url").in("id", ids);
     const people = ((profiles ?? []) as any[]).map(toPerson);
     return annotateFollowing(supabase, people, user?.id);
+}
+
+export interface SimilarReader extends Person {
+    sharedCount: number;
+}
+
+/**
+ * Lectores afines: otros usuarios que han LEÍDO libros en común contigo, ordenados
+ * por nº de coincidencias. Solo sugiere a quien aún no sigues. Service role para el
+ * cruce entre usuarios (RLS bloquea leer user_books de otros).
+ */
+export async function getSimilarReaders(limit = 6): Promise<SimilarReader[]> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const admin = createAdminClient() as unknown as { from: (t: string) => any };
+
+    // Afinidad por libros en común en la biblioteca (cualquier estado, no solo leídos)
+    // para que surja gente aunque haya pocos "leídos".
+    const LIB_STATUSES = ["READ", "READING", "WANT_TO_READ", "PAUSED"];
+    const { data: mine } = await admin.from("user_books").select("book_id").eq("user_id", user.id).in("status", LIB_STATUSES);
+    const myBookIds = [...new Set(((mine ?? []) as any[]).map((r) => r.book_id).filter(Boolean))];
+    if (myBookIds.length === 0) return [];
+
+    const { data: others } = await admin
+        .from("user_books")
+        .select("user_id")
+        .in("book_id", myBookIds)
+        .in("status", LIB_STATUSES)
+        .neq("user_id", user.id)
+        .limit(5000);
+    const countByUser = new Map<string, number>();
+    for (const r of (others ?? []) as any[]) countByUser.set(r.user_id, (countByUser.get(r.user_id) ?? 0) + 1);
+    if (countByUser.size === 0) return [];
+
+    const ranked = [...countByUser.entries()].sort((a, b) => b[1] - a[1]).slice(0, limit * 3);
+    const ids = ranked.map(([id]) => id);
+
+    const [{ data: profiles }, { data: follows }] = await Promise.all([
+        admin.from("profiles").select("id, username, full_name, avatar_url").in("id", ids).not("username", "is", null),
+        supabase.from("follows").select("following_id").eq("follower_id", user.id).in("following_id", ids),
+    ]);
+    const profById = new Map<string, any>(((profiles ?? []) as any[]).map((p) => [p.id, p]));
+    const following = new Set(((follows ?? []) as any[]).map((f) => f.following_id));
+
+    const out: SimilarReader[] = [];
+    for (const [id, count] of ranked) {
+        if (following.has(id)) continue; // sugerir solo no seguidos
+        const p = profById.get(id);
+        if (!p) continue;
+        out.push({ id, username: p.username ?? null, name: p.full_name ?? null, avatarUrl: p.avatar_url ?? null, isFollowing: false, sharedCount: count });
+        if (out.length >= limit) break;
+    }
+    return out;
 }
 
 /** Sigue o deja de seguir. Devuelve el nuevo estado (siguiendo o no). */
