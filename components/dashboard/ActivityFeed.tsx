@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/Card";
 import Link from "next/link";
 import { Star, MessageSquare, Quote, Heart, BookOpen, User, Users } from "lucide-react";
 import { getGlobalActivityFeed, getFollowingActivityFeed, toggleActivityLike, ActivityFeedItem } from "./actions";
+import { getMySavedActivityIds } from "@/app/app/guardados/actions";
+import { SaveButton } from "@/components/social/SaveButton";
 import { FollowingReadingStrip } from "./FollowingReadingStrip";
 
 type FeedTab = "siguiendo" | "comunidad";
@@ -22,14 +24,19 @@ const typeToIcon = (type: string) => {
 
 export function ActivityFeed() {
     const [feedItems, setFeedItems] = useState<ActivityFeedItem[]>([]);
+    const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
     const [isLoading, setIsLoading] = useState(true);
     const [tab, setTab] = useState<FeedTab>("comunidad");
 
     const loadFeed = useCallback(async () => {
         setIsLoading(true);
         try {
-            const items = tab === "siguiendo" ? await getFollowingActivityFeed(15) : await getGlobalActivityFeed(10);
+            const [items, saved] = await Promise.all([
+                tab === "siguiendo" ? getFollowingActivityFeed(15) : getGlobalActivityFeed(10),
+                getMySavedActivityIds(),
+            ]);
             setFeedItems(items);
+            setSavedIds(new Set(saved));
         } catch (error) {
             console.error("Failed to load activity feed:", error);
         } finally {
@@ -146,16 +153,21 @@ export function ActivityFeed() {
                                             <div className="mt-2 flex items-center justify-between">
                                                 <span className="text-[10px] text-grey/40">{item.time}</span>
 
-                                                <button
-                                                    onClick={(e) => handleToggleLike(item.id, e)}
-                                                    className={`flex items-center gap-1 text-[11px] font-medium transition-colors px-2 py-1 rounded-full ${item.isLikedByMe
-                                                        ? "text-red-500 bg-red-50"
-                                                        : "text-grey/40 hover:text-red-500 hover:bg-red-50/50"
-                                                        }`}
-                                                >
-                                                    <Heart className={`w-3 h-3 ${item.isLikedByMe ? "fill-current" : ""}`} />
-                                                    <span>{item.likes}</span>
-                                                </button>
+                                                <div className="flex items-center gap-1">
+                                                    {["review", "note", "club_post"].includes(item.type) && (
+                                                        <SaveButton itemType="activity" itemId={item.id} initialSaved={savedIds.has(item.id)} />
+                                                    )}
+                                                    <button
+                                                        onClick={(e) => handleToggleLike(item.id, e)}
+                                                        className={`flex items-center gap-1 text-[11px] font-medium transition-colors px-2 py-1 rounded-full ${item.isLikedByMe
+                                                            ? "text-red-500 bg-red-50"
+                                                            : "text-grey/40 hover:text-red-500 hover:bg-red-50/50"
+                                                            }`}
+                                                    >
+                                                        <Heart className={`w-3 h-3 ${item.isLikedByMe ? "fill-current" : ""}`} />
+                                                        <span>{item.likes}</span>
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     </div>

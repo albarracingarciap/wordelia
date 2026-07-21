@@ -6,6 +6,10 @@ import { getBookBuyOptions } from "@/lib/book-buy";
 import { getMyPrimaryLibrary } from "@/app/librerias/my-library-actions";
 import { getBookRecommenders } from "@/app/app/librerias/recommendation-actions";
 import { RecommendersView } from "@/components/librerias/RecommendersView";
+import { getClubsReadingBook } from "@/app/app/clubs/book-clubs-actions";
+import { ClubsReadingView } from "@/components/club/ClubsReadingView";
+import { isSaved } from "@/app/app/guardados/actions";
+import { SaveButton } from "@/components/social/SaveButton";
 import { buildBuyLink } from "@/lib/buy-link";
 import { SITE_URL } from "@/lib/site";
 import { ShareBookButton } from "@/components/book/ShareBookButton";
@@ -124,6 +128,9 @@ export default async function PublicBookPage({ params }: { params: Promise<{ id:
     const hasBuyOptions = !!primaryBuyUrl || otherStores.length > 0 || !!buy.indieSearchUrl;
     // Librerías que avalan este libro con una nota del librero (prueba social humana).
     const recommenders = await getBookRecommenders(book.id, buy.isbn);
+    // Clubs públicos/oficiales que lo están leyendo.
+    const bookClubs = await getClubsReadingBook(book.id);
+    const savedBook = await isSaved("book", book.id);
 
     return (
         <main className="min-h-screen bg-gradient-to-b from-cream to-[#F0F4F1] px-4 py-10">
@@ -164,6 +171,7 @@ export default async function PublicBookPage({ params }: { params: Promise<{ id:
                                 <Star className="h-4 w-4" /> Valorar
                             </Link>
                             <ShareBookButton title={`${book.title}${book.author ? ` — ${book.author}` : ""}`} />
+                            <SaveButton itemType="book" itemId={book.id} initialSaved={savedBook} variant="pill" />
                         </div>
                     </div>
                 </div>
@@ -245,6 +253,9 @@ export default async function PublicBookPage({ params }: { params: Promise<{ id:
 
                 {/* Recomendado por librerías — prueba social humana (anti-algoritmo) */}
                 <RecommendersView recommenders={recommenders} />
+
+                {/* Clubs leyendo este libro */}
+                <ClubsReadingView clubs={bookClubs} />
 
                 {/* Distribución de valoraciones */}
                 {total > 0 && (

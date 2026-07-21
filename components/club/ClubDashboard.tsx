@@ -3,6 +3,7 @@
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { SectionHeader } from "@/components/ui/SectionHeader";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
@@ -21,7 +22,9 @@ import { SearchBookModal } from "@/components/club/management/SearchBookModal";
 import { ReadingSetup } from "@/components/club/management/ReadingSetup";
 import { CreatePollModal } from "@/components/club/polls/CreatePollModal";
 import { BookSearchResult } from "@/lib/isbndb"; // Or wherever types are
-import { ArrowLeft, Bell, BookOpen, CalendarClock, Sparkles, Users } from "lucide-react";
+import { ArrowLeft, Bell, BookOpen, CalendarClock, Sparkles, Users, Store } from "lucide-react";
+import { ClubBuyButton } from "@/components/club/ClubBuyButton";
+import { ClubLiveSessions } from "@/components/club/ClubLiveSessions";
 import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 interface ClubDashboardClub {
@@ -32,8 +35,17 @@ interface ClubDashboardClub {
     memberCount?: number;
     rules?: string[] | null;
     userRole?: "admin" | "moderator" | "member" | string | null;
+    organization?: {
+        id: string;
+        name: string;
+        slug: string | null;
+        logoUrl: string | null;
+        brandColor: string | null;
+        buyLinkTemplate: string | null;
+    } | null;
     currentBook?: {
         id?: string | null;
+        isbn?: string | null;
         pace_unit?: string | null;
         checkpoints?: Array<{
             id: string;
@@ -388,6 +400,33 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                     ))}
                 </div>
             </SectionHeader>
+
+            {(club.organization || (hasActiveBook && club.currentBook?.isbn)) && (
+                <div className="mt-4 flex flex-wrap items-center gap-3">
+                    {club.organization && (
+                        <Link
+                            href={club.organization.slug ? `/librerias/${club.organization.slug}` : "/app/librerias/descubrir"}
+                            className="inline-flex items-center gap-2 rounded-full border border-teal/15 bg-white px-3 py-1.5 text-sm font-semibold text-teal-dark transition-colors hover:border-teal/30 hover:text-teal"
+                        >
+                            <span className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-md bg-teal/5 text-teal">
+                                {club.organization.logoUrl ? (
+                                    <Image src={club.organization.logoUrl} alt="" fill className="object-cover" sizes="24px" />
+                                ) : (
+                                    <Store className="h-3.5 w-3.5" aria-hidden="true" />
+                                )}
+                            </span>
+                            Un club de {club.organization.name}
+                        </Link>
+                    )}
+                    {hasActiveBook && club.currentBook?.isbn && (
+                        <ClubBuyButton
+                            isbn={club.currentBook.isbn}
+                            title={currentBookTitle}
+                            org={club.organization ? { name: club.organization.name, buyLinkTemplate: club.organization.buyLinkTemplate, brandColor: club.organization.brandColor } : null}
+                        />
+                    )}
+                </div>
+            )}
         </div>
     );
 
@@ -554,6 +593,9 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                         </TabsList>
 
                         <TabsContent value="summary">
+                            <div className="mb-6">
+                                <ClubLiveSessions clubId={club.id} isManager={isAdmin} />
+                            </div>
                             <ClubReadingRoom club={club} />
                             <div className="mt-6 lg:hidden">
                                 <ClubSidebar

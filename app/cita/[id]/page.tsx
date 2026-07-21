@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { ArrowRight, Download, Instagram } from "lucide-react";
 import { fetchSharedQuote } from "@/lib/shared-quote";
 import { SharedQuoteCard } from "@/components/quotes/SharedQuoteCard";
+import { SaveButton } from "@/components/social/SaveButton";
 
 export const dynamic = "force-dynamic";
 
@@ -62,6 +63,7 @@ export default async function SharedQuotePage({ params }: { params: Promise<{ id
                     >
                         <Instagram className="h-4 w-4" /> Para Instagram
                     </a>
+                    <SaveButton itemType="quote" itemId={id} variant="pill" />
                 </div>
 
                 <p className="text-sm text-grey/70">Guarda tus citas, sigue tus lecturas y descubre libros en profundidad.</p>

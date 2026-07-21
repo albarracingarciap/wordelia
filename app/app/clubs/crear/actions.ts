@@ -135,6 +135,13 @@ export async function createClub(data: any) {
                 is_archived: false,
                 rules: data.rules || [],
                 join_code: joinCode,
+                // Eje 2 (estilo) + ajustes que el wizard recoge y antes se descartaban.
+                reading_style: data.templateId || null,
+                reading_type: data.readingType || null,
+                spoiler_policy: data.spoilerPolicy || null,
+                pace: data.pace || null,
+                language: data.language || null,
+                max_members: typeof data.maxMembers === 'number' ? data.maxMembers : (data.maxMembers ? Number(data.maxMembers) || null : null),
             })
             .select()
             .single();
@@ -185,12 +192,16 @@ export async function createClub(data: any) {
 
                 const { bookId } = await resolveBookFromResult(normalizedBook);
 
+                const paceConfig = (data.pace || data.progressMeasure)
+                    ? { pace: data.pace ?? null, progressMeasure: data.progressMeasure ?? null }
+                    : null;
                 const { error: bookLinkError } = await supabase.from('club_books').insert({
                     club_id: club.id,
                     book_id: bookId,
                     status: 'current',
                     start_date: data.startDate || new Date().toISOString(),
                     checkpoints: data.checkpoints || [],
+                    pace_config: paceConfig,
                 });
                 if (bookLinkError) console.error("Error linking book:", bookLinkError);
             } catch (bookError) {

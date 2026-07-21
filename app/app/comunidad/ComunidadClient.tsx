@@ -5,6 +5,8 @@ import Image from "next/image";
 import { Card } from "@/components/ui/Card";
 import { MessageSquare, Star, BookOpen, Quote, Heart } from "lucide-react";
 import { getGlobalActivityFeed, toggleActivityLike, ActivityFeedItem } from "@/components/dashboard/actions";
+import { getMySavedActivityIds } from "@/app/app/guardados/actions";
+import { SaveButton } from "@/components/social/SaveButton";
 import { getHelpfulCommunityReviews, getRecentCommunityReviews, type ReviewWithBook } from "@/app/app/mi-lectura/actions";
 import { ReviewCard } from "@/components/reviews/ReviewCard";
 import { PeopleDiscover } from "@/components/social/PeopleDiscover";
@@ -30,6 +32,7 @@ const COLORS = {
 
 export function ComunidadClient() {
     const [feedItems, setFeedItems] = useState<ActivityFeedItem[]>([]);
+    const [savedIds, setSavedIds] = useState<Set<string>>(new Set());
     const [recentReviews, setRecentReviews] = useState<ReviewWithBook[]>([]);
     const [helpfulReviews, setHelpfulReviews] = useState<ReviewWithBook[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -38,12 +41,14 @@ export function ComunidadClient() {
     useEffect(() => {
         const loadFeed = async () => {
             try {
-                const [items, reviews, helpful] = await Promise.all([
+                const [items, reviews, helpful, saved] = await Promise.all([
                     getGlobalActivityFeed(30),
                     getRecentCommunityReviews(4),
                     getHelpfulCommunityReviews(4),
+                    getMySavedActivityIds(),
                 ]);
                 setFeedItems(items);
+                setSavedIds(new Set(saved));
                 setRecentReviews(reviews);
                 setHelpfulReviews(helpful);
             } catch (error) {
@@ -246,6 +251,10 @@ export function ComunidadClient() {
                                                         </div>
                                                         <span className="min-w-4">{item.likes > 0 ? item.likes : ''}</span>
                                                     </button>
+
+                                                    {["review", "note", "club_post"].includes(item.type) && (
+                                                        <SaveButton itemType="activity" itemId={item.id} initialSaved={savedIds.has(item.id)} />
+                                                    )}
 
                                                     {/* Context Links based on metadata */}
                                                     {item.metadata?.book_id && (

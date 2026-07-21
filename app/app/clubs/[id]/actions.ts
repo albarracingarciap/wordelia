@@ -132,12 +132,37 @@ export async function getClubDetails(clubId: string) {
     const currentBook = clubBooks.find((b: any) => b.status === 'current') || null;
     const plannedBook = clubBooks.find((b: any) => b.status === 'planned') || null;
 
+    // Librería anfitriona (club de librería): branding + tienda para el botón de compra.
+    let organization = null as null | { id: string; name: string; slug: string | null; logoUrl: string | null; brandColor: string | null; buyLinkTemplate: string | null };
+    if (club.organization_id) {
+        const { data: org } = await supabase
+            .from('organizations')
+            .select('id, name, slug, logo_url, brand_color, buy_link_template, is_active')
+            .eq('id', club.organization_id)
+            .maybeSingle();
+        if (org && org.is_active) {
+            organization = { id: org.id, name: org.name, slug: org.slug ?? null, logoUrl: org.logo_url ?? null, brandColor: org.brand_color ?? null, buyLinkTemplate: org.buy_link_template ?? null };
+        }
+    }
+
+    // ISBN del libro actual (para enlaces de compra); vive en editions, no en books.
+    let currentBookIsbn: string | null = null;
+    if (currentBook?.book_id) {
+        const { data: eds } = await supabase.from('editions').select('isbn13, isbn').eq('book_id', currentBook.book_id).limit(5);
+        for (const e of (eds ?? []) as any[]) {
+            const isbn = e.isbn13 || e.isbn;
+            if (isbn) { currentBookIsbn = String(isbn); break; }
+        }
+    }
+
     return {
         ...club,
+        organization,
         memberCount: club.members?.[0]?.count || 0,
         currentBook: currentBook ? {
             ...currentBook,
-            book: currentBook.book
+            book: currentBook.book,
+            isbn: currentBookIsbn,
         } : null,
         plannedBook: plannedBook ? {
             ...plannedBook,

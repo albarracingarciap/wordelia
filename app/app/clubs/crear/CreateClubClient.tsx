@@ -8,12 +8,14 @@ import { Container } from "@/components/ui/Container";
 import { WizardStepper } from "@/components/clubs/create/WizardStepper";
 import { StepTemplate, CLUB_TEMPLATES } from "@/components/clubs/create/StepTemplate";
 import { StepIdentity } from "@/components/clubs/create/StepIdentity";
+import { StepBook } from "@/components/clubs/create/StepBook";
+import { StepPace } from "@/components/clubs/create/StepPace";
 import { StepRules } from "@/components/clubs/create/StepRules";
 import { StepInvite } from "@/components/clubs/create/StepInvite";
 import { createClub } from "./actions";
 import { ArrowLeft, AlertCircle } from "lucide-react";
 
-const STEPS = ["Plantilla", "Identidad", "Normas", "Revisar"];
+type StepKey = "template" | "identity" | "book" | "pace" | "rules" | "review";
 
 export type ClubTemplateId = "slow" | "deep" | "social" | "private" | "challenge" | "emotional";
 
@@ -31,6 +33,7 @@ export type CreateClubFormData = {
     is_official?: boolean;
     price?: string;
     pace?: string;
+    // Libro y ritmo (pasos opcionales del alta).
     book?: {
         id?: string;
         title?: string;
@@ -42,9 +45,10 @@ export type CreateClubFormData = {
         isbn?: string;
         page_count?: number;
     } | null;
+    startDate?: string;
+    progressMeasure?: string;
+    checkpoints?: any[];
 };
-
-type CreateClubFieldValue = CreateClubFormData[keyof CreateClubFormData];
 
 export function CreateClubClient({ organizationId }: { organizationId?: string } = {}) {
     const router = useRouter();
@@ -70,10 +74,27 @@ export function CreateClubClient({ organizationId }: { organizationId?: string }
         is_official: false,
     });
 
-    const updateField = (field: keyof CreateClubFormData, value: CreateClubFieldValue) => {
+    const updateField = (field: string, value: any) => {
         setError("");
         setFormData(prev => ({ ...prev, [field]: value }));
     };
+
+    // Pasos DINÁMICOS: "Ritmo" solo aparece si se ha elegido libro (ramificación por
+    // estado/tipo del club). El resto es común a todos los clubs.
+    const steps: { key: StepKey; label: string }[] = React.useMemo(() => {
+        const s: { key: StepKey; label: string }[] = [
+            { key: "template", label: "Plantilla" },
+            { key: "identity", label: "Identidad" },
+            { key: "book", label: "Libro" },
+        ];
+        if (formData.book) s.push({ key: "pace", label: "Ritmo" });
+        s.push({ key: "rules", label: "Normas" });
+        s.push({ key: "review", label: "Revisar" });
+        return s;
+    }, [formData.book]);
+
+    const totalSteps = steps.length;
+    const currentKey = steps[Math.min(step, totalSteps) - 1]?.key ?? "template";
 
     const applyTemplate = (templateId: ClubTemplateId) => {
         setError("");
@@ -180,17 +201,17 @@ export function CreateClubClient({ organizationId }: { organizationId?: string }
     const handleNext = async () => {
         setError("");
 
-        if (step === 1 && !formData.templateId) {
+        if (currentKey === "template" && !formData.templateId) {
             setError("Elige una plantilla para preparar el club.");
             return;
         }
 
-        if (step === 2 && !formData.name.trim()) {
+        if (currentKey === "identity" && !formData.name.trim()) {
             setError("Ponle un nombre al club para poder continuar.");
             return;
         }
 
-        if (step < STEPS.length) {
+        if (step < totalSteps) {
             setStep(step + 1);
             window.scrollTo({ top: 0, behavior: "smooth" });
             return;
@@ -222,7 +243,7 @@ export function CreateClubClient({ organizationId }: { organizationId?: string }
         }
     };
 
-    const isNextDisabled = (step === 1 && !formData.templateId) || (step === 2 && !formData.name.trim());
+    const isNextDisabled = (currentKey === "template" && !formData.templateId) || (currentKey === "identity" && !formData.name.trim());
     const selectedTemplate = CLUB_TEMPLATES.find((template) => template.id === formData.templateId);
 
     return (
@@ -244,7 +265,7 @@ export function CreateClubClient({ organizationId }: { organizationId?: string }
                     className="mb-5 [&_h1]:text-[1.8rem] [&_h1]:leading-tight [&_p]:text-base"
                 />
 
-                <WizardStepper steps={STEPS} currentStep={step} />
+                <WizardStepper steps={steps.map((s) => s.label)} currentStep={step} />
 
                 {error && (
                     <div className="mb-5 flex items-start gap-3 rounded-2xl border border-coral/25 bg-coral/10 px-4 py-3 text-sm font-medium text-coral">
@@ -254,10 +275,12 @@ export function CreateClubClient({ organizationId }: { organizationId?: string }
                 )}
 
                 <div className="mt-6 min-h-[400px]">
-                    {step === 1 && <StepTemplate selectedTemplate={formData.templateId} onSelect={applyTemplate} />}
-                    {step === 2 && <StepIdentity data={formData} onUpdate={updateField} selectedTemplateTitle={selectedTemplate?.title} />}
-                    {step === 3 && <StepRules data={formData} onUpdate={updateField} />}
-                    {step === 4 && <StepInvite data={formData} onUpdate={updateField} selectedTemplateTitle={selectedTemplate?.title} />}
+                    {currentKey === "template" && <StepTemplate selectedTemplate={formData.templateId} onSelect={applyTemplate} />}
+                    {currentKey === "identity" && <StepIdentity data={formData} onUpdate={updateField} selectedTemplateTitle={selectedTemplate?.title} />}
+                    {currentKey === "book" && <StepBook data={formData} onUpdate={updateField} />}
+                    {currentKey === "pace" && <StepPace data={formData} onUpdate={updateField} />}
+                    {currentKey === "rules" && <StepRules data={formData} onUpdate={updateField} />}
+                    {currentKey === "review" && <StepInvite data={formData} onUpdate={updateField} selectedTemplateTitle={selectedTemplate?.title} />}
                 </div>
             </Container>
 
@@ -269,7 +292,7 @@ export function CreateClubClient({ organizationId }: { organizationId?: string }
 
                     <div className="flex flex-1 items-center justify-end gap-4">
                         <span className="hidden text-xs uppercase tracking-widest text-grey/40 md:block">
-                            Paso {step} de {STEPS.length}
+                            Paso {step} de {totalSteps}
                         </span>
                         <Button
                             variant="primary"
@@ -278,7 +301,7 @@ export function CreateClubClient({ organizationId }: { organizationId?: string }
                             isLoading={isSubmitting}
                             className="min-w-[150px]"
                         >
-                            {step === STEPS.length ? "Crear club" : "Siguiente"}
+                            {step === totalSteps ? "Crear club" : "Siguiente"}
                         </Button>
                     </div>
                 </Container>

@@ -16,6 +16,8 @@ import { ReviewsListModal } from "@/components/reviews/ReviewsListModal";
 import { BookReviewsSection } from "@/components/reviews/BookReviewsSection";
 import { BuyBookButton } from "@/components/book/BuyBookButton";
 import { BookRecommenders } from "@/components/librerias/BookRecommenders";
+import { BookClubsReading } from "@/components/club/BookClubsReading";
+import { SaveButton } from "@/components/social/SaveButton";
 import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 function BookHelper() {
@@ -330,9 +332,12 @@ function BookHelper() {
                             )}
 
                             <BuyBookButton isbn={book.isbn} title={book.title} className="w-full sm:w-auto" />
+                            {dbBookId && <SaveButton itemType="book" itemId={dbBookId} variant="pill" />}
                         </div>
 
                         <BookRecommenders bookId={dbBookId} isbn={book.isbn13 ?? book.isbn} />
+
+                        <BookClubsReading bookId={dbBookId} />
 
 
                         {/* Synopsis */}

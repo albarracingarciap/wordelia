@@ -1,11 +1,12 @@
 import { useParams } from "next/navigation";
+import Link from "next/link";
 import * as React from "react";
 import { Card } from "../ui/Card";
 import { Button } from "../ui/Button";
 import { CheckpointDetailModal } from "./CheckpointDetailModal";
 import { TabsContext } from "../ui/Tabs";
 import { getClubAnnouncements, getClubStats, getMyClubBookProgress, markCheckpointCompleted, markCheckpointPending } from "@/app/app/clubs/[id]/actions";
-import { Activity, AlertTriangle, CalendarDays, Clock, HeartPulse, Megaphone, MessageSquare, ShieldAlert, Users } from "lucide-react";
+import { Activity, AlertTriangle, CalendarDays, Clock, HeartPulse, Megaphone, MessageSquare, ShieldAlert, Users, Dna, BookOpenText, ChevronRight } from "lucide-react";
 import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 interface Checkpoint {
@@ -262,6 +263,8 @@ export function ClubSummary({ club }: { club?: ClubSummaryData }) {
     const [now] = React.useState(() => Date.now());
     const tabsContext = React.useContext(TabsContext);
     const isAdminOrMod = club?.userRole === 'admin' || club?.userRole === 'moderator';
+    // Libro actual del catálogo → recursos (guía/genoma). El acceso se controla en destino.
+    const resourceBookId = club?.currentBook?.book?.id ?? null;
 
     const handleViewFullPlan = () => {
         if (tabsContext) tabsContext.onChange("checkpoints");
@@ -510,29 +513,30 @@ export function ClubSummary({ club }: { club?: ClubSummaryData }) {
                 </Card>
             )}
 
-            {/* AI Tools */}
-            <div className="space-y-3">
-                <h4 className="text-sm font-bold text-grey/40 uppercase tracking-widest pl-1">Recursos</h4>
-
-                {[
-                    { title: "ADN del libro", desc: "Temas, símbolos y voz narrativa.", color: "bg-purple-50 text-purple-700" },
-                    { title: "Guía de discusión", desc: "Preguntas sugeridas para este tramo.", color: "bg-blue-50 text-blue-700" },
-                    { title: "Mapa emocional", desc: "Visualiza la tensión y el ritmo.", color: "bg-pink-50 text-pink-700" },
-                ].map((tool, i) => (
-                    <button key={i} className="w-full flex items-center justify-between p-3 bg-white border border-black/5 rounded-xl hover:border-teal/30 hover:shadow-sm transition-all text-left group">
-                        <div className="flex items-center gap-3">
-                            <div className={`w-10 h-10 rounded-lg ${tool.color} flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity`}>
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
+            {/* Recursos del libro actual — enlaces reales (el acceso se controla en destino). */}
+            {resourceBookId && (
+                <div className="space-y-3">
+                    <h4 className="text-sm font-bold text-grey/40 uppercase tracking-widest pl-1">Recursos del libro</h4>
+                    {[
+                        { title: "ADN del libro", desc: "Genoma literario: temas, símbolos y voz narrativa.", href: `/app/recursos/genomas/${resourceBookId}`, Icon: Dna, color: "bg-purple-50 text-purple-700" },
+                        { title: "Guía de discusión", desc: "Preguntas para dinamizar la conversación.", href: `/app/recursos/guias/${resourceBookId}`, Icon: BookOpenText, color: "bg-blue-50 text-blue-700" },
+                    ].map((tool) => (
+                        <Link key={tool.href} href={tool.href} className="w-full flex items-center justify-between p-3 bg-white border border-black/5 rounded-xl hover:border-teal/30 hover:shadow-sm transition-all text-left group">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-lg ${tool.color} flex items-center justify-center opacity-80 group-hover:opacity-100 transition-opacity`}>
+                                    <tool.Icon className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <div className="font-bold text-sm text-grey-dark">{tool.title}</div>
+                                    <div className="text-xs text-grey/60">{tool.desc}</div>
+                                </div>
                             </div>
-                            <div>
-                                <div className="font-bold text-sm text-grey-dark">{tool.title}</div>
-                                <div className="text-xs text-grey/60">{tool.desc}</div>
-                            </div>
-                        </div>
-                        <svg className="w-4 h-4 text-grey/30 group-hover:text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" /></svg>
-                    </button>
-                ))}
-            </div>
+                            <ChevronRight className="w-4 h-4 text-grey/30 group-hover:text-teal" />
+                        </Link>
+                    ))}
+                    <p className="pl-1 text-xs text-grey/40">El mapa emocional lo tienes arriba, en esta misma sala.</p>
+                </div>
+            )}
         </div>
     );
 }
