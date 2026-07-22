@@ -6,6 +6,7 @@ import { isOrgProActive } from '@/lib/subscription-access';
 import { revalidatePath } from 'next/cache';
 import { BookSearchResult } from '@/lib/isbndb';
 import { resolveBookFromResult } from '@/lib/book-resolution';
+import { grantOfficialClubResourcesToUser, grantOfficialClubResourcesToMembers } from '@/lib/club-resource-grants';
 
 const CLUB_VOICE_BUCKET = 'club-voice-messages';
 const CLUB_VOICE_MAX_BYTES = 20 * 1024 * 1024;
@@ -316,6 +317,10 @@ export async function joinClub(clubId: string) {
         });
 
         if (!redeemError) {
+            // Recursos del club oficial (guía + genoma perpetuos).
+            await grantOfficialClubResourcesToUser(clubId, user.id);
+            // Monedas Wordelia: cualifica un referido pendiente al unirse al 1er club.
+            await supabase.rpc('maybe_qualify_referral');
             revalidatePath('/app/clubs');
             revalidatePath(`/app/clubs/${clubId}`);
             return { success: true };
@@ -328,6 +333,12 @@ export async function joinClub(clubId: string) {
         if (!isFounderBenefitError) {
             console.error("Error redeeming founder club benefit:", redeemError);
             return { error: redeemError.message || "No se pudo aplicar el beneficio fundador" };
+        }
+
+        // Sin beneficio fundador, un club oficial de PAGO requiere pago real
+        // (PayPal o monedas). No se concede membresía gratuita.
+        if (typeof club.price === 'number' && club.price > 0) {
+            return { error: "Este club requiere unirse pagando.", requiresPayment: true };
         }
     }
 
@@ -349,9 +360,46 @@ export async function joinClub(clubId: string) {
     }
 
     await grantClubResourcesIfPro(supabase, clubId, user.id);
+    await grantOfficialClubResourcesToUser(clubId, user.id);
+
+    // Monedas Wordelia: cualifica un referido pendiente al unirse al 1er club.
+    await supabase.rpc('maybe_qualify_referral');
 
     revalidatePath(`/app/clubs/${clubId}`);
     return { success: true };
+}
+
+// Monedas Wordelia W2: unirse a un club oficial de pago gastando monedas.
+// Las monedas cubren el precio completo (1 moneda = 1 €). Espejo del canje fundador.
+export async function joinOfficialClubWithCoins(clubId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "Debes iniciar sesión" };
+
+    const { data, error } = await supabase.rpc('spend_coins_official_club', {
+        target_club_id: clubId,
+    });
+
+    if (error) {
+        console.error("[joinOfficialClubWithCoins]", error);
+        return { error: error.message || "No se pudo unir con monedas" };
+    }
+
+    await grantClubResourcesIfPro(supabase, clubId, user.id);
+    await grantOfficialClubResourcesToUser(clubId, user.id);
+    // Por si este es su primer club (cualifica un referido pendiente).
+    await supabase.rpc('maybe_qualify_referral');
+
+    revalidatePath('/app/clubs');
+    revalidatePath(`/app/clubs/${clubId}`);
+
+    const row = Array.isArray(data) ? data[0] : data;
+    return {
+        success: true,
+        alreadyMember: row?.already_member ?? false,
+        coinsSpent: row?.coins_spent ?? 0,
+        newBalance: row?.new_balance ?? 0,
+    };
 }
 
 // Normaliza el libro seleccionado y resuelve su book_id canónico
@@ -445,6 +493,9 @@ export async function startReading(clubId: string, bookData: any, config: any) {
             console.error("Error linking book:", insertError);
             return { error: "Error al guardar la lectura." };
         }
+
+        // Club oficial: concede la guía + genoma del nuevo libro a todos los miembros.
+        await grantOfficialClubResourcesToMembers(clubId, bookId);
 
         revalidatePath(`/app/clubs/${clubId}`);
         return { success: true };
@@ -556,6 +607,14 @@ export async function activateReading(clubId: string, clubBookId: string) {
         console.error("Error activating reading:", error);
         return { error: "Error al iniciar la lectura." };
     }
+
+    // Club oficial: concede la guía + genoma del libro activado a todos los miembros.
+    const { data: activated } = await supabase
+        .from('club_books')
+        .select('book_id')
+        .eq('id', clubBookId)
+        .maybeSingle();
+    if (activated?.book_id) await grantOfficialClubResourcesToMembers(clubId, activated.book_id);
 
     revalidatePath(`/app/clubs/${clubId}`);
     revalidatePath('/');

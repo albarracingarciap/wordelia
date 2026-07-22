@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Compass, Bookmark, Store, Building2, X } from "lucide-react";
+import { Compass, Bookmark, Store, Building2, Coins, X } from "lucide-react";
 import { useFeatureFlags } from "@/lib/useFeatureFlags";
 
 // Simplified icons for mobile
@@ -33,6 +33,7 @@ export function MobileNav() {
         { label: "Librerías", href: "/app/librerias/descubrir", icon: Building2 },
         { label: "Guardados", href: "/app/guardados", icon: Bookmark },
         ...(flags.librerias ? [{ label: "Mi librería", href: "/app/librerias", icon: Store }] : []),
+        { label: "Monedas", href: "/app/monedas", icon: Coins },
     ];
 
     // "Más" queda activo cuando estamos en alguna de sus secciones.

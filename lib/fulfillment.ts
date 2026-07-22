@@ -5,6 +5,7 @@ import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { getSubscription } from './paypal';
 import { planMetaFromId } from './paypal-plans';
 import { PLANS } from './plans';
+import { grantOfficialClubResourcesToUser } from './club-resource-grants';
 
 export function admin() {
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -105,6 +106,45 @@ export async function fulfillOrder(providerOrderId: string, captureId?: string |
                     access_source: 'purchase',
                     purchased_at: new Date().toISOString(),
                 }, { onConflict: 'user_id,book_id,resource_kind', ignoreDuplicates: true });
+                break;
+            }
+
+            case 'club': {
+                // Descuento parcial: las monedas ya se reservaron (debitaron) al crear
+                // la orden; aquí solo damos por gastadas y damos membresía.
+                const meta = (order.metadata ?? {}) as { applied_coins?: number; total_price_cents?: number };
+                const appliedCoins = Number(meta.applied_coins ?? 0);
+                const totalCents = Number(meta.total_price_cents ?? order.amount_cents);
+                const joinSource = appliedCoins > 0 ? 'paypal_coins' : 'paypal';
+
+                // Alta como miembro. Idempotente: club_members no tiene unique
+                // garantizado, así que comprobamos primero.
+                const { data: existing } = await supabase
+                    .from('club_members')
+                    .select('id, role')
+                    .eq('club_id', order.reference_id)
+                    .eq('user_id', order.user_id)
+                    .maybeSingle();
+                if (!existing) {
+                    await supabase.from('club_members').insert({
+                        club_id: order.reference_id,
+                        user_id: order.user_id,
+                        role: 'member',
+                        join_source: joinSource,
+                        price_paid_cents: totalCents,
+                    });
+                } else if (existing.role === 'pending') {
+                    await supabase.from('club_members').update({
+                        role: 'member',
+                        join_source: joinSource,
+                        price_paid_cents: totalCents,
+                    }).eq('id', existing.id);
+                }
+                // Recursos del club oficial (guía + genoma perpetuos).
+                await grantOfficialClubResourcesToUser(order.reference_id, order.user_id);
+                // Monedas Wordelia: cualifica un referido pendiente (1er club).
+                // Variante _for porque aquí auth.uid() es null (service role).
+                await supabase.rpc('qualify_referral_for', { p_user: order.user_id });
                 break;
             }
 

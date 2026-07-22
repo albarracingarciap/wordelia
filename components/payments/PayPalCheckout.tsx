@@ -24,10 +24,13 @@ export interface PayPalCheckoutProps {
     referenceId: string;
     period?: "monthly" | "annual" | null;
     resourceKind?: "guide" | "genome" | null;
+    // Monedas Wordelia aplicadas como descuento (solo 'club'). El importe real lo
+    // recalcula el servidor; esto solo indica cuántas monedas reservar.
+    appliedCoins?: number | null;
     onSuccess?: () => void;
 }
 
-export function PayPalCheckout({ productType, referenceId, period, resourceKind, onSuccess }: PayPalCheckoutProps) {
+export function PayPalCheckout({ productType, referenceId, period, resourceKind, appliedCoins, onSuccess }: PayPalCheckoutProps) {
     const [error, setError] = React.useState("");
 
     if (!PAYPAL_CLIENT_ID) {
@@ -39,13 +42,13 @@ export function PayPalCheckout({ productType, referenceId, period, resourceKind,
             {error && <p className="mb-2 text-sm text-coral">{error}</p>}
             <PayPalButtons
                 style={{ layout: "vertical", label: "pay", height: 40 }}
-                forceReRender={[productType, referenceId, period]}
+                forceReRender={[productType, referenceId, period, appliedCoins]}
                 createOrder={async () => {
                     setError("");
                     const res = await fetch("/api/payments/paypal/create-order", {
                         method: "POST",
                         headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ productType, referenceId, period, resourceKind }),
+                        body: JSON.stringify({ productType, referenceId, period, resourceKind, appliedCoins }),
                     });
                     const data = await res.json();
                     if (!res.ok || !data.paypalOrderId) throw new Error(data.error || "create_order_failed");

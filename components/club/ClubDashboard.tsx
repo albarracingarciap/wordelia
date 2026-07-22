@@ -25,6 +25,7 @@ import { BookSearchResult } from "@/lib/isbndb"; // Or wherever types are
 import { ArrowLeft, Bell, BookOpen, CalendarClock, Sparkles, Users, Store } from "lucide-react";
 import { ClubBuyButton } from "@/components/club/ClubBuyButton";
 import { ClubLiveSessions } from "@/components/club/ClubLiveSessions";
+import { JoinOfficialClubPayment } from "@/components/club/JoinOfficialClubPayment";
 import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 interface ClubDashboardClub {
@@ -35,6 +36,10 @@ interface ClubDashboardClub {
     memberCount?: number;
     rules?: string[] | null;
     userRole?: "admin" | "moderator" | "member" | string | null;
+    isMember?: boolean;
+    is_official?: boolean | null;
+    price?: number | null;
+    currency?: string | null;
     organization?: {
         id: string;
         name: string;
@@ -425,6 +430,14 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                             org={club.organization ? { name: club.organization.name, buyLinkTemplate: club.organization.buyLinkTemplate, brandColor: club.organization.brandColor } : null}
                         />
                     )}
+                </div>
+            )}
+
+            {/* Club oficial de pago: opciones de alta para no-miembros (monedas o PayPal). */}
+            {club.is_official && typeof club.price === 'number' && club.price > 0
+                && (!club.userRole || club.userRole === 'pending') && (
+                <div className="mt-4">
+                    <JoinOfficialClubPayment clubId={club.id} price={club.price} currency={club.currency} />
                 </div>
             )}
         </div>

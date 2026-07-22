@@ -2,6 +2,7 @@
 
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { getAppSettings } from '@/lib/app-settings'
 
@@ -112,7 +113,7 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
         return { error: 'El registro está temporalmente cerrado. Escríbenos a hola@wordelia.es y te avisaremos en cuanto reabramos.' }
     }
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -129,6 +130,22 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
 
     if (error) {
         return { error: getAuthErrorMessage(error.message) }
+    }
+
+    // Monedas Wordelia: si el alta viene de un enlace de invitación (/r/<code>),
+    // registra el referido pendiente. Solo es posible si hay sesión inmediata
+    // (autoconfirm de email ON). La cualificación se produce al unirse al 1er club.
+    try {
+        const cookieStore = await cookies()
+        const ref = cookieStore.get('wordelia_ref')?.value
+        if (ref) {
+            if (data.session) {
+                await supabase.rpc('record_referral', { p_code: ref })
+            }
+            cookieStore.delete('wordelia_ref')
+        }
+    } catch (referralError) {
+        console.error('[signup] record_referral:', referralError)
     }
 
     revalidatePath('/', 'layout')
