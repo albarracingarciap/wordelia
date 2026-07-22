@@ -621,6 +621,43 @@ export async function activateReading(clubId: string, clubBookId: string) {
     return { success: true };
 }
 
+// Revierte una lectura recién activada: vuelve a ponerla como 'planned'. Pensado
+// para deshacer un "Comenzar ahora" pulsado por error. No restaura lecturas
+// anteriores que se hubieran cerrado al activar (caso poco común).
+export async function revertReadingToPlanned(clubId: string, clubBookId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
+    if (!user) return { error: "Debes iniciar sesión" };
+
+    const { data: membership } = await supabase
+        .from('club_members')
+        .select('role')
+        .eq('club_id', clubId)
+        .eq('user_id', user.id)
+        .single();
+
+    if (!membership || (membership.role !== 'admin' && membership.role !== 'moderator')) {
+        return { error: "No tienes permisos para modificar la lectura." };
+    }
+
+    const { error } = await supabase
+        .from('club_books')
+        .update({ status: 'planned' })
+        .eq('id', clubBookId)
+        .eq('club_id', clubId)
+        .eq('status', 'current');
+
+    if (error) {
+        console.error("Error reverting reading:", error);
+        return { error: "No se pudo revertir la lectura." };
+    }
+
+    revalidatePath(`/app/clubs/${clubId}`);
+    revalidatePath('/');
+    return { success: true };
+}
+
 // Descarta una lectura programada.
 export async function cancelReadingPlan(clubId: string, clubBookId: string) {
     const supabase = await createClient();
@@ -1867,6 +1904,7 @@ export async function updateClubSettings(
         price?: number;
         portada?: boolean;
         destacado?: boolean;
+        coverUrl?: string | null;
     }
 ) {
     const supabase = await createClient();
@@ -1898,19 +1936,30 @@ export async function updateClubSettings(
     }
     if (settings.portada !== undefined) updates.portada = settings.portada;
     if (settings.destacado !== undefined) updates.destacado = settings.destacado;
+    if (settings.coverUrl !== undefined) updates.cover_url = settings.coverUrl;
+
+    // Los clubs oficiales comparten dueño y RLS limita las escrituras al dueño:
+    // el gestor de plataforma (admin/editor, ya validado como admin del club)
+    // puede no serlo, así que las escrituras de clubs OFICIALES van por service
+    // role. Para clubs de usuario se mantiene el cliente con RLS.
+    const { data: clubRow } = await supabase
+        .from('clubs')
+        .select('is_official')
+        .eq('id', clubId)
+        .maybeSingle();
+    const writer: any = clubRow?.is_official ? (getAdminClient() ?? supabase) : supabase;
 
     // Solo un club puede estar destacado ("Libro del mes"): al marcar este,
-    // desmarcamos cualquier otro. (RLS limita el desmarcado a clubs que el
-    // usuario administra; los clubs oficiales comparten dueño.)
+    // desmarcamos cualquier otro.
     if (settings.destacado === true) {
-        await supabase
+        await writer
             .from('clubs')
             .update({ destacado: false })
             .eq('destacado', true)
             .neq('id', clubId);
     }
 
-    const { error } = await supabase
+    const { error } = await writer
         .from('clubs')
         .update(updates)
         .eq('id', clubId);

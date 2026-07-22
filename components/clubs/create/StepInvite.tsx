@@ -1,12 +1,13 @@
 import { Card } from "@/components/ui/Card";
 import { ClubCard } from "../ClubCard";
 import type { CreateClubFormData } from "@/app/app/clubs/crear/CreateClubClient";
-import { Check, Lock, Globe2, Mail } from "lucide-react";
+import { Check, Lock, Globe2, Mail, Star, LayoutTemplate } from "lucide-react";
 
 interface StepInviteProps {
     data: CreateClubFormData;
     onUpdate: (field: keyof CreateClubFormData, value: CreateClubFormData[keyof CreateClubFormData]) => void;
     selectedTemplateTitle?: string;
+    official?: boolean;
 }
 
 const privacyLabel: Record<string, string> = {
@@ -21,7 +22,7 @@ const spoilerLabel: Record<string, string> = {
     free: "Spoilers libres",
 };
 
-export function StepInvite({ data, selectedTemplateTitle }: StepInviteProps) {
+export function StepInvite({ data, onUpdate, selectedTemplateTitle, official = false }: StepInviteProps) {
     const visibleRules = data.rules.filter(rule => rule.trim()).slice(0, 3);
     const privacy = privacyLabel[data.privacy] || "Privado";
     const spoiler = spoilerLabel[data.spoilerPolicy] || "Spoilers por niveles";
@@ -88,6 +89,38 @@ export function StepInvite({ data, selectedTemplateTitle }: StepInviteProps) {
                                     {rule}
                                 </div>
                             ))}
+                        </div>
+                    </div>
+                )}
+
+                {official && (
+                    <div className="mt-6 border-t border-black/5 pt-5">
+                        <p className="mb-3 text-xs font-bold uppercase tracking-widest text-grey/40">Escaparate (solo oficiales)</p>
+                        <div className="space-y-2">
+                            <button
+                                type="button"
+                                onClick={() => onUpdate("destacado", !data.destacado)}
+                                className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-all ${data.destacado ? "border-teal bg-teal/5 ring-1 ring-teal/20" : "border-grey/10 bg-white hover:border-teal/30"}`}
+                            >
+                                <Star className={`h-5 w-5 shrink-0 ${data.destacado ? "text-teal" : "text-grey/40"}`} />
+                                <span className="flex-1">
+                                    <span className="block text-sm font-bold text-grey-dark">Destacado (Libro del mes)</span>
+                                    <span className="block text-xs text-grey/60">Se resalta como club destacado. Solo uno a la vez.</span>
+                                </span>
+                                <span className={`h-5 w-5 shrink-0 rounded-full border-2 ${data.destacado ? "border-teal bg-teal" : "border-grey/25"}`} />
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => onUpdate("portada", !data.portada)}
+                                className={`flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-all ${data.portada ? "border-teal bg-teal/5 ring-1 ring-teal/20" : "border-grey/10 bg-white hover:border-teal/30"}`}
+                            >
+                                <LayoutTemplate className={`h-5 w-5 shrink-0 ${data.portada ? "text-teal" : "text-grey/40"}`} />
+                                <span className="flex-1">
+                                    <span className="block text-sm font-bold text-grey-dark">En portada (home)</span>
+                                    <span className="block text-xs text-grey/60">Aparece en el escaparate de clubs de la home.</span>
+                                </span>
+                                <span className={`h-5 w-5 shrink-0 rounded-full border-2 ${data.portada ? "border-teal bg-teal" : "border-grey/25"}`} />
+                            </button>
                         </div>
                     </div>
                 )}

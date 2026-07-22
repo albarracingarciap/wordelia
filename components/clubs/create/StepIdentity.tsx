@@ -4,6 +4,7 @@ import { Select } from "@/components/ui/Select";
 import { Card } from "@/components/ui/Card";
 import type { CreateClubFormData } from "@/app/app/clubs/crear/CreateClubClient";
 import { X } from "lucide-react";
+import { ClubHeaderUpload } from "@/components/clubs/create/ClubHeaderUpload";
 
 interface StepIdentityProps {
     data: CreateClubFormData;
@@ -38,6 +39,8 @@ export function StepIdentity({ data, onUpdate, selectedTemplateTitle }: StepIden
             </div>
 
             <div className="space-y-6">
+                <ClubHeaderUpload value={data.coverUrl ?? null} onChange={(url) => onUpdate("coverUrl", url)} />
+
                 <div>
                     <label className="mb-1.5 block text-sm font-bold text-grey-dark">
                         Nombre del club <span className="text-coral">*</span>

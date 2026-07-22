@@ -1,8 +1,9 @@
 import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { Plus, Users, Search, Book } from "lucide-react";
+import { Plus, Users, Book } from "lucide-react";
 import Image from "next/image";
+import { ManageOfficialButton } from "@/components/admin/ManageOfficialButton";
 
 export const revalidate = 0; // Don't cache admin lists
 
@@ -84,11 +85,20 @@ export default async function AdminClubsPage() {
                                 </div>
                             )}
 
-                            <div className="h-24 bg-accent relative flex items-center justify-center">
+                            <div className="h-32 bg-accent relative flex items-center justify-center overflow-hidden">
                                 {club.cover_url ? (
-                                    <Image src={club.cover_url} alt={club.name} fill className="object-cover opacity-80 group-hover:opacity-100 transition-opacity" />
+                                    <Image
+                                        src={club.cover_url}
+                                        alt={`Cabecera de ${club.name}`}
+                                        fill
+                                        sizes="(min-width: 1024px) 400px, (min-width: 768px) 45vw, 90vw"
+                                        className="object-cover"
+                                    />
                                 ) : (
-                                    <Book className="w-8 h-8 opacity-20" />
+                                    <div className="flex flex-col items-center gap-1 text-muted-foreground/40">
+                                        <Book className="w-8 h-8" />
+                                        <span className="text-[10px] font-medium uppercase tracking-wide">Sin cabecera</span>
+                                    </div>
                                 )}
                             </div>
 
@@ -109,6 +119,9 @@ export default async function AdminClubsPage() {
                                     <div className="flex items-center justify-between text-xs text-muted-foreground pt-1 border-t border-border/50">
                                         <span>Última act.</span>
                                         <span>{new Date(club.updated_at).toLocaleDateString()}</span>
+                                    </div>
+                                    <div className="pt-2">
+                                        <ManageOfficialButton clubId={club.id} />
                                     </div>
                                 </div>
                             </div>

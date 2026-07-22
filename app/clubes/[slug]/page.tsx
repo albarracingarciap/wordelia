@@ -71,6 +71,18 @@ export default async function ClubDetailPage({ params }: PageProps) {
                     </Link>
 
                     <article className="animate-fade-in space-y-10">
+                        {club.headerImage && (
+                            <div className="relative h-40 w-full overflow-hidden rounded-3xl bg-teal/5 shadow-sm md:h-56">
+                                <Image
+                                    src={club.headerImage}
+                                    alt={`Cabecera de ${club.name}`}
+                                    fill
+                                    sizes="(min-width: 768px) 1000px, 100vw"
+                                    className="object-cover"
+                                    priority
+                                />
+                            </div>
+                        )}
                         <header className="grid gap-8 md:grid-cols-[240px_1fr] md:items-start">
                             <div className="relative mx-auto aspect-[2/3] w-full max-w-[220px] overflow-hidden rounded-2xl bg-grey/10 shadow-lg md:mx-0">
                                 {cover ? (

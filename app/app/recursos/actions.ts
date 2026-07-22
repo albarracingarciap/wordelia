@@ -1,10 +1,60 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { createAdminClient } from "@/utils/supabase/admin";
 import { isSubscriptionActive } from "@/lib/subscription-access";
 
 export type ResourceKind = "guide" | "genome";
 export type ResourceAccessState = "admin" | "granted" | "requires_plan" | "locked";
+
+// ¿Existe el recurso (genoma/guía) para este libro y bajo qué book_id? Devuelve
+// también el book_id que REALMENTE tiene el recurso, porque un mismo libro puede
+// existir como varias fichas (duplicados): el club puede leer una ficha sin
+// recursos mientras el genoma/guía vive en otra ficha con el mismo ISBN. Usamos
+// service role (solo booleanos/ids, no contenido; el acceso se gatea en destino).
+export async function getBookResourceAvailability(
+    bookId: string,
+    isbn?: string | null,
+): Promise<{ hasGenome: boolean; hasGuide: boolean; genomeBookId: string | null; guideBookId: string | null }> {
+    const empty = { hasGenome: false, hasGuide: false, genomeBookId: null, guideBookId: null };
+    if (!bookId) return empty;
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return empty;
+
+    const admin = createAdminClient() as unknown as { from: (t: string) => any };
+
+    // Candidatos: la propia ficha del club + cualquier ficha que comparta ISBN.
+    const candidateIds = new Set<string>([bookId]);
+    const cleanIsbn = (isbn || "").replace(/[^0-9Xx]/g, "");
+    if (cleanIsbn) {
+        const { data: eds } = await admin
+            .from("editions")
+            .select("book_id")
+            .or(`isbn13.eq.${cleanIsbn},isbn.eq.${cleanIsbn}`);
+        for (const e of (eds ?? []) as { book_id: string | null }[]) {
+            if (e.book_id) candidateIds.add(e.book_id);
+        }
+    }
+    const ids = [...candidateIds];
+
+    const firstWith = async (table: string): Promise<string | null> => {
+        const { data } = await admin.from(table).select("book_id").in("book_id", ids).limit(1);
+        return (data as { book_id: string }[] | null)?.[0]?.book_id ?? null;
+    };
+
+    const [genomeBookId, guideBookId] = await Promise.all([
+        firstWith("book_literary_chromosomes"),
+        firstWith("book_guides"),
+    ]);
+
+    return {
+        hasGenome: !!genomeBookId,
+        hasGuide: !!guideBookId,
+        genomeBookId,
+        guideBookId,
+    };
+}
 
 export type ResourceBook = {
     id: string;

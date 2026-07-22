@@ -16,8 +16,9 @@ import { ClubManagement } from "@/components/club/management/ClubManagement";
 import { ClubCheckpoints } from "@/components/club/ClubCheckpoints";
 import { ClubCalendar } from "@/components/club/ClubCalendar";
 import { ClubLibrary } from "@/components/club/ClubLibrary";
-import { saveReadingPlan, activateReading, cancelReadingPlan, createPoll } from "@/app/app/clubs/[id]/actions";
+import { saveReadingPlan, activateReading, cancelReadingPlan, revertReadingToPlanned, createPoll } from "@/app/app/clubs/[id]/actions";
 
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { SearchBookModal } from "@/components/club/management/SearchBookModal";
 import { ReadingSetup } from "@/components/club/management/ReadingSetup";
 import { CreatePollModal } from "@/components/club/polls/CreatePollModal";
@@ -40,6 +41,7 @@ interface ClubDashboardClub {
     is_official?: boolean | null;
     price?: number | null;
     currency?: string | null;
+    cover_url?: string | null;
     organization?: {
         id: string;
         name: string;
@@ -240,6 +242,9 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
     // View State Handlers
     const searchParams = useSearchParams();
     const initialTab = searchParams.get('tab') === 'manage' ? 'manage' : 'summary';
+    // "Volver" consciente del origen: si se entró desde el panel de admin
+    // (Gestionar un Original), vuelve allí en vez de a los clubs del usuario.
+    const backHref = searchParams.get('from') === 'admin' ? '/app/admin/clubes' : '/app/clubs';
     const [activeTab, setActiveTab] = React.useState(initialTab);
     const [isSearchModalOpen, setIsSearchModalOpen] = React.useState(false);
     const [isCreatePollModalOpen, setIsCreatePollModalOpen] = React.useState(false);
@@ -248,6 +253,14 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
     const [conversationCheckpointNumber, setConversationCheckpointNumber] = React.useState<number | null>(null);
     const [planBusy, setPlanBusy] = React.useState(false);
     const [editingConfig, setEditingConfig] = React.useState<any | null>(null);
+    // Modal de confirmación in-app (sustituye a window.confirm).
+    const [confirmState, setConfirmState] = React.useState<null | {
+        title: string;
+        message?: string;
+        confirmLabel?: string;
+        tone?: "default" | "danger";
+        action: () => Promise<void>;
+    }>(null);
 
     // No data = club is private/secret and user is not a member
     if (!club) {
@@ -302,20 +315,50 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
         }
     };
 
-    const handleActivatePlan = async () => {
+    const handleActivatePlan = () => {
         if (!plannedBook?.id) return;
-        if (!confirm("¿Comenzar ahora esta lectura? Pasará a ser la lectura activa del club.")) return;
+        const plannedId = plannedBook.id;
+        setConfirmState({
+            title: "¿Comenzar la lectura ahora?",
+            message: "Pasará a ser la lectura activa del club.",
+            confirmLabel: "Comenzar ahora",
+            action: async () => {
+                setPlanBusy(true);
+                try {
+                    const result = await activateReading(club.id, plannedId);
+                    if (result.error) alert("Error: " + result.error);
+                } catch (e) {
+                    console.error(e);
+                    alert("Error al iniciar la lectura.");
+                } finally {
+                    setPlanBusy(false);
+                    setConfirmState(null);
+                }
+            },
+        });
+    };
 
-        setPlanBusy(true);
-        try {
-            const result = await activateReading(club.id, plannedBook.id);
-            if (result.error) alert("Error: " + result.error);
-        } catch (e) {
-            console.error(e);
-            alert("Error al iniciar la lectura.");
-        } finally {
-            setPlanBusy(false);
-        }
+    const handleRevertReading = () => {
+        if (!club.currentBook?.id) return;
+        const clubBookId = club.currentBook.id;
+        setConfirmState({
+            title: "¿Volver a lectura programada?",
+            message: "Esta lectura dejará de ser la activa y volverá a quedar programada, para que puedas decidir de nuevo.",
+            confirmLabel: "Volver a programada",
+            action: async () => {
+                setPlanBusy(true);
+                try {
+                    const result = await revertReadingToPlanned(club.id, clubBookId);
+                    if (result.error) alert("Error: " + result.error);
+                } catch (e) {
+                    console.error(e);
+                    alert("Error al revertir la lectura.");
+                } finally {
+                    setPlanBusy(false);
+                    setConfirmState(null);
+                }
+            },
+        });
     };
 
     const handleEditPlan = () => {
@@ -349,20 +392,28 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
         });
     };
 
-    const handleCancelPlan = async () => {
+    const handleCancelPlan = () => {
         if (!plannedBook?.id) return;
-        if (!confirm("¿Descartar la lectura programada?")) return;
-
-        setPlanBusy(true);
-        try {
-            const result = await cancelReadingPlan(club.id, plannedBook.id);
-            if (result.error) alert("Error: " + result.error);
-        } catch (e) {
-            console.error(e);
-            alert("Error al descartar la lectura.");
-        } finally {
-            setPlanBusy(false);
-        }
+        const plannedId = plannedBook.id;
+        setConfirmState({
+            title: "¿Descartar la lectura programada?",
+            message: "Se eliminará la programación de esta lectura. Podrás programar otra cuando quieras.",
+            confirmLabel: "Descartar",
+            tone: "danger",
+            action: async () => {
+                setPlanBusy(true);
+                try {
+                    const result = await cancelReadingPlan(club.id, plannedId);
+                    if (result.error) alert("Error: " + result.error);
+                } catch (e) {
+                    console.error(e);
+                    alert("Error al descartar la lectura.");
+                } finally {
+                    setPlanBusy(false);
+                    setConfirmState(null);
+                }
+            },
+        });
     };
 
     const handleScheduleWinner = (winnerText: string) => {
@@ -384,12 +435,23 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
     const header = (
         <div className="mb-5 sm:mb-7">
             <Link
-                href="/app/clubs"
+                href={backHref}
                 className="mb-4 inline-flex items-center gap-2 text-sm font-bold text-grey/50 transition-colors hover:text-teal"
             >
                 <ArrowLeft size={18} />
                 Volver
             </Link>
+            {club.cover_url && (
+                <div className="relative mb-5 h-32 w-full overflow-hidden rounded-2xl bg-teal/5 md:h-44">
+                    <Image
+                        src={club.cover_url}
+                        alt={`Cabecera de ${club.name}`}
+                        fill
+                        sizes="(min-width: 1024px) 900px, 100vw"
+                        className="object-cover"
+                    />
+                </div>
+            )}
             <SectionHeader
                 eyebrow="CLUB"
                 title={club.name}
@@ -441,6 +503,20 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                 </div>
             )}
         </div>
+    );
+
+    // Modal de confirmación in-app, reutilizado en todos los returns del dashboard.
+    const confirmModalEl = (
+        <ConfirmModal
+            open={!!confirmState}
+            title={confirmState?.title ?? ""}
+            message={confirmState?.message}
+            confirmLabel={confirmState?.confirmLabel}
+            tone={confirmState?.tone}
+            busy={planBusy}
+            onConfirm={() => confirmState?.action()}
+            onCancel={() => setConfirmState(null)}
+        />
     );
 
     // Configurar lectura (elegir o editar) — válido con o sin lectura activa.
@@ -570,6 +646,8 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                     onClose={() => setIsCreatePollModalOpen(false)}
                     onCreate={handleCreatePoll}
                 />
+
+                {confirmModalEl}
             </div>
         );
     }
@@ -606,6 +684,18 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                         </TabsList>
 
                         <TabsContent value="summary">
+                            {isAdmin && hasActiveBook && club.currentBook?.id && (
+                                <div className="mb-6 flex flex-col gap-2 rounded-xl border border-amber-200 bg-amber-50/50 px-4 py-2.5 text-sm sm:flex-row sm:items-center sm:justify-between">
+                                    <span className="text-grey/70">¿Empezaste esta lectura sin querer?</span>
+                                    <button
+                                        onClick={handleRevertReading}
+                                        disabled={planBusy}
+                                        className="text-left font-bold text-amber-700 transition-colors hover:text-amber-800 hover:underline disabled:opacity-50 sm:text-right"
+                                    >
+                                        Volver a lectura programada
+                                    </button>
+                                </div>
+                            )}
                             <div className="mb-6">
                                 <ClubLiveSessions clubId={club.id} isManager={isAdmin} />
                             </div>
@@ -684,6 +774,8 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                 onClose={() => setIsCreatePollModalOpen(false)}
                 onCreate={handleCreatePoll}
             />
+
+            {confirmModalEl}
         </div>
     );
 }

@@ -49,6 +49,21 @@ export async function createClub(data: any) {
 
     let clubId = "";
 
+    // Club oficial de Wordelia: el flag del cliente se REVERIFICA en servidor
+    // (solo admin/editor). Nunca se confía en el flag tal cual.
+    let isOfficial = false;
+    if (data.is_official === true) {
+        const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', user.id)
+            .maybeSingle();
+        if (profile?.role !== 'admin' && profile?.role !== 'editor') {
+            return { error: 'No tienes permiso para crear clubs oficiales.' };
+        }
+        isOfficial = true;
+    }
+
     // Optional: hosting this club under a bookstore ("librería").
     const organizationId: string | null = data.organizationId || null;
     if (organizationId) {
@@ -90,7 +105,8 @@ export async function createClub(data: any) {
 
     // Personal (non-org) club: gate by user plan. Explorador (gratis) puede crear
     // 1 club PÚBLICO; los privados/secretos y crear varios requieren plan de pago.
-    if (!organizationId) {
+    // Los clubs oficiales (admin) no pasan por este gate.
+    if (!organizationId && !isOfficial) {
         const { data: sub } = await supabase
             .from('user_subscriptions')
             .select('status, current_period_end')
@@ -131,10 +147,14 @@ export async function createClub(data: any) {
                 price: price,
                 currency: 'EUR',
                 tags: data.tags || [],
-                is_official: false,
+                is_official: isOfficial,
                 is_archived: false,
                 rules: data.rules || [],
                 join_code: joinCode,
+                cover_url: data.coverUrl || null,
+                // Escaparate (home): solo configurable en clubs oficiales.
+                destacado: isOfficial ? !!data.destacado : false,
+                portada: isOfficial ? !!data.portada : false,
                 // Eje 2 (estilo) + ajustes que el wizard recoge y antes se descartaban.
                 reading_style: data.templateId || null,
                 reading_type: data.readingType || null,

@@ -9,10 +9,13 @@ export interface ClubCardProps {
     id: string;
     name: string;
     description?: string;
+    /** Imagen de cabecera del club (clubs.cover_url), banner propio. */
+    cover_url?: string | null;
     currentBook?: {
         title: string;
         author: string;
         coverUrl: string;
+        status?: string | null;
     } | null;
     members?: { src?: string; fallback?: string }[];
     memberCount?: number;
@@ -34,6 +37,7 @@ export function ClubCard({
     id,
     name,
     description,
+    cover_url,
     currentBook,
     memberCount = 0,
     badges = [],
@@ -54,6 +58,7 @@ export function ClubCard({
         : null;
     const membersLabel = memberCount === 1 ? "1 lector" : memberCount > 1 ? `${memberCount} lectores` : "Nuevo";
     const coverUrl = currentBook?.coverUrl;
+    const headerImage = cover_url || null;
 
     const navigate = () => {
         if (!preview) router.push(`/app/clubs/${id}`);
@@ -67,7 +72,15 @@ export function ClubCard({
                 ${preview ? "" : "cursor-pointer"}`}
         >
             <div className="relative h-32 shrink-0 overflow-hidden bg-grey/10 md:h-36">
-                {coverUrl ? (
+                {headerImage ? (
+                    <Image
+                        src={headerImage}
+                        alt={`Cabecera de ${name}`}
+                        fill
+                        sizes="(min-width: 1024px) 360px, (min-width: 768px) 45vw, 90vw"
+                        className="object-cover transition-transform duration-200 group-hover:scale-105"
+                    />
+                ) : coverUrl ? (
                     <Image
                         src={coverUrl}
                         alt=""
@@ -98,7 +111,7 @@ export function ClubCard({
                     </div>
                     {ownerName && (
                         <span className="text-[10px] font-semibold text-white drop-shadow-sm">
-                            {ownerName.split(" ")[0]} modera
+                            Moderador: {ownerName}
                         </span>
                     )}
                 </div>
@@ -126,7 +139,9 @@ export function ClubCard({
 
                 {currentBook ? (
                     <p className="mb-3 text-xs leading-snug text-grey/60">
-                        <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-widest text-grey/40">Leyendo</span>
+                        <span className="mb-0.5 block text-[10px] font-bold uppercase tracking-widest text-grey/40">
+                            {currentBook.status === 'planned' ? "Próxima lectura" : "Leyendo"}
+                        </span>
                         <span className="line-clamp-1">
                             {currentBook.title}
                             {currentBook.author && <span className="text-grey/45"> · {currentBook.author}</span>}

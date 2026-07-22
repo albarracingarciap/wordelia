@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/Button";
 import { Select } from "@/components/ui/Select";
 import { useParams, useRouter } from "next/navigation";
 import { updateClubSettings, archiveClub, deleteClub } from "@/app/app/clubs/[id]/actions";
+import { ClubHeaderUpload } from "@/components/clubs/create/ClubHeaderUpload";
 import { Check, Archive, Trash2 } from "lucide-react";
 
 const PRIVACY_OPTIONS = [
@@ -32,6 +33,7 @@ export function GeneralSettings({ club }: { club?: any }) {
     const [price, setPrice] = React.useState(club?.price != null ? String(club.price) : "0");
     const [portada, setPortada] = React.useState(Boolean(club?.portada));
     const [destacado, setDestacado] = React.useState(Boolean(club?.destacado));
+    const [coverUrl, setCoverUrl] = React.useState<string | null>(club?.cover_url ?? null);
     const [isSaving, setIsSaving] = React.useState(false);
     const [savedOk, setSavedOk] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
@@ -51,6 +53,7 @@ export function GeneralSettings({ club }: { club?: any }) {
             setPrice(club.price != null ? String(club.price) : "0");
             setPortada(Boolean(club.portada));
             setDestacado(Boolean(club.destacado));
+            setCoverUrl(club.cover_url ?? null);
         }
     }, [club]);
 
@@ -70,6 +73,7 @@ export function GeneralSettings({ club }: { club?: any }) {
             price: parsedPrice,
             portada,
             destacado,
+            coverUrl,
         });
         setIsSaving(false);
         if (result?.error) {
@@ -113,6 +117,8 @@ export function GeneralSettings({ club }: { club?: any }) {
                 <h3 className="text-lg font-serif text-teal mb-6">Configuración general</h3>
 
                 <div className="space-y-4">
+                    <ClubHeaderUpload value={coverUrl} onChange={setCoverUrl} />
+
                     <div>
                         <label className="block text-sm font-bold text-grey-dark mb-1.5">Nombre del club</label>
                         <Input

@@ -17,6 +17,17 @@ export function ClubCard({ club }: { club: PublicClub }) {
             href={clubHref(club)}
             className="group flex h-full flex-col overflow-hidden rounded-2xl border border-teal/10 bg-white text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
         >
+            {club.headerImage && (
+                <div className="relative h-24 w-full overflow-hidden bg-teal/5">
+                    <Image
+                        src={club.headerImage}
+                        alt={`Cabecera de ${club.name}`}
+                        fill
+                        sizes="(min-width: 1024px) 280px, (min-width: 640px) 45vw, 90vw"
+                        className="object-cover"
+                    />
+                </div>
+            )}
             <div className="relative aspect-[2/3] w-full overflow-hidden bg-grey/10">
                 {cover ? (
                     <Image

@@ -33,6 +33,11 @@ export type CreateClubFormData = {
     is_official?: boolean;
     price?: string;
     pace?: string;
+    // Imagen de cabecera del club (URL pública en bucket club-headers).
+    coverUrl?: string | null;
+    // Escaparate en home (solo clubs oficiales).
+    destacado?: boolean;
+    portada?: boolean;
     // Libro y ritmo (pasos opcionales del alta).
     book?: {
         id?: string;
@@ -50,8 +55,11 @@ export type CreateClubFormData = {
     checkpoints?: any[];
 };
 
-export function CreateClubClient({ organizationId }: { organizationId?: string } = {}) {
+export function CreateClubClient({ organizationId, official = false }: { organizationId?: string; official?: boolean } = {}) {
     const router = useRouter();
+    // Modo oficial (admin): mismo asistente, con extras de escaparate y destino
+    // de vuelta al panel de admin. El backend reverifica el rol.
+    const backHref = official ? "/app/admin/clubes" : "/app/clubs";
     const [step, setStep] = React.useState(1);
     const [error, setError] = React.useState("");
     const [isSubmitting, setIsSubmitting] = React.useState(false);
@@ -71,7 +79,7 @@ export function CreateClubClient({ organizationId }: { organizationId?: string }
             "Citas cortas por respeto a derechos.",
             "Si algo incomoda, repórtalo."
         ],
-        is_official: false,
+        is_official: official,
     });
 
     const updateField = (field: string, value: any) => {
@@ -219,11 +227,11 @@ export function CreateClubClient({ organizationId }: { organizationId?: string }
 
         setIsSubmitting(true);
         try {
-            const result = await createClub({ ...formData, organizationId });
+            const result = await createClub({ ...formData, organizationId, is_official: official });
             if (result?.error) {
                 setError(result.error);
             } else if (result?.success && result?.clubId) {
-                router.push(`/app/clubs/${result.clubId}`);
+                router.push(official ? "/app/admin/clubes" : `/app/clubs/${result.clubId}`);
             }
         } catch (submitError) {
             console.error("Failed to create club", submitError);
@@ -239,7 +247,7 @@ export function CreateClubClient({ organizationId }: { organizationId?: string }
             setStep(step - 1);
             window.scrollTo({ top: 0, behavior: "smooth" });
         } else {
-            router.push("/app/clubs");
+            router.push(backHref);
         }
     };
 
@@ -251,7 +259,7 @@ export function CreateClubClient({ organizationId }: { organizationId?: string }
             <Container className="max-w-3xl">
                 <button
                     type="button"
-                    onClick={() => router.push("/app/clubs")}
+                    onClick={() => router.push(backHref)}
                     className="mb-5 inline-flex items-center gap-2 text-sm font-bold text-grey/50 transition-colors hover:text-teal"
                 >
                     <ArrowLeft className="h-4 w-4" />
@@ -259,9 +267,9 @@ export function CreateClubClient({ organizationId }: { organizationId?: string }
                 </button>
 
                 <SectionHeader
-                    eyebrow="CLUBS"
-                    title="Crear un club"
-                    subtitle="Un espacio pequeño puede dar conversaciones enormes."
+                    eyebrow={official ? "WORDELIA ORIGINALS" : "CLUBS"}
+                    title={official ? "Crear un club oficial" : "Crear un club"}
+                    subtitle={official ? "Un club oficial de Wordelia para toda la comunidad." : "Un espacio pequeño puede dar conversaciones enormes."}
                     className="mb-5 [&_h1]:text-[1.8rem] [&_h1]:leading-tight [&_p]:text-base"
                 />
 
@@ -280,7 +288,7 @@ export function CreateClubClient({ organizationId }: { organizationId?: string }
                     {currentKey === "book" && <StepBook data={formData} onUpdate={updateField} />}
                     {currentKey === "pace" && <StepPace data={formData} onUpdate={updateField} />}
                     {currentKey === "rules" && <StepRules data={formData} onUpdate={updateField} />}
-                    {currentKey === "review" && <StepInvite data={formData} onUpdate={updateField} selectedTemplateTitle={selectedTemplate?.title} />}
+                    {currentKey === "review" && <StepInvite data={formData} onUpdate={updateField} selectedTemplateTitle={selectedTemplate?.title} official={official} />}
                 </div>
             </Container>
 

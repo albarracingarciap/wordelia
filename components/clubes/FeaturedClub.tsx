@@ -16,6 +16,18 @@ export function FeaturedClub({ club }: { club: PublicClub }) {
         <article className="relative overflow-hidden rounded-3xl border border-coral/20 bg-white shadow-lg">
             <div className="absolute inset-0 bg-gradient-to-br from-coral/5 via-transparent to-cream/40" />
 
+            {club.headerImage && (
+                <div className="relative z-10 h-32 w-full overflow-hidden md:h-40">
+                    <Image
+                        src={club.headerImage}
+                        alt={`Cabecera de ${club.name}`}
+                        fill
+                        sizes="(min-width: 1024px) 900px, 100vw"
+                        className="object-cover"
+                    />
+                </div>
+            )}
+
             <div className="relative z-10 p-6 md:p-8">
                 <p className="mb-6 inline-flex items-center gap-2 rounded-full bg-coral/10 px-3 py-1 text-xs font-bold uppercase tracking-[0.14em] text-coral">
                     <Sparkles className="h-3.5 w-3.5" aria-hidden="true" />

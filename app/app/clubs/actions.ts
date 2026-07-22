@@ -25,7 +25,8 @@ export async function getUserClubs() {
                     *,
                     book: books(
                         *,
-                        author
+                        author,
+                        preferred_edition:editions!books_preferred_edition_fk(cover_url)
                     )
                 )
             )
@@ -49,9 +50,10 @@ export async function getUserClubs() {
 
         // Get current book (filter inside query was tricky with array, so do manually if more than one returned or structure is different)
         // The join `club_books` returns an array. We want the one with status 'current'.
-        const currentBook = Array.isArray(club.current_book)
-            ? club.current_book.find((b: any) => b.status === 'current')
-            : null;
+        const clubBooks = Array.isArray(club.current_book) ? club.current_book : [];
+        const currentBook = clubBooks.find((b: any) => b.status === 'current')
+            || clubBooks.find((b: any) => b.status === 'planned')
+            || null;
 
         return {
             ...club,
@@ -62,7 +64,8 @@ export async function getUserClubs() {
             currentBook: currentBook ? {
                 title: currentBook.book?.title,
                 author: bookAuthorName(currentBook.book),
-                coverUrl: currentBook.book?.cover_url
+                coverUrl: currentBook.cover_url || currentBook.book?.cover_url || currentBook.book?.preferred_edition?.cover_url || null,
+                status: currentBook.status ?? null
             } : null,
             role: m.role,
             membershipRole: m.role, // includes 'pending'
@@ -90,7 +93,8 @@ export async function getExploreClubs(search?: string, tags?: string[]) {
                 *,
                 book: books(
                     *,
-                    author
+                    author,
+                    preferred_edition:editions!books_preferred_edition_fk(cover_url)
                 )
             )
         `)
@@ -120,9 +124,10 @@ export async function getExploreClubs(search?: string, tags?: string[]) {
             .select('*', { count: 'exact', head: true })
             .eq('club_id', club.id);
 
-        const currentBook = Array.isArray(club.current_book)
-            ? club.current_book.find((b: any) => b.status === 'current')
-            : null;
+        const clubBooks = Array.isArray(club.current_book) ? club.current_book : [];
+        const currentBook = clubBooks.find((b: any) => b.status === 'current')
+            || clubBooks.find((b: any) => b.status === 'planned')
+            || null;
 
         return {
             ...club,
@@ -132,7 +137,8 @@ export async function getExploreClubs(search?: string, tags?: string[]) {
             currentBook: currentBook ? {
                 title: currentBook.book?.title,
                 author: bookAuthorName(currentBook.book),
-                coverUrl: currentBook.book?.cover_url
+                coverUrl: currentBook.cover_url || currentBook.book?.cover_url || currentBook.book?.preferred_edition?.cover_url || null,
+                status: currentBook.status ?? null
             } : null,
         };
     }));

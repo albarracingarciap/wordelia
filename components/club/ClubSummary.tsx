@@ -6,6 +6,7 @@ import { Button } from "../ui/Button";
 import { CheckpointDetailModal } from "./CheckpointDetailModal";
 import { TabsContext } from "../ui/Tabs";
 import { getClubAnnouncements, getClubStats, getMyClubBookProgress, markCheckpointCompleted, markCheckpointPending } from "@/app/app/clubs/[id]/actions";
+import { getBookResourceAvailability } from "@/app/app/recursos/actions";
 import { Activity, AlertTriangle, CalendarDays, Clock, HeartPulse, Megaphone, MessageSquare, ShieldAlert, Users, Dna, BookOpenText, ChevronRight } from "lucide-react";
 import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
@@ -265,6 +266,20 @@ export function ClubSummary({ club }: { club?: ClubSummaryData }) {
     const isAdminOrMod = club?.userRole === 'admin' || club?.userRole === 'moderator';
     // Libro actual del catálogo → recursos (guía/genoma). El acceso se controla en destino.
     const resourceBookId = club?.currentBook?.book?.id ?? null;
+    const resourceIsbn = (club?.currentBook as { isbn?: string | null } | undefined)?.isbn ?? null;
+    // Disponibilidad real de recursos: solo mostramos cada botón si el recurso
+    // existe, y enlazamos al book_id que REALMENTE lo tiene (puede ser otra ficha
+    // del mismo libro por ISBN). Evita 404.
+    const [resourceAvail, setResourceAvail] = React.useState<{ hasGenome: boolean; hasGuide: boolean; genomeBookId: string | null; guideBookId: string | null }>({ hasGenome: false, hasGuide: false, genomeBookId: null, guideBookId: null });
+
+    React.useEffect(() => {
+        if (!resourceBookId) { setResourceAvail({ hasGenome: false, hasGuide: false, genomeBookId: null, guideBookId: null }); return; }
+        let mounted = true;
+        getBookResourceAvailability(resourceBookId, resourceIsbn).then((avail) => {
+            if (mounted) setResourceAvail(avail);
+        });
+        return () => { mounted = false; };
+    }, [resourceBookId, resourceIsbn]);
 
     const handleViewFullPlan = () => {
         if (tabsContext) tabsContext.onChange("checkpoints");
@@ -513,13 +528,14 @@ export function ClubSummary({ club }: { club?: ClubSummaryData }) {
                 </Card>
             )}
 
-            {/* Recursos del libro actual — enlaces reales (el acceso se controla en destino). */}
-            {resourceBookId && (
+            {/* Recursos del libro actual — solo se muestran los que EXISTEN (evita 404;
+                los clubs de usuario cuyo libro no tiene guía/genoma no verán botones). */}
+            {resourceBookId && (resourceAvail.hasGenome || resourceAvail.hasGuide) && (
                 <div className="space-y-3">
                     <h4 className="text-sm font-bold text-grey/40 uppercase tracking-widest pl-1">Recursos del libro</h4>
                     {[
-                        { title: "ADN del libro", desc: "Genoma literario: temas, símbolos y voz narrativa.", href: `/app/recursos/genomas/${resourceBookId}`, Icon: Dna, color: "bg-purple-50 text-purple-700" },
-                        { title: "Guía de discusión", desc: "Preguntas para dinamizar la conversación.", href: `/app/recursos/guias/${resourceBookId}`, Icon: BookOpenText, color: "bg-blue-50 text-blue-700" },
+                        ...(resourceAvail.hasGenome ? [{ title: "ADN del libro", desc: "Genoma literario: temas, símbolos y voz narrativa.", href: `/app/recursos/genomas/${resourceAvail.genomeBookId}`, Icon: Dna, color: "bg-purple-50 text-purple-700" }] : []),
+                        ...(resourceAvail.hasGuide ? [{ title: "Guía de discusión", desc: "Preguntas para dinamizar la conversación.", href: `/app/recursos/guias/${resourceAvail.guideBookId}`, Icon: BookOpenText, color: "bg-blue-50 text-blue-700" }] : []),
                     ].map((tool) => (
                         <Link key={tool.href} href={tool.href} className="w-full flex items-center justify-between p-3 bg-white border border-black/5 rounded-xl hover:border-teal/30 hover:shadow-sm transition-all text-left group">
                             <div className="flex items-center gap-3">
