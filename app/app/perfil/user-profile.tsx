@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
     Award,
     BookOpen,
@@ -29,7 +30,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
-import { updateProfile } from "./actions";
+import { updateProfile, toggleSecondaryGoalDone } from "./actions";
+import type { SecondaryGoalStatus } from "@/lib/secondary-goals";
 
 type ProfileData = {
     id: string;
@@ -49,6 +51,7 @@ type ProfileData = {
     story_complexity_preference?: number | null;
     engagement_elements?: string[] | null;
     banner_color?: string | null;
+    header_image_url?: string | null;
     created_at?: string | null;
 };
 
@@ -210,16 +213,29 @@ function GoalsOverview({
     booksRead,
     pagesRead,
     streakDays,
-    goals
+    goals,
+    secondaryStatuses = []
 }: {
     booksRead: number;
     pagesRead: number;
     streakDays: number;
     goals: NonNullable<ProfileData["goals"]> | null;
+    secondaryStatuses?: SecondaryGoalStatus[];
 }) {
     const bookTarget = goals?.yearly_target || 50;
     const pagesTarget = goals?.pages_target || 10000;
     const streakTarget = goals?.streak_target || 7;
+
+    const router = useRouter();
+    const [pending, setPending] = React.useState<string | null>(null);
+    const completedCount = secondaryStatuses.filter((s) => s.done).length;
+
+    const toggleManual = async (key: string) => {
+        setPending(key);
+        await toggleSecondaryGoalDone(key);
+        setPending(null);
+        router.refresh();
+    };
 
     return (
         <section className="space-y-4 rounded-2xl border border-grey/10 bg-white p-4 shadow-sm sm:rounded-3xl sm:p-6">
@@ -228,14 +244,34 @@ function GoalsOverview({
                 <GoalMeter label="Páginas" current={pagesRead} target={pagesTarget} suffix=" págs." tone="coral" />
                 <GoalMeter label="Racha" current={streakDays} target={streakTarget} suffix=" días" tone="gold" />
             </div>
-            {goals?.secondary?.length ? (
+            {secondaryStatuses.length ? (
                 <div className="rounded-2xl bg-cream/40 p-4">
-                    <h3 className="text-xs font-bold uppercase tracking-[0.14em] text-grey/50">Retos secundarios</h3>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                        {goals.secondary.slice(0, 4).map((goal) => (
-                            <span key={goal} className="rounded-full border border-teal/10 bg-white px-3 py-1.5 text-xs font-semibold text-grey-dark">
-                                {goal}
-                            </span>
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-xs font-bold uppercase tracking-[0.14em] text-grey/50">Retos secundarios</h3>
+                        <span className="text-xs font-semibold text-teal">{completedCount}/{secondaryStatuses.length}</span>
+                    </div>
+                    <div className="mt-3 space-y-2">
+                        {secondaryStatuses.map((s) => (
+                            <div key={s.key} className={`flex items-center gap-3 rounded-xl border px-3 py-2 text-sm transition ${s.done ? "border-teal/25 bg-teal/5" : "border-grey/10 bg-white"}`}>
+                                {s.type === "manual" ? (
+                                    <button
+                                        onClick={() => toggleManual(s.key)}
+                                        disabled={pending === s.key}
+                                        title={s.done ? "Marcar como pendiente" : "Marcar como hecho"}
+                                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition ${s.done ? "border-teal bg-teal text-white" : "border-grey/30 text-transparent hover:border-teal"}`}
+                                    >
+                                        <Check className="h-3.5 w-3.5" />
+                                    </button>
+                                ) : (
+                                    <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full ${s.done ? "bg-teal text-white" : "border border-grey/20 text-grey/30"}`}>
+                                        <Check className="h-3.5 w-3.5" />
+                                    </span>
+                                )}
+                                <span className={`flex-1 ${s.done ? "font-medium text-teal-dark" : "text-grey-dark"}`}>{s.label}</span>
+                                {s.type === "auto" && (
+                                    <span className="rounded-full bg-teal/10 px-1.5 py-0.5 text-[10px] font-bold uppercase text-teal">Auto</span>
+                                )}
+                            </div>
                         ))}
                     </div>
                 </div>
@@ -287,8 +323,8 @@ function RecommendedChallenge({
                     {challenge.description}
                 </p>
                 <p className="mb-4 text-xs font-semibold text-teal-dark/50">{challenge.helper}</p>
-                <Link href="/app/perfil/editar" className="inline-flex items-center rounded-xl bg-white px-3 py-2 text-xs font-bold text-teal-dark shadow-sm transition-all hover:bg-teal hover:text-white">
-                    Ajustar metas <ChevronRight className="ml-1 h-3 w-3" />
+                <Link href="/app/retos" className="inline-flex items-center rounded-xl bg-white px-3 py-2 text-xs font-bold text-teal-dark shadow-sm transition-all hover:bg-teal hover:text-white">
+                    Ver retos de la comunidad <ChevronRight className="ml-1 h-3 w-3" />
                 </Link>
             </div>
         </section>
@@ -344,7 +380,8 @@ export default function UserProfile({
     allBadges = [],
     activity,
     initialLibrary = [],
-    libraryCounts = { read: 0, reading: 0, wantToRead: 0, abandoned: 0 }
+    libraryCounts = { read: 0, reading: 0, wantToRead: 0, abandoned: 0 },
+    secondaryGoals = []
 }: {
     profile: ProfileData;
     stats: StatsData;
@@ -353,6 +390,7 @@ export default function UserProfile({
     activity?: ActivityData;
     initialLibrary?: LibraryBook[];
     libraryCounts?: LibraryCounts;
+    secondaryGoals?: SecondaryGoalStatus[];
 }) {
     const [activeTab, setActiveTab] = React.useState("Leídos");
     const [libraryBooks, setLibraryBooks] = React.useState<LibraryBook[]>(initialLibrary);
@@ -360,6 +398,7 @@ export default function UserProfile({
     const [isBadgesModalOpen, setIsBadgesModalOpen] = React.useState(false);
     const [bannerColor, setBannerColor] = React.useState(getInitialColor(profile.banner_color));
     const [isColorPickerOpen, setIsColorPickerOpen] = React.useState(false);
+    const headerImage = profile.header_image_url || null;
 
     React.useEffect(() => {
         const fetchBooks = async () => {
@@ -465,92 +504,107 @@ export default function UserProfile({
 
     return (
         <div className="min-h-screen bg-cream/20 pb-24">
-            <header className="relative overflow-hidden rounded-2xl border-b border-grey/10 bg-white px-4 pb-6 pt-16 sm:px-6 sm:pb-8 sm:pt-24 md:px-12 lg:rounded-none">
-                <div
-                    className="absolute left-0 top-0 h-28 w-full opacity-90 transition-colors duration-500 sm:h-32"
-                    style={{ backgroundColor: bannerColor }}
-                />
-                <div className="pattern-grid-lg pointer-events-none absolute left-0 top-0 h-28 w-full opacity-10 sm:h-32" />
-
-                <div className="absolute right-3 top-3 z-50 sm:right-6 sm:top-4">
-                    <button
-                        onClick={() => setIsColorPickerOpen((value) => !value)}
-                        className="rounded-full border border-white/20 bg-white/30 p-2 text-white shadow-sm backdrop-blur-md transition-all hover:bg-white/50"
-                        title="Cambiar color de portada"
-                    >
-                        <Palette className="h-4 w-4" />
-                    </button>
-
-                    {isColorPickerOpen && (
-                        <div className="absolute right-0 top-full z-50 mt-2 grid w-32 grid-cols-3 gap-2 rounded-xl border border-grey/10 bg-white p-3 shadow-xl">
-                            {BANNER_COLORS.map((color) => (
-                                <button
-                                    key={color}
-                                    onClick={() => handleBannerColorChange(color)}
-                                    className={`h-8 w-8 rounded-full ring-2 ring-offset-1 transition-transform hover:scale-110 ${bannerColor === color ? "ring-grey/40" : "ring-transparent"}`}
-                                    style={{ backgroundColor: color }}
-                                    title={color}
-                                />
-                            ))}
-                        </div>
-                    )}
-                </div>
-
-                <div className="relative z-10 mx-auto flex max-w-6xl flex-col items-center gap-4 text-center sm:gap-6 md:flex-row md:items-end md:text-left">
-                    <div className="relative">
-                        <div className="h-24 w-24 overflow-hidden rounded-full border-4 border-white bg-grey/20 shadow-lg sm:h-32 sm:w-32">
-                            {profile.avatar_url ? (
-                                <img src={profile.avatar_url} alt={profile.full_name} className="h-full w-full object-cover" />
-                            ) : (
-                                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-teal/20 to-coral/20 text-4xl">
-                                    <span aria-hidden="true">👤</span>
-                                </div>
-                            )}
-                        </div>
-                        <Link href="/app/perfil/editar" className="absolute bottom-1 right-1 rounded-full border border-grey/10 bg-white p-2 text-grey-dark shadow-md transition-colors hover:text-teal">
-                            <Edit2 className="h-4 w-4" />
-                        </Link>
-                    </div>
-
-                    <div className="min-w-0 flex-1 space-y-2">
-                        <h1 className="break-words text-2xl font-bold text-teal-dark sm:text-3xl">{profile.full_name || "Lector sin nombre"}</h1>
-                        <p className="text-sm font-medium text-grey/60">{profile.username ? `@${profile.username}` : ""}</p>
-
-                        <div className="mt-1 flex flex-wrap items-center justify-center gap-3 text-xs text-grey/60 sm:gap-4 md:justify-start">
-                            {profile.location && (
-                                <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {profile.location}</span>
-                            )}
-                            <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> Miembro desde {memberSince}</span>
-                        </div>
-
-                        <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-grey-dark md:mx-0">
-                            {profile.bio?.trim() || "Sin biografía aún."}
-                        </p>
-                    </div>
-
-                    <div className="flex w-full flex-col gap-2 md:w-auto md:flex-row">
-                        {profile.username && (
-                            <Link
-                                href={`/app/perfil/${profile.username}`}
-                                className="inline-flex h-10 w-full items-center justify-center rounded-2xl border border-teal/15 bg-white/80 px-4 text-sm font-medium text-teal-dark shadow-sm transition-all hover:bg-teal/5 md:w-auto"
-                            >
-                                Ver público
-                            </Link>
-                        )}
-                        {profile.username && (
-                            <Link
-                                href={`/lector/${profile.username}`}
-                                className="inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-2xl border border-teal/15 bg-white/80 px-4 text-sm font-medium text-teal-dark shadow-sm transition-all hover:bg-teal/5 md:w-auto"
-                            >
-                                <Dna className="h-4 w-4 text-coral" /> Mi ADN lector
-                            </Link>
-                        )}
-                        <Link
-                            href="/app/perfil/editar"
-                            className="inline-flex h-10 w-full items-center justify-center rounded-2xl border border-coral bg-transparent px-4 text-sm font-medium text-coral transition-all hover:bg-coral/10 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-coral focus:ring-offset-2 md:w-auto"
+            <header className="overflow-hidden rounded-2xl border border-grey/10 bg-white shadow-sm lg:rounded-none lg:border-x-0 lg:border-t-0">
+                <div className="mx-auto flex max-w-6xl flex-col md:flex-row">
+                    {/* Sección 1: imagen de cabecera (o color + selector) con el avatar abajo-izquierda */}
+                    <div className="relative w-full shrink-0 md:w-2/5 lg:w-1/3">
+                        <div
+                            className="relative h-44 w-full sm:h-52 md:h-full md:min-h-[240px]"
+                            style={headerImage ? undefined : { backgroundColor: bannerColor }}
                         >
-                            Editar perfil
-                        </Link>
+                            {headerImage ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={headerImage} alt="Cabecera del perfil" className="h-full w-full object-cover" />
+                            ) : (
+                                <>
+                                    <div className="pattern-grid-lg pointer-events-none absolute inset-0 opacity-10" />
+                                    <div className="absolute right-3 top-3 z-20">
+                                        <button
+                                            onClick={() => setIsColorPickerOpen((value) => !value)}
+                                            className="rounded-full border border-white/20 bg-white/30 p-2 text-white shadow-sm backdrop-blur-md transition-all hover:bg-white/50"
+                                            title="Cambiar color de portada"
+                                        >
+                                            <Palette className="h-4 w-4" />
+                                        </button>
+                                        {isColorPickerOpen && (
+                                            <div className="absolute right-0 top-full z-30 mt-2 grid w-32 grid-cols-3 gap-2 rounded-xl border border-grey/10 bg-white p-3 shadow-xl">
+                                                {BANNER_COLORS.map((color) => (
+                                                    <button
+                                                        key={color}
+                                                        onClick={() => handleBannerColorChange(color)}
+                                                        className={`h-8 w-8 rounded-full ring-2 ring-offset-1 transition-transform hover:scale-110 ${bannerColor === color ? "ring-grey/40" : "ring-transparent"}`}
+                                                        style={{ backgroundColor: color }}
+                                                        title={color}
+                                                    />
+                                                ))}
+                                            </div>
+                                        )}
+                                    </div>
+                                </>
+                            )}
+
+                            <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4">
+                                <div className="relative">
+                                    <div className="h-20 w-20 overflow-hidden rounded-full border-4 border-white bg-grey/20 shadow-lg sm:h-24 sm:w-24">
+                                        {profile.avatar_url ? (
+                                            // eslint-disable-next-line @next/next/no-img-element
+                                            <img src={profile.avatar_url} alt={profile.full_name} className="h-full w-full object-cover" />
+                                        ) : (
+                                            <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-teal/20 to-coral/20 text-3xl">
+                                                <span aria-hidden="true">👤</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <Link href="/app/perfil/editar" className="absolute bottom-0 right-0 rounded-full border border-grey/10 bg-white p-1.5 text-grey-dark shadow-md transition-colors hover:text-teal">
+                                        <Edit2 className="h-3.5 w-3.5" />
+                                    </Link>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Sección 2: datos del usuario + botones */}
+                    <div className="flex flex-1 flex-col gap-4 p-5 sm:p-7">
+                        <div className="min-w-0 space-y-1.5">
+                            <h1 className="break-words text-2xl font-bold text-teal-dark sm:text-3xl">{profile.full_name || "Lector sin nombre"}</h1>
+                            {profile.username && <p className="text-sm font-medium text-grey/60">@{profile.username}</p>}
+
+                            <div className="flex flex-wrap items-center gap-3 text-xs text-grey/60 sm:gap-4">
+                                {profile.location && (
+                                    <span className="flex items-center gap-1"><MapPin className="h-3 w-3" /> {profile.location}</span>
+                                )}
+                                <span className="flex items-center gap-1"><Calendar className="h-3 w-3" /> Miembro desde {memberSince}</span>
+                            </div>
+
+                            <p className="max-w-xl pt-1 text-sm leading-relaxed text-grey-dark">
+                                {profile.bio?.trim() || "Sin biografía aún."}
+                            </p>
+                        </div>
+
+                        <div className="mt-auto flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                            {profile.username && (
+                                <Link
+                                    href={`/app/perfil/${profile.username}`}
+                                    className="inline-flex h-10 items-center justify-center rounded-2xl border border-teal/15 bg-white px-4 text-sm font-medium text-teal-dark shadow-sm transition-all hover:bg-teal/5"
+                                >
+                                    Ver público
+                                </Link>
+                            )}
+                            {profile.username && (
+                                <Link
+                                    href={`/lector/${profile.username}`}
+                                    className="inline-flex h-10 items-center justify-center gap-1.5 rounded-2xl border border-teal/15 bg-white px-4 text-sm font-medium text-teal-dark shadow-sm transition-all hover:bg-teal/5"
+                                >
+                                    <Dna className="h-4 w-4 text-coral" /> Mi ADN lector
+                                </Link>
+                            )}
+                            <Link
+                                href="/app/perfil/editar"
+                                className="inline-flex h-10 items-center justify-center rounded-2xl border border-coral bg-transparent px-4 text-sm font-medium text-coral transition-all hover:bg-coral/10 hover:shadow-sm focus:outline-none focus:ring-2 focus:ring-coral focus:ring-offset-2"
+                            >
+                                Editar perfil
+                            </Link>
+                        </div>
                     </div>
                 </div>
             </header>
@@ -569,7 +623,7 @@ export default function UserProfile({
                                 </p>
                             </div>
                             {nextCompletionItem && (
-                                <Link href={nextCompletionItem.href} className="inline-flex h-10 items-center justify-center rounded-2xl bg-coral px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-coral-dark">
+                                <Link href={nextCompletionItem.href} className="inline-flex h-10 shrink-0 items-center justify-center whitespace-nowrap rounded-2xl bg-coral px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-coral-dark">
                                     Completar {nextCompletionItem.label}
                                 </Link>
                             )}
@@ -601,6 +655,7 @@ export default function UserProfile({
                         pagesRead={stats.pagesRead}
                         streakDays={stats.streakDays}
                         goals={profile.goals}
+                        secondaryStatuses={secondaryGoals}
                     />
 
                     <div className="grid grid-cols-1 gap-5 sm:gap-8 md:grid-cols-2">

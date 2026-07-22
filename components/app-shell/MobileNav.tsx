@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Compass, Bookmark, Store, Building2, Coins, X } from "lucide-react";
+import { Compass, Bookmark, Store, Building2, Coins, Trophy, X } from "lucide-react";
 import { useFeatureFlags } from "@/lib/useFeatureFlags";
 
 // Simplified icons for mobile
@@ -32,6 +32,7 @@ export function MobileNav() {
         { label: "Explorar", href: "/app/explorar", icon: Compass },
         { label: "Librerías", href: "/app/librerias/descubrir", icon: Building2 },
         { label: "Guardados", href: "/app/guardados", icon: Bookmark },
+        { label: "Retos", href: "/app/retos", icon: Trophy },
         ...(flags.librerias ? [{ label: "Mi librería", href: "/app/librerias", icon: Store }] : []),
         { label: "Monedas", href: "/app/monedas", icon: Coins },
     ];

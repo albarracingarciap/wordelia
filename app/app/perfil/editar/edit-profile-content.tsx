@@ -36,6 +36,8 @@ import {
     updateProfile,
     updateSettings
 } from "../actions";
+import { ClubHeaderUpload } from "@/components/clubs/create/ClubHeaderUpload";
+import { SECONDARY_GOALS, normalizeSecondaryKeys } from "@/lib/secondary-goals";
 
 type NotificationSettings = Record<string, boolean>;
 type PrivacySettings = {
@@ -52,7 +54,9 @@ type ProfileData = {
     location: string | null;
     pronouns: string | null;
     birth_date: string | null;
+    website: string | null;
     avatar_url: string | null;
+    header_image_url: string | null;
     reading_format_preference: string | null;
     story_complexity_preference: number | null;
     engagement_elements: string[] | null;
@@ -99,16 +103,6 @@ const ENGAGEMENT_OPTIONS = [
     "Giros inesperados",
     "Mundo detallado",
     "Ritmo ágil"
-];
-
-const SECONDARY_GOALS = [
-    "Leer al menos 3 géneros diferentes",
-    "Explorar autores de 5 países",
-    "Leer 1 clásico universal",
-    "Leer un libro de más de 500 páginas",
-    "Leer un libro publicado este año",
-    "Leer un autor de un continente diferente",
-    "Releer un libro favorito"
 ];
 
 function FormSectionHeader({
@@ -241,6 +235,7 @@ export default function EditProfileContent({ profile }: { profile: ProfileData }
 function PersonalTab({ profile }: { profile: ProfileData }) {
     const [loading, setLoading] = React.useState(false);
     const [avatarUrl, setAvatarUrl] = React.useState(profile.avatar_url);
+    const [headerImageUrl, setHeaderImageUrl] = React.useState<string | null>(profile.header_image_url ?? null);
     const [isUploading, setIsUploading] = React.useState(false);
     const [status, setStatus] = React.useState<string | null>(null);
     const supabase = createClient();
@@ -273,6 +268,8 @@ function PersonalTab({ profile }: { profile: ProfileData }) {
         setLoading(true);
         setStatus(null);
         if (avatarUrl) formData.set("avatarUrl", avatarUrl);
+        // Siempre se envía (vacío = quitar la imagen de cabecera).
+        formData.set("headerImageUrl", headerImageUrl ?? "");
         const result = await updateProfile(formData);
         setLoading(false);
         setStatus(result?.error || "Perfil actualizado");
@@ -326,6 +323,15 @@ function PersonalTab({ profile }: { profile: ProfileData }) {
                 </label>
 
                 <label className="space-y-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-grey-dark">Nombre de usuario</span>
+                    <span className="relative block">
+                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-grey/40">@</span>
+                        <input name="username" type="text" defaultValue={profile.username} minLength={3} maxLength={30} pattern="[a-zA-Z0-9_]{3,30}" title="3-30 caracteres: letras, números o guion bajo" className="w-full rounded-xl border border-grey/10 bg-grey/5 py-3 pl-8 pr-4 text-sm font-medium text-teal-dark outline-none transition-all focus:ring-2 focus:ring-teal/20" placeholder="tu_usuario" />
+                    </span>
+                    <span className="block text-[11px] text-grey/40">Único. 3-30 caracteres: letras, números o guion bajo.</span>
+                </label>
+
+                <label className="space-y-2">
                     <span className="text-xs font-bold uppercase tracking-wide text-grey-dark">Fecha de nacimiento</span>
                     <span className="relative block">
                         <CalendarIcon className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-grey/40" />
@@ -361,6 +367,28 @@ function PersonalTab({ profile }: { profile: ProfileData }) {
                     defaultValue={profile.bio || ""}
                 />
             </label>
+
+            <label className="block space-y-2">
+                <span className="text-xs font-bold uppercase tracking-wide text-grey-dark">Sitio web</span>
+                <input
+                    name="website"
+                    type="url"
+                    defaultValue={profile.website || ""}
+                    placeholder="https://tu-web.com"
+                    className="w-full rounded-xl border border-grey/10 bg-grey/5 px-4 py-3 text-sm text-teal-dark outline-none transition-all focus:ring-2 focus:ring-teal/20"
+                />
+            </label>
+
+            <div>
+                <ClubHeaderUpload
+                    value={headerImageUrl}
+                    onChange={setHeaderImageUrl}
+                    bucket="profile-headers"
+                    label="Imagen de cabecera del perfil"
+                    ctaLabel="Añadir imagen de cabecera"
+                    hint="Opcional. Sustituye al color de portada. Recomendado ~1200×900 px (apaisada), JPG o PNG, hasta 5 MB."
+                />
+            </div>
         </form>
     );
 }
@@ -489,7 +517,7 @@ function PreferencesTab({ profile }: { profile: ProfileData }) {
 
 function GoalsTab({ profile }: { profile: ProfileData }) {
     const goalsData = profile.goals && !Array.isArray(profile.goals) ? profile.goals : { yearly_target: 50, secondary: [] };
-    const initialSecondary = Array.isArray(goalsData.secondary) ? goalsData.secondary : [];
+    const initialSecondary = normalizeSecondaryKeys(goalsData.secondary);
     const [loading, setLoading] = React.useState(false);
     const [status, setStatus] = React.useState<string | null>(null);
     const [secondaryGoals, setSecondaryGoals] = React.useState<string[]>(initialSecondary);
@@ -551,11 +579,20 @@ function GoalsTab({ profile }: { profile: ProfileData }) {
 
             <section className="space-y-3">
                 <h3 className="text-sm font-bold uppercase tracking-wide text-grey-dark">Desafíos secundarios</h3>
+                <p className="text-xs text-grey/50">Los marcados como automáticos se completan solos según tus lecturas del año; el resto los marcas tú desde tu perfil.</p>
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {SECONDARY_GOALS.map((goal) => (
-                        <label key={goal} className="flex cursor-pointer items-center gap-3 rounded-xl border border-grey/10 bg-white p-3 text-sm text-grey-dark transition hover:border-teal/30">
-                            <input type="checkbox" checked={secondaryGoals.includes(goal)} onChange={() => toggleGoal(goal)} className="h-4 w-4 rounded-md accent-teal" />
-                            <span>{goal}</span>
+                        <label key={goal.key} className="flex cursor-pointer items-start gap-3 rounded-xl border border-grey/10 bg-white p-3 text-sm text-grey-dark transition hover:border-teal/30">
+                            <input type="checkbox" checked={secondaryGoals.includes(goal.key)} onChange={() => toggleGoal(goal.key)} className="mt-0.5 h-4 w-4 rounded-md accent-teal" />
+                            <span className="flex-1">
+                                <span className="flex items-center gap-2">
+                                    {goal.label}
+                                    <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase ${goal.type === "auto" ? "bg-teal/10 text-teal" : "bg-grey/10 text-grey/50"}`}>
+                                        {goal.type === "auto" ? "Auto" : "Manual"}
+                                    </span>
+                                </span>
+                                {goal.hint && <span className="mt-0.5 block text-xs text-grey/45">{goal.hint}</span>}
+                            </span>
                         </label>
                     ))}
                 </div>

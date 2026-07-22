@@ -1,19 +1,12 @@
-import { createClient } from "@/utils/supabase/server";
 import { notFound } from "next/navigation";
 import { EditChallengeClient } from "./EditChallengeClient";
+import { adminGetChallenge, getBadgesForSelect } from "@/app/app/admin/retos/nuevo/actions";
 
-export default async function EditChallengePage({ params }: { params: { id: string } }) {
-    const supabase = await createClient();
+export const dynamic = "force-dynamic";
 
-    const { data: challenge, error } = await supabase
-        .from("challenges")
-        .select("*")
-        .eq("id", params.id)
-        .single();
-
-    if (error || !challenge) {
-        notFound();
-    }
-
-    return <EditChallengeClient challenge={challenge} />;
+export default async function EditChallengePage({ params }: { params: Promise<{ id: string }> }) {
+    const { id } = await params;
+    const [challenge, badges] = await Promise.all([adminGetChallenge(id), getBadgesForSelect()]);
+    if (!challenge) notFound();
+    return <EditChallengeClient challenge={challenge} badges={badges} />;
 }

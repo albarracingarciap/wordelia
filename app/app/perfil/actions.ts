@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
+import { SECONDARY_GOAL_BY_KEY, normalizeSecondaryKeys, type SecondaryGoalStatus } from "@/lib/secondary-goals";
 
 export async function updateProfile(formData: FormData) {
     const supabase = await createClient();
@@ -23,7 +24,9 @@ export async function updateProfile(formData: FormData) {
         { key: 'pronouns', db: 'pronouns' },
         { key: 'birthDate', db: 'birth_date' },
         { key: 'avatarUrl', db: 'avatar_url' },
-        { key: 'banner_color', db: 'banner_color' }
+        { key: 'banner_color', db: 'banner_color' },
+        { key: 'website', db: 'website' },
+        { key: 'headerImageUrl', db: 'header_image_url' },
     ];
 
     fields.forEach(({ key, db }) => {
@@ -32,12 +35,34 @@ export async function updateProfile(formData: FormData) {
         }
     });
 
+    // Username: validación de formato + unicidad (aparte del resto).
+    if (formData.has('username')) {
+        const raw = String(formData.get('username') || '').trim().toLowerCase();
+        if (raw) {
+            if (!/^[a-z0-9_]{3,30}$/.test(raw)) {
+                return { error: "El nombre de usuario debe tener 3-30 caracteres: solo letras, números o guion bajo." };
+            }
+            const { data: taken } = await supabase
+                .from("profiles")
+                .select("id")
+                .eq("username", raw)
+                .neq("id", user.id)
+                .maybeSingle();
+            if (taken) return { error: "Ese nombre de usuario ya está en uso." };
+            updates.username = raw;
+        }
+    }
+
     const { error } = await supabase
         .from("profiles")
         .update(updates)
         .eq("id", user.id);
 
     if (error) {
+        // Choque de unicidad (username) por si el pre-chequeo no lo vio (RLS).
+        if ((error as { code?: string }).code === "23505") {
+            return { error: "Ese nombre de usuario ya está en uso." };
+        }
         console.error("Error updating profile:", error);
         return { error: "Error al actualizar perfil" };
     }
@@ -90,30 +115,40 @@ export async function updateGoals(formData: FormData) {
 
     if (!user) return { error: "No autenticado" };
 
-    // Here we are assuming goals are stored in profiles.goals JSONB column for now
-    // as per onboarding migration.
-    // If we want more structured goals, we might need a separate table, but onboarding uses profiles.goals
     const mainGoal = formData.get("mainGoal") ? parseInt(formData.get("mainGoal") as string) : 50;
     const pagesGoal = formData.get("pagesGoal") ? parseInt(formData.get("pagesGoal") as string) : null;
     const streakGoal = formData.get("streakGoal") ? parseInt(formData.get("streakGoal") as string) : null;
     const secondaryGoals = formData.get("secondaryGoals") ? JSON.parse(formData.get("secondaryGoals") as string) : [];
 
-    // Construct the goal object to store in jsonb
+    // El objetivo anual de libros es ÚNICO: vive en reading_goals (misma fuente que
+    // el widget de Mi lectura y el reto compartible). profiles.goals guarda solo el
+    // resto (páginas, racha, secundarias).
+    if (Number.isFinite(mainGoal) && mainGoal >= 1 && mainGoal <= 9999) {
+        const year = new Date().getFullYear();
+        await (supabase.from("reading_goals") as any).upsert(
+            { user_id: user.id, year, target: Math.round(mainGoal), updated_at: new Date().toISOString() },
+            { onConflict: "user_id,year" },
+        );
+    }
+
+    // Las secundarias se guardan por KEY. Conservamos los completados manuales de
+    // las metas que sigan seleccionadas (se descartan los de las deseleccionadas).
+    const selectedKeys = normalizeSecondaryKeys(secondaryGoals);
+    const { data: prev } = await supabase.from("profiles").select("goals").eq("id", user.id).maybeSingle();
+    const prevGoals = (prev?.goals && !Array.isArray(prev.goals)) ? prev.goals as Record<string, unknown> : {};
+    const prevDone = Array.isArray(prevGoals.secondary_done) ? (prevGoals.secondary_done as string[]) : [];
+    const secondaryDone = prevDone.filter((k) => selectedKeys.includes(k));
+
     const goalsData = {
-        yearly_target: mainGoal,
         pages_target: pagesGoal,
         streak_target: streakGoal,
-        secondary: secondaryGoals
-    };
-
-    const updates = {
-        goals: goalsData,
-        updated_at: new Date().toISOString(),
+        secondary: selectedKeys,
+        secondary_done: secondaryDone,
     };
 
     const { error } = await supabase
         .from("profiles")
-        .update(updates)
+        .update({ goals: goalsData, updated_at: new Date().toISOString() })
         .eq("id", user.id);
 
     if (error) {
@@ -121,6 +156,75 @@ export async function updateGoals(formData: FormData) {
         return { error: "Error al actualizar metas" };
     }
 
+    revalidatePath("/app/perfil");
+    revalidatePath("/app/mi-lectura");
+    return { success: true };
+}
+
+/** Estado de las metas secundarias seleccionadas (auto: se calcula; manual: marcado). */
+export async function getSecondaryGoalsStatus(): Promise<SecondaryGoalStatus[]> {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return [];
+
+    const { data: prof } = await supabase.from("profiles").select("goals").eq("id", user.id).maybeSingle();
+    const goals = (prof?.goals && !Array.isArray(prof.goals)) ? prof.goals as Record<string, unknown> : {};
+    const selected = normalizeSecondaryKeys(goals.secondary);
+    const done = Array.isArray(goals.secondary_done) ? (goals.secondary_done as string[]) : [];
+    if (selected.length === 0) return [];
+
+    const needAuto = selected.some((k) => SECONDARY_GOAL_BY_KEY[k]?.type === "auto");
+    let genres = 0, hasBig = false, hasThisYear = false;
+    if (needAuto) {
+        const year = new Date().getFullYear();
+        const { data: rows } = await supabase
+            .from("user_books")
+            .select("book:books(genre, first_publication_year, preferred_edition:editions!books_preferred_edition_fk(page_count))")
+            .eq("user_id", user.id)
+            .eq("status", "READ")
+            .gte("finish_date", `${year}-01-01`)
+            .lte("finish_date", `${year}-12-31`);
+        const genreSet = new Set<string>();
+        for (const r of (rows ?? []) as any[]) {
+            const b = Array.isArray(r.book) ? r.book[0] : r.book;
+            if (!b) continue;
+            if (b.genre && String(b.genre).trim()) genreSet.add(String(b.genre).trim().toLowerCase());
+            const ed = Array.isArray(b.preferred_edition) ? b.preferred_edition[0] : b.preferred_edition;
+            if (ed?.page_count && Number(ed.page_count) > 500) hasBig = true;
+            if (b.first_publication_year && Number(b.first_publication_year) === year) hasThisYear = true;
+        }
+        genres = genreSet.size;
+    }
+    const autoDone: Record<string, boolean> = {
+        genres3: genres >= 3,
+        pages500: hasBig,
+        published_this_year: hasThisYear,
+    };
+
+    return selected.map((key) => {
+        const def = SECONDARY_GOAL_BY_KEY[key];
+        return {
+            key,
+            label: def?.label ?? key,
+            type: def?.type ?? "manual",
+            done: def?.type === "auto" ? Boolean(autoDone[key]) : done.includes(key),
+        };
+    });
+}
+
+/** Marca/desmarca una meta secundaria MANUAL como completada. */
+export async function toggleSecondaryGoalDone(key: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: "No autenticado" };
+
+    const { data: prof } = await supabase.from("profiles").select("goals").eq("id", user.id).maybeSingle();
+    const goals = (prof?.goals && !Array.isArray(prof.goals)) ? { ...(prof.goals as Record<string, unknown>) } : {};
+    const done = Array.isArray(goals.secondary_done) ? (goals.secondary_done as string[]) : [];
+    goals.secondary_done = done.includes(key) ? done.filter((k) => k !== key) : [...done, key];
+
+    const { error } = await supabase.from("profiles").update({ goals, updated_at: new Date().toISOString() }).eq("id", user.id);
+    if (error) return { error: error.message };
     revalidatePath("/app/perfil");
     return { success: true };
 }

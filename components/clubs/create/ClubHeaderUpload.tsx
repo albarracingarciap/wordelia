@@ -7,15 +7,23 @@ import { createClient } from "@/utils/supabase/client";
 
 const MAX_BYTES = 5 * 1024 * 1024; // 5 MB
 
-// Subida de imagen de cabecera del club → bucket público "club-headers" bajo
-// "<user_id>/...". Devuelve la URL pública vía onChange. Reutilizable en el alta
-// y en los ajustes del club.
+// Subida de imagen de cabecera → bucket público (por defecto "club-headers")
+// bajo "<user_id>/...". Devuelve la URL pública vía onChange. Reutilizable en el
+// alta/ajustes del club y en el perfil (pasando otro bucket/label/hint).
 export function ClubHeaderUpload({
     value,
     onChange,
+    bucket = "club-headers",
+    label = "Imagen de cabecera",
+    hint = "Opcional. Se muestra como banner del club. Puedes cambiarla luego.",
+    ctaLabel = "Añadir imagen de cabecera",
 }: {
     value?: string | null;
     onChange: (url: string | null) => void;
+    bucket?: string;
+    label?: string;
+    hint?: string;
+    ctaLabel?: string;
 }) {
     const [busy, setBusy] = React.useState(false);
     const [error, setError] = React.useState<string | null>(null);
@@ -33,13 +41,13 @@ export function ClubHeaderUpload({
             if (!user) { setError("Debes iniciar sesión."); return; }
 
             const ext = file.name.split(".").pop() || "jpg";
-            const path = `${user.id}/club-${Date.now()}.${ext}`;
+            const path = `${user.id}/${Date.now()}.${ext}`;
             const { error: upErr } = await supabase.storage
-                .from("club-headers")
+                .from(bucket)
                 .upload(path, file, { contentType: file.type, upsert: false });
             if (upErr) { setError("No se pudo subir la imagen."); console.error(upErr); return; }
 
-            const url = supabase.storage.from("club-headers").getPublicUrl(path).data.publicUrl;
+            const url = supabase.storage.from(bucket).getPublicUrl(path).data.publicUrl;
             onChange(url);
         } finally {
             setBusy(false);
@@ -48,7 +56,7 @@ export function ClubHeaderUpload({
 
     return (
         <div>
-            <label className="mb-1.5 block text-sm font-bold text-grey-dark">Imagen de cabecera</label>
+            <label className="mb-1.5 block text-sm font-bold text-grey-dark">{label}</label>
 
             {value ? (
                 <div className="relative overflow-hidden rounded-2xl border border-grey/15">
@@ -71,7 +79,7 @@ export function ClubHeaderUpload({
                     className="flex h-40 w-full flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed border-grey/20 bg-white text-grey/50 transition-colors hover:border-teal/40 hover:text-teal disabled:opacity-60"
                 >
                     {busy ? <Loader2 className="h-6 w-6 animate-spin" /> : <ImagePlus className="h-6 w-6" />}
-                    <span className="text-sm font-medium">{busy ? "Subiendo…" : "Añadir imagen de cabecera"}</span>
+                    <span className="text-sm font-medium">{busy ? "Subiendo…" : ctaLabel}</span>
                     <span className="text-xs text-grey/40">JPG o PNG, hasta 5 MB</span>
                 </button>
             )}
@@ -83,7 +91,7 @@ export function ClubHeaderUpload({
                 className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFile(f); e.target.value = ""; }}
             />
-            <p className="mt-1 text-xs text-grey/50">Opcional. Se muestra como banner del club. Puedes cambiarla luego.</p>
+            <p className="mt-1 text-xs text-grey/50">{hint}</p>
             {error && <p className="mt-1 text-xs font-medium text-coral">{error}</p>}
         </div>
     );

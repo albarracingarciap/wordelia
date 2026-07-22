@@ -1,75 +1,60 @@
-import { createClient } from "@/utils/supabase/server";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
-import { Plus, Calendar, Trophy, Edit } from "lucide-react";
+import { Plus, Calendar, Trophy, Edit, Users, Award } from "lucide-react";
 import { DeleteChallengeButton } from "@/components/admin/retos/DeleteChallengeButton";
+import { adminListChallenges } from "./nuevo/actions";
+import { challengeGoalLabel } from "@/lib/challenges";
 
-export const revalidate = 0;
+export const dynamic = "force-dynamic";
 
 export default async function AdminChallengesPage() {
-    const supabase = await createClient();
-
-    const { data: challenges, error } = await supabase
-        .from('challenges')
-        .select('*')
-        .order('created_at', { ascending: false });
+    const challenges = await adminListChallenges();
 
     return (
         <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex items-center justify-between">
                 <div>
                     <h1 className="text-3xl font-bold tracking-tight">Retos</h1>
-                    <p className="text-muted-foreground mt-1">
-                        Gestiona los retos de lectura de la comunidad.
-                    </p>
+                    <p className="mt-1 text-muted-foreground">Retos de lectura de la comunidad. El progreso se mide solo desde las lecturas.</p>
                 </div>
                 <Link href="/app/admin/retos/nuevo">
-                    <Button variant="primary" className="flex items-center gap-2">
-                        <Plus className="w-4 h-4" />
-                        Crear Reto
-                    </Button>
+                    <Button variant="primary" className="flex items-center gap-2"><Plus className="h-4 w-4" /> Crear reto</Button>
                 </Link>
             </div>
 
-            {error ? (
-                <div className="p-4 rounded-xl bg-coral/10 text-coral">
-                    Error cargando retos: {error.message}
-                </div>
-            ) : !challenges || challenges.length === 0 ? (
-                <div className="text-center py-12 border border-dashed border-border rounded-xl">
-                    <Trophy className="w-12 h-12 text-grey/20 mx-auto mb-4" />
+            {challenges.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-border py-12 text-center">
+                    <Trophy className="mx-auto mb-4 h-12 w-12 text-grey/20" />
                     <h3 className="text-lg font-medium">No hay retos todavía</h3>
-                    <p className="text-sm text-grey/60 mt-1 mb-4">
-                        Crea el primer reto para motivar a la comunidad.
-                    </p>
-                    <Link href="/app/admin/retos/nuevo">
-                        <Button variant="outline">Crear mi primer reto</Button>
-                    </Link>
+                    <p className="mb-4 mt-1 text-sm text-grey/60">Crea el primer reto para motivar a la comunidad.</p>
+                    <Link href="/app/admin/retos/nuevo"><Button variant="outline">Crear mi primer reto</Button></Link>
                 </div>
             ) : (
                 <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                    {challenges.map((challenge) => (
-                        <div key={challenge.id} className="rounded-xl border border-border bg-white p-5 shadow-sm flex flex-col">
-                            <h3 className="font-semibold text-lg line-clamp-1">{challenge.title}</h3>
-                            <p className="text-sm text-muted-foreground mt-2 line-clamp-2">
-                                {challenge.description || "Sin descripción"}
-                            </p>
+                    {challenges.map((c) => (
+                        <div key={c.id} className="flex flex-col rounded-xl border border-border bg-white p-5 shadow-sm">
+                            <div className="flex items-start justify-between gap-2">
+                                <h3 className="line-clamp-1 text-lg font-semibold">{c.title}</h3>
+                                {c.isPublished
+                                    ? <span className="rounded-full bg-teal/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-teal">Publicado</span>
+                                    : <span className="rounded-full bg-grey/10 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide text-grey/50">Borrador</span>}
+                            </div>
+                            <p className="mt-1 text-sm font-medium text-teal-dark">{challengeGoalLabel(c.goalType, c.goalTarget, c.goalGenre)}</p>
+                            <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{c.description || "Sin descripción"}</p>
 
-                            <div className="mt-4 pt-4 border-t border-border flex items-center justify-between text-xs text-muted-foreground mt-auto">
-                                <div className="flex items-center gap-1.5">
-                                    <Calendar className="w-3.5 h-3.5" />
-                                    <span>
-                                        {challenge.start_date ? new Date(challenge.start_date).toLocaleDateString() : 'Sin inicio'}
-                                        {' - '}
-                                        {challenge.end_date ? new Date(challenge.end_date).toLocaleDateString() : 'Sin fin'}
-                                    </span>
-                                </div>
-                                <div className="flex items-center gap-1">
-                                    <Link href={`/app/admin/retos/${challenge.id}/editar`} className="p-1.5 text-muted-foreground hover:bg-accent hover:text-accent-foreground rounded-md transition-colors" title="Editar reto">
-                                        <Edit className="w-4 h-4" />
-                                    </Link>
-                                    <DeleteChallengeButton id={challenge.id} />
-                                </div>
+                            <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                                <span className="inline-flex items-center gap-1"><Calendar className="h-3.5 w-3.5" />
+                                    {c.startDate ? new Date(c.startDate).toLocaleDateString() : "—"}{" – "}{c.endDate ? new Date(c.endDate).toLocaleDateString() : "—"}
+                                </span>
+                                <span className="inline-flex items-center gap-1"><Users className="h-3.5 w-3.5" /> {c.participants}</span>
+                                {c.rewardBadgeId && <span className="inline-flex items-center gap-1 text-coral"><Award className="h-3.5 w-3.5" /> insignia</span>}
+                            </div>
+
+                            <div className="mt-4 flex items-center justify-end gap-1 border-t border-border pt-3">
+                                <Link href={`/app/admin/retos/${c.id}/editar`} className="rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground" title="Editar reto">
+                                    <Edit className="h-4 w-4" />
+                                </Link>
+                                <DeleteChallengeButton id={c.id} />
                             </div>
                         </div>
                     ))}

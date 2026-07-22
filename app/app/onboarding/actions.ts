@@ -93,7 +93,10 @@ export async function completeOnboarding(formData: FormData): Promise<Onboarding
                 birth_date: birthDate,
                 reader_type: readerType,
                 favorite_genres: favoriteGenres,
-                goals,
+                // Las intenciones del onboarding ("descubrir libros", "unirme a
+                // clubes"…) van a su propia columna: NO deben pisar profiles.goals,
+                // que ahora guarda las metas estructuradas (páginas, racha, secundarias).
+                reading_intents: goals,
                 email: user.email
             });
 

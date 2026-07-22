@@ -2,6 +2,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import UserProfile from "./user-profile";
+import { getSecondaryGoalsStatus } from "./actions";
 import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 // Force dynamic rendering as we depend on user session
@@ -30,13 +31,25 @@ export default async function ProfilePage() {
     }
 
     // Fetch statistics
-    // 1. Books Read (status = READ)
-    // Note: 'status' is an enum. We should cast or ensure type matches.
+    // 1. Libros leídos ESTE AÑO (coherente con el reto de reading_goals: status READ
+    //    + finish_date dentro del año en curso).
+    const currentYear = new Date().getFullYear();
     const { count: booksRead } = await supabase
         .from("user_books")
         .select("*", { count: 'exact', head: true })
         .eq("user_id", user.id)
-        .eq("status", "READ");
+        .eq("status", "READ")
+        .gte("finish_date", `${currentYear}-01-01`)
+        .lte("finish_date", `${currentYear}-12-31`);
+
+    // Objetivo anual desde reading_goals (fuente única, misma que Mi lectura).
+    const { data: readingGoal } = await (supabase.from("reading_goals") as any)
+        .select("target")
+        .eq("user_id", user.id)
+        .eq("year", currentYear)
+        .maybeSingle();
+    const goalsObj = (profile.goals && !Array.isArray(profile.goals)) ? profile.goals as Record<string, unknown> : {};
+    profile.goals = { ...goalsObj, yearly_target: readingGoal?.target ?? (goalsObj.yearly_target as number) ?? 50 };
 
     // 2. Reading sessions for pages read (sum)
     // This is expensive if many sessions, but for MVP it's fine.
@@ -222,6 +235,8 @@ export default async function ProfilePage() {
         abandoned: libraryCountsResult[3].count || 0,
     };
 
+    const secondaryGoals = await getSecondaryGoalsStatus();
+
     return <UserProfile
         profile={profile}
         stats={stats}
@@ -230,5 +245,6 @@ export default async function ProfilePage() {
         activity={activity}
         initialLibrary={initialLibrary}
         libraryCounts={libraryCounts}
+        secondaryGoals={secondaryGoals}
     />;
 }
