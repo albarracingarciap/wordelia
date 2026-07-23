@@ -13,6 +13,7 @@ import { ClubReadingRoom } from "@/components/club/ClubReadingRoom";
 import { ClubFeed } from "@/components/club/ClubFeed";
 import { ClubSidebar } from "@/components/club/ClubSidebar";
 import { ClubManagement } from "@/components/club/management/ClubManagement";
+import { ClubHostTools } from "@/components/assistant/ClubHostTools";
 import { ClubCheckpoints } from "@/components/club/ClubCheckpoints";
 import { ClubCalendar } from "@/components/club/ClubCalendar";
 import { ClubLibrary } from "@/components/club/ClubLibrary";
@@ -744,6 +745,7 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
 
                         {isAdmin && (
                             <TabsContent value="manage">
+                                <ClubHostTools clubId={club.id} />
                                 <ClubManagement club={club} />
                             </TabsContent>
                         )}

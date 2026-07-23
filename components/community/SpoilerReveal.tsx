@@ -29,10 +29,12 @@ export function SpoilerReveal({ children }: { children: React.ReactNode }) {
             <div className="pointer-events-none select-none blur-md" aria-hidden="true">{children}</div>
             <button
                 onClick={() => setRevealed(true)}
-                className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-teal-dark/5 text-center"
+                className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-teal-dark/5 px-2 text-center"
             >
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-xs font-bold text-coral shadow-sm">
-                    <Eye className="h-3.5 w-3.5" /> Puede contener spoilers — mostrar
+                <span className="inline-flex max-w-full items-center gap-1.5 rounded-full bg-white px-3 py-1.5 text-[11px] font-bold text-coral shadow-sm sm:text-xs">
+                    <Eye className="h-3.5 w-3.5 shrink-0" />
+                    <span className="whitespace-nowrap">Puede contener spoilers</span>
+                    <span className="hidden whitespace-nowrap sm:inline">— mostrar</span>
                 </span>
             </button>
         </div>

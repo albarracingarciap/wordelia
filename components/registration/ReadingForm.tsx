@@ -11,11 +11,18 @@ export interface ReadingFormBook {
     title: string;
     author: string;
     coverUrl: string | null;
+    format?: "paper" | "ebook" | "audio" | null;
     progress: {
         label: string;
         unit?: "PAGES" | "CHAPTERS" | string;
     };
 }
+
+const FORMAT_OPTIONS: { id: "paper" | "ebook" | "audio"; label: string }[] = [
+    { id: "paper", label: "Papel" },
+    { id: "ebook", label: "Ebook" },
+    { id: "audio", label: "Audio" },
+];
 
 interface ReadingFormProps {
     books: ReadingFormBook[];
@@ -58,12 +65,18 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
     const [sessionEmotion, setSessionEmotion] = React.useState("asombro");
     const [emotionIntensity, setEmotionIntensity] = React.useState(3);
     const [emotionNote, setEmotionNote] = React.useState("");
+    const [format, setFormat] = React.useState<"paper" | "ebook" | "audio" | null>(null);
 
     React.useEffect(() => {
         setDurationValue(initialDuration !== undefined ? initialDuration.toString() : "");
     }, [initialDuration]);
 
     const selectedBook = books.find((book) => book.id === selectedBookId);
+
+    // Prefill del formato con el que ya tenga el libro seleccionado.
+    React.useEffect(() => {
+        setFormat(selectedBook?.format ?? null);
+    }, [selectedBookId, selectedBook?.format]);
     const actionsClass = isModal
         ? "sticky bottom-0 z-10 -mx-5 grid grid-cols-2 gap-3 border-t border-teal/5 bg-white/95 px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 backdrop-blur sm:static sm:mx-0 sm:flex sm:justify-end sm:border-t-0 sm:bg-transparent sm:p-0 sm:pt-2 sm:backdrop-blur-none"
         : "flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end";
@@ -98,7 +111,8 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
                 duration,
                 pages,
                 isFinished,
-                rating > 0 ? rating : undefined
+                rating > 0 ? rating : undefined,
+                format
             );
 
             if (result.error) {
@@ -210,6 +224,29 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
                     onChange={(e) => setDurationValue(e.target.value)}
                     helperText={initialDuration ? "Cronometrado automáticamente." : "Estimado."}
                 />
+            </div>
+
+            <div>
+                <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-grey/60">Formato (opcional)</label>
+                <div className="flex flex-wrap gap-2">
+                    {FORMAT_OPTIONS.map((opt) => {
+                        const selected = format === opt.id;
+                        return (
+                            <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => setFormat(selected ? null : opt.id)}
+                                aria-pressed={selected}
+                                className={`rounded-full border px-4 py-1.5 text-xs font-bold transition-colors ${selected
+                                    ? "border-teal bg-teal text-white shadow-sm"
+                                    : "border-teal/10 bg-white text-grey/60 hover:border-teal/25 hover:text-teal"
+                                    }`}
+                            >
+                                {opt.label}
+                            </button>
+                        );
+                    })}
+                </div>
             </div>
 
             {isFinished && (

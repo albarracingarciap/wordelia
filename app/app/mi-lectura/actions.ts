@@ -20,6 +20,7 @@ export interface CurrentBook {
     author: string;
     coverUrl: string | null;
     status?: string; // e.g. 'READING', 'WANT_TO_READ'
+    format?: 'paper' | 'ebook' | 'audio' | null;
     progress: {
         current: number;
         total: number | null;
@@ -326,6 +327,7 @@ type LibraryUserBookRow = {
     book_id: string;
     edition_id?: string | null;
     status?: string | null;
+    format?: string | null;
     current_page?: number | null;
     updated_at?: string | null;
     created_at?: string | null;
@@ -358,6 +360,7 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
             book_id,
             edition_id,
             status,
+            format,
             current_page,
             updated_at,
             created_at,
@@ -518,6 +521,7 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
             author: bookAuthorLabel(book, "Autor Desconocido"),
             coverUrl: edition?.cover_url ?? null,
             status: ub.status || undefined,
+            format: (ub.format as CurrentBook["format"]) ?? null,
             progress: {
                 current: ub.current_page || 0, // Now using real data
                 total: pageCount,
@@ -1070,12 +1074,25 @@ export async function startReadingBook(bookId: string) {
     if (!user) return { error: "User not authenticated" };
 
     try {
+        // Fija start_date si aún no existe (habilita velocidad y días-para-terminar).
+        const { data: existing } = await supabase
+            .from("user_books")
+            .select("start_date")
+            .eq("user_id", user.id)
+            .eq("book_id", bookId)
+            .maybeSingle();
+
+        const updates: Record<string, unknown> = {
+            status: "READING",
+            updated_at: new Date().toISOString(),
+        };
+        if (!existing?.start_date) {
+            updates.start_date = new Date().toISOString().split("T")[0];
+        }
+
         const { error } = await supabase
             .from("user_books")
-            .update({
-                status: "READING",
-                updated_at: new Date().toISOString()
-            })
+            .update(updates)
             .eq("user_id", user.id)
             .eq("book_id", bookId);
 
@@ -1140,7 +1157,8 @@ export async function logReadingSession(
     durationMinutes: number,
     pagesRead: number | null,
     isFinished: boolean,
-    rating?: number
+    rating?: number,
+    format?: string | null
 ) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -1149,7 +1167,7 @@ export async function logReadingSession(
     try {
         const { data: userBook } = await supabase
             .from("user_books")
-            .select("current_page, edition_id")
+            .select("current_page, edition_id, start_date")
             .eq("user_id", user.id)
             .eq("book_id", bookId)
             .single();
@@ -1180,6 +1198,17 @@ export async function logReadingSession(
         if (pagesRead) {
             const newPage = (userBook?.current_page || 0) + pagesRead;
             updates.current_page = newPage;
+        }
+
+        // Formato de lectura (papel/ebook/audio): se guarda a nivel de libro.
+        if (format && ["paper", "ebook", "audio"].includes(format)) {
+            updates.format = format;
+        }
+
+        // Fecha de inicio: si es la primera sesión y no hay start_date, la fijamos
+        // (habilita "días para terminar" y velocidad de lectura).
+        if (!userBook?.start_date) {
+            updates.start_date = new Date().toISOString().split("T")[0];
         }
 
         if (isFinished) {

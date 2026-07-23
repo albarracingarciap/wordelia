@@ -308,8 +308,8 @@ export function ComunidadClient() {
                             const isQuote = item.type === 'note' || item.type === 'quote';
 
                             return (
-                                <div key={item.id} className="p-6 hover:bg-teal/5 transition-colors">
-                                    <div className="flex gap-4">
+                                <div key={item.id} className="p-4 sm:p-6 hover:bg-teal/5 transition-colors">
+                                    <div className="flex gap-3 sm:gap-4">
                                         {/* Avatar/Icon Logic */}
                                         <div className="relative shrink-0 mt-1">
                                             {item.user.avatar ? (
@@ -379,11 +379,11 @@ export function ComunidadClient() {
                                             })()}
 
                                             {/* Actions & Footer */}
-                                            <div className="mt-3 flex items-center justify-between border-t border-teal/5 pt-3">
-                                                <div className="flex items-center gap-4">
+                                            <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-2 border-t border-teal/5 pt-3">
+                                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 sm:gap-x-3">
                                                     <button
                                                         onClick={(e) => handleToggleLike(item.id, e)}
-                                                        className={`group flex items-center gap-1.5 text-sm font-medium transition-all ${item.isLikedByMe
+                                                        className={`group flex items-center gap-1 text-sm font-medium transition-all ${item.isLikedByMe
                                                                 ? "text-red-500"
                                                                 : "text-grey/60 hover:text-red-500"
                                                             }`}
@@ -391,7 +391,7 @@ export function ComunidadClient() {
                                                         <div className={`p-1.5 rounded-full transition-colors ${item.isLikedByMe ? "bg-red-50" : "group-hover:bg-red-50/50"}`}>
                                                             <Heart className={`w-4 h-4 ${item.isLikedByMe ? "fill-current" : ""}`} />
                                                         </div>
-                                                        <span className="min-w-4">{item.likes > 0 ? item.likes : ''}</span>
+                                                        {item.likes > 0 && <span className="min-w-3">{item.likes}</span>}
                                                     </button>
 
                                                     {["review", "note", "club_post"].includes(item.type) && (
@@ -404,7 +404,7 @@ export function ComunidadClient() {
                                                     {item.metadata?.book_id && (
                                                         <Link
                                                             href={`/app/libros/${item.metadata.book_id}`}
-                                                            className="text-xs font-semibold uppercase tracking-widest text-teal hover:text-teal-dark transition-colors px-3 py-1.5 rounded-full bg-teal/5 hover:bg-teal/10"
+                                                            className="whitespace-nowrap text-xs font-semibold uppercase tracking-widest text-teal hover:text-teal-dark transition-colors px-3 py-1.5 rounded-full bg-teal/5 hover:bg-teal/10"
                                                         >
                                                             Ver libro
                                                         </Link>
@@ -412,13 +412,13 @@ export function ComunidadClient() {
                                                     {item.metadata?.club_id && (
                                                         <Link
                                                             href={`/app/clubs/${item.metadata.club_id}`}
-                                                            className="text-xs font-semibold uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors px-3 py-1.5 rounded-full bg-indigo-50 hover:bg-indigo-100"
+                                                            className="whitespace-nowrap text-xs font-semibold uppercase tracking-widest text-indigo-600 hover:text-indigo-800 transition-colors px-3 py-1.5 rounded-full bg-indigo-50 hover:bg-indigo-100"
                                                         >
                                                             Ir al club
                                                         </Link>
                                                     )}
                                                 </div>
-                                                <span className="text-xs font-medium text-grey/40">{item.time}</span>
+                                                <span className="ml-auto shrink-0 text-xs font-medium text-grey/40">{item.time}</span>
                                             </div>
 
                                             <div className="mt-2">

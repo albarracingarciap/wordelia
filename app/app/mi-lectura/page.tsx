@@ -19,6 +19,7 @@ import { ActivityFeed } from "@/components/dashboard/ActivityFeed";
 import { PlanStatusCard } from "@/components/pricing/PlanStatusCard";
 import { ReadingChallengeWidget } from "@/components/dashboard/ReadingChallengeWidget";
 import { MyLibraryHome } from "@/components/librerias/MyLibraryHome";
+import { NextReadCard } from "@/components/assistant/NextReadCard";
 import { getCurrentBooks, getReadingStats, getRecentNotes, CurrentBook, ReadingStats, Note, deleteBook, getRecommendedBook, RecommendedBook, startReadingBook, convertBookEmotionToNote, getEmotionBookGroups, EmotionBookGroup, getReaderResourceContext, ReaderResourceContext } from "@/app/app/mi-lectura/actions";
 import { getUpcomingMilestones } from "@/app/app/clubs/[id]/actions";
 import { Search, BookOpen, CalendarDays, AlertCircle, Plus, Timer, Library, Users, StickyNote, BookOpenText, Dna, ShieldCheck, Lock } from "lucide-react";
@@ -626,6 +627,9 @@ export default function MiLecturaPage() {
 
                     {/* Reto de lectura anual */}
                     <ReadingChallengeWidget />
+
+                    {/* Tu próxima lectura (IA — plan Bibliófilo) */}
+                    <NextReadCard />
 
                     {/* Mi librería: agenda y clubs de tus librerías adoptadas */}
                     <MyLibraryHome />
