@@ -14,7 +14,10 @@ export interface ReadingFormBook {
     format?: "paper" | "ebook" | "audio" | null;
     progress: {
         label: string;
-        unit?: "PAGES" | "CHAPTERS" | string;
+        unit?: "PAGES" | "CHAPTERS" | "PERCENT" | "TIME" | string;
+        current?: number;
+        total?: number | null;
+        percent?: number | null;
     };
 }
 
@@ -66,6 +69,11 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
     const [emotionIntensity, setEmotionIntensity] = React.useState(3);
     const [emotionNote, setEmotionNote] = React.useState("");
     const [format, setFormat] = React.useState<"paper" | "ebook" | "audio" | null>(null);
+    // Modo de entrada para formatos de página: 'absolute' = "voy por la pág. X", 'delta' = "páginas de hoy".
+    const [inputMode, setInputMode] = React.useState<"absolute" | "delta">("absolute");
+    // Duración total del audiolibro (para calcular el % de progreso).
+    const [audioTotalH, setAudioTotalH] = React.useState("");
+    const [audioTotalM, setAudioTotalM] = React.useState("");
 
     React.useEffect(() => {
         setDurationValue(initialDuration !== undefined ? initialDuration.toString() : "");
@@ -77,6 +85,33 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
     React.useEffect(() => {
         setFormat(selectedBook?.format ?? null);
     }, [selectedBookId, selectedBook?.format]);
+
+    // --- Derivados por formato ---
+    const effFmt: "paper" | "ebook" | "audio" = format ?? "paper";
+    const isAudio = effFmt === "audio";
+    const prog = selectedBook?.progress;
+    // Solo confiamos en el total como páginas cuando la unidad es PAGES, y como
+    // segundos cuando es TIME (evita malinterpretar al cambiar de formato a mitad de libro).
+    const pageCount = prog?.unit === "PAGES" ? (prog.total ?? null) : null;
+    const storedCurrentPage = prog?.unit === "PAGES" ? (prog.current ?? 0) : 0;
+    const storedAudioTotalSeconds = prog?.unit === "TIME" ? (prog.total ?? null) : null;
+    const isEbookPercent = effFmt === "ebook" && !pageCount;
+    const isPageBased = !isAudio && !isEbookPercent;
+
+    // Prefill de los inputs según formato/modo cuando cambia el libro seleccionado.
+    React.useEffect(() => {
+        if (isPageBased && inputMode === "absolute") {
+            setProgressValue(storedCurrentPage > 0 ? String(storedCurrentPage) : "");
+        } else {
+            setProgressValue("");
+        }
+        if (isAudio && storedAudioTotalSeconds) {
+            const totalMin = Math.round(storedAudioTotalSeconds / 60);
+            setAudioTotalH(String(Math.floor(totalMin / 60)));
+            setAudioTotalM(String(totalMin % 60));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [selectedBookId, effFmt, inputMode]);
     const actionsClass = isModal
         ? "sticky bottom-0 z-10 -mx-5 grid grid-cols-2 gap-3 border-t border-teal/5 bg-white/95 px-5 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4 backdrop-blur sm:static sm:mx-0 sm:flex sm:justify-end sm:border-t-0 sm:bg-transparent sm:p-0 sm:pt-2 sm:backdrop-blur-none"
         : "flex flex-col gap-3 pt-2 sm:flex-row sm:justify-end";
@@ -94,26 +129,52 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
             return;
         }
 
-        if (!progressValue && !isFinished) {
-            setFormError("Indica tu avance de hoy o marca el libro como terminado.");
+        // El "avance" depende del formato: en audio son los minutos escuchados hoy,
+        // en el resto es el input de progreso (página absoluta / delta / %).
+        const hasProgress = isAudio ? !!durationValue : !!progressValue;
+        if (!hasProgress && !isFinished) {
+            setFormError(
+                isAudio
+                    ? "Indica cuánto has escuchado hoy o marca el audiolibro como terminado."
+                    : "Indica tu avance de hoy o marca el libro como terminado."
+            );
             return;
         }
 
         setIsSubmitting(true);
 
         try {
-            const duration = durationValue ? parseInt(durationValue, 10) : 0;
-            const pages = progressValue ? parseInt(progressValue, 10) : null;
             const { logReadingSession, saveNote, saveUserBookEmotion } = await import("@/app/app/mi-lectura/actions");
 
-            const result = await logReadingSession(
-                selectedBookId,
-                duration,
-                pages,
+            // Construimos la entrada según el formato efectivo.
+            const logInput: import("@/app/app/mi-lectura/actions").LogReadingSessionInput = {
+                bookId: selectedBookId,
+                durationMinutes: 0,
                 isFinished,
-                rating > 0 ? rating : undefined,
-                format
-            );
+                rating: rating > 0 ? rating : undefined,
+                format,
+            };
+
+            if (isAudio) {
+                // Audio: los minutos escuchados hoy son a la vez duración y progreso.
+                logInput.durationMinutes = durationValue ? parseInt(durationValue, 10) : 0;
+                const totalSeconds =
+                    (audioTotalH ? parseInt(audioTotalH, 10) : 0) * 3600 +
+                    (audioTotalM ? parseInt(audioTotalM, 10) : 0) * 60;
+                if (totalSeconds > 0) logInput.audioTotalSeconds = totalSeconds;
+            } else {
+                // Formatos de página / ebook-%: la duración es opcional (tiempo de lectura).
+                logInput.durationMinutes = durationValue ? parseInt(durationValue, 10) : 0;
+                if (isEbookPercent) {
+                    logInput.toPercent = progressValue ? parseInt(progressValue, 10) : null;
+                } else if (inputMode === "absolute") {
+                    logInput.toPage = progressValue ? parseInt(progressValue, 10) : null;
+                } else {
+                    logInput.pagesRead = progressValue ? parseInt(progressValue, 10) : null;
+                }
+            }
+
+            const result = await logReadingSession(logInput);
 
             if (result.error) {
                 setFormError(result.error);
@@ -136,11 +197,16 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
             }
 
             if (note.trim()) {
+                const noteLocation = isAudio
+                    ? (durationValue ? `${durationValue} min` : undefined)
+                    : isEbookPercent
+                        ? (progressValue ? `${progressValue}%` : undefined)
+                        : (progressValue ? `Pág ${progressValue}` : undefined);
                 await saveNote(
                     selectedBookId,
                     note,
                     "Sesión",
-                    progressValue ? `Pág ${progressValue}` : undefined
+                    noteLocation
                 );
             }
 
@@ -206,26 +272,6 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
                 </div>
             )}
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Input
-                    label="Tu progreso de hoy"
-                    type="number"
-                    placeholder={selectedBook?.progress.unit === "PAGES" ? "+ Páginas" : "+ Capítulos"}
-                    value={progressValue}
-                    onChange={(e) => setProgressValue(e.target.value)}
-                    helperText="Lo que has avanzado."
-                    autoFocus={!isModal && !initialDuration}
-                />
-                <Input
-                    label="Tiempo (min)"
-                    type="number"
-                    placeholder="Minutos"
-                    value={durationValue}
-                    onChange={(e) => setDurationValue(e.target.value)}
-                    helperText={initialDuration ? "Cronometrado automáticamente." : "Estimado."}
-                />
-            </div>
-
             <div>
                 <label className="mb-2 block text-xs font-bold uppercase tracking-widest text-grey/60">Formato (opcional)</label>
                 <div className="flex flex-wrap gap-2">
@@ -248,6 +294,95 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
                     })}
                 </div>
             </div>
+
+            {isAudio ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Input
+                        label="Escuchado hoy (min)"
+                        type="number"
+                        placeholder="Minutos"
+                        value={durationValue}
+                        onChange={(e) => setDurationValue(e.target.value)}
+                        helperText="Lo que has escuchado en esta sesión."
+                        autoFocus={!isModal && !initialDuration}
+                    />
+                    <div>
+                        <label className="mb-1.5 block text-xs font-bold text-teal-dark">Duración total</label>
+                        <div className="flex items-center gap-2">
+                            <Input
+                                type="number"
+                                placeholder="h"
+                                value={audioTotalH}
+                                onChange={(e) => setAudioTotalH(e.target.value)}
+                                className="w-full"
+                            />
+                            <span className="text-sm text-grey/50">h</span>
+                            <Input
+                                type="number"
+                                placeholder="min"
+                                value={audioTotalM}
+                                onChange={(e) => setAudioTotalM(e.target.value)}
+                                className="w-full"
+                            />
+                            <span className="text-sm text-grey/50">m</span>
+                        </div>
+                        <p className="mt-1 text-xs text-grey/50">Necesaria para calcular tu progreso.</p>
+                    </div>
+                </div>
+            ) : isEbookPercent ? (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    <Input
+                        label="¿Por qué % vas?"
+                        type="number"
+                        placeholder="0-100"
+                        value={progressValue}
+                        onChange={(e) => setProgressValue(e.target.value)}
+                        helperText="Porcentaje leído del ebook."
+                        autoFocus={!isModal && !initialDuration}
+                    />
+                    <Input
+                        label="Tiempo (min)"
+                        type="number"
+                        placeholder="Minutos"
+                        value={durationValue}
+                        onChange={(e) => setDurationValue(e.target.value)}
+                        helperText={initialDuration ? "Cronometrado automáticamente." : "Opcional."}
+                    />
+                </div>
+            ) : (
+                <div className="space-y-2">
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <Input
+                            label={inputMode === "absolute" ? "¿Por qué página vas?" : "Páginas de hoy"}
+                            type="number"
+                            placeholder={inputMode === "absolute" ? "Página actual" : "+ Páginas"}
+                            value={progressValue}
+                            onChange={(e) => setProgressValue(e.target.value)}
+                            helperText={
+                                inputMode === "absolute"
+                                    ? (pageCount ? `de ${pageCount} páginas.` : "La página en la que estás.")
+                                    : "Lo que has avanzado."
+                            }
+                            autoFocus={!isModal && !initialDuration}
+                        />
+                        <Input
+                            label="Tiempo (min)"
+                            type="number"
+                            placeholder="Minutos"
+                            value={durationValue}
+                            onChange={(e) => setDurationValue(e.target.value)}
+                            helperText={initialDuration ? "Cronometrado automáticamente." : "Estimado."}
+                        />
+                    </div>
+                    <button
+                        type="button"
+                        onClick={() => setInputMode((m) => (m === "absolute" ? "delta" : "absolute"))}
+                        className="text-xs font-medium text-teal/70 underline-offset-2 hover:text-teal hover:underline"
+                    >
+                        {inputMode === "absolute" ? "Prefiero indicar las páginas de hoy" : "Prefiero indicar la página en la que voy"}
+                    </button>
+                </div>
+            )}
 
             {isFinished && (
                 <div className="animate-fade-in space-y-4 rounded-2xl border border-teal/5 bg-cream/20 p-4">
@@ -361,7 +496,7 @@ export function ReadingForm({ books, initialBookId, initialDuration, onCancel, o
                 <Button type="button" variant="ghost" onClick={onCancel} className="h-12 px-4 text-base sm:px-8" disabled={isSubmitting}>
                     Cancelar
                 </Button>
-                <Button type="submit" className="h-12 px-4 text-base sm:min-w-48 sm:px-8" disabled={(!progressValue && !isFinished) || isSubmitting}>
+                <Button type="submit" className="h-12 px-4 text-base sm:min-w-48 sm:px-8" disabled={((isAudio ? !durationValue : !progressValue) && !isFinished) || isSubmitting}>
                     {isSubmitting ? "Guardando..." : (isFinished ? "Terminar" : "Guardar")}
                 </Button>
             </div>

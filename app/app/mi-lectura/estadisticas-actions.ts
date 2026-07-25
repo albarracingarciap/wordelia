@@ -62,6 +62,8 @@ export interface ReadingInsights {
     formats: FormatStat[];
     formatsTotal: number;
     pagesPerHour: number | null;
+    // Minutos escuchados de audiolibros (~último año), para mostrar junto a las páginas leídas.
+    listeningMinutes: number;
     avgDaysToFinish: number | null;
     // Proyección y compartir
     projectedBooks: number;
@@ -340,9 +342,11 @@ export async function getReadingStats(range: StatsRange = "30d", timeZone?: stri
                 .from("book_genres")
                 .select("book_id, genres(name)")
                 .in("book_id", bookIds),
+            // page_count vive en editions (movido desde books en 20260525); leemos la edición
+            // preferida de cada libro para el promedio de páginas.
             supabase
                 .from("books")
-                .select("id, author, page_count")
+                .select("id, author, preferred_edition:editions!books_preferred_edition_fk (page_count)")
                 .in("id", bookIds),
         ]);
 
@@ -361,10 +365,12 @@ export async function getReadingStats(range: StatsRange = "30d", timeZone?: stri
 
         const authorCounts: Record<string, number> = {};
         const pageCounts: number[] = [];
-        for (const row of (booksRes.data || []) as { id: string; author: string | null; page_count: number | null }[]) {
+        for (const row of (booksRes.data || []) as { id: string; author: string | null; preferred_edition: { page_count: number | null } | { page_count: number | null }[] | null }[]) {
             const name = (row.author || "").trim();
             if (name) authorCounts[name] = (authorCounts[name] || 0) + 1;
-            if (row.page_count && row.page_count > 0) pageCounts.push(row.page_count);
+            const edition = Array.isArray(row.preferred_edition) ? row.preferred_edition[0] : row.preferred_edition;
+            const pageCount = edition?.page_count;
+            if (pageCount && pageCount > 0) pageCounts.push(pageCount);
         }
         authors = Object.entries(authorCounts)
             .sort((a, b) => b[1] - a[1])
@@ -413,6 +419,7 @@ export async function getReadingInsights(timeZone?: string): Promise<ReadingInsi
         formats: [],
         formatsTotal: 0,
         pagesPerHour: null,
+        listeningMinutes: 0,
         avgDaysToFinish: null,
         projectedBooks: 0,
         goalTarget: null,
@@ -431,7 +438,7 @@ export async function getReadingInsights(timeZone?: string): Promise<ReadingInsi
     const [heatmapRes, ratingsRes, finishedRes, formatsRes, durationsRes, goalRes, profileRes] = await Promise.all([
         supabase
             .from("reading_sessions")
-            .select("duration_seconds, pages_read, start_time")
+            .select("duration_seconds, pages_read, start_time, book_id")
             .eq("user_id", user.id)
             .gte("start_time", heatmapCutoffISO),
         supabase
@@ -446,7 +453,7 @@ export async function getReadingInsights(timeZone?: string): Promise<ReadingInsi
             .gte("finish_date", `${nowP.year}-01-01`),
         supabase
             .from("user_books")
-            .select("format")
+            .select("book_id, format")
             .eq("user_id", user.id)
             .not("format", "is", null),
         supabase
@@ -469,11 +476,19 @@ export async function getReadingInsights(timeZone?: string): Promise<ReadingInsi
             .maybeSingle(),
     ]);
 
+    // Mapa book_id → formato (las sesiones no llevan formato; vive en user_books).
+    const bookFormat = new Map<string, string>();
+    for (const row of (formatsRes.data || []) as { book_id: string; format: string | null }[]) {
+        if (row.book_id && row.format) bookFormat.set(row.book_id, row.format);
+    }
+
     // --- Heatmap ---
     const dayAgg = new Map<string, { minutes: number; pages: number; sessions: number }>();
     let totMin = 0;
     let totPag = 0;
-    for (const s of (heatmapRes.data || []) as { duration_seconds: number | null; pages_read: number | null; start_time: string }[]) {
+    let pageMin = 0;   // minutos de lectura en formatos de página (para pág/hora, sin audio)
+    let audioMin = 0;  // minutos escuchados de audiolibros
+    for (const s of (heatmapRes.data || []) as { duration_seconds: number | null; pages_read: number | null; start_time: string; book_id: string }[]) {
         const key = zonedParts(new Date(s.start_time), tz).dateKey;
         const min = Math.round((s.duration_seconds || 0) / 60);
         const pages = s.pages_read || 0;
@@ -484,6 +499,8 @@ export async function getReadingInsights(timeZone?: string): Promise<ReadingInsi
         dayAgg.set(key, agg);
         totMin += min;
         totPag += pages;
+        if (bookFormat.get(s.book_id) === "audio") audioMin += min;
+        else pageMin += min;
     }
     const metric: "minutes" | "pages" | "sessions" = totMin > 0 ? "minutes" : totPag > 0 ? "pages" : "sessions";
     const heatmap: HeatmapDay[] = Array.from(dayAgg.entries()).map(([date, a]) => ({ date, value: a[metric] }));
@@ -533,7 +550,9 @@ export async function getReadingInsights(timeZone?: string): Promise<ReadingInsi
         .filter((f) => f.value > 0);
 
     // --- Velocidad de lectura (pág/hora) desde las sesiones del último año ---
-    const pagesPerHour = totMin > 0 && totPag > 0 ? Math.round(totPag / (totMin / 60)) : null;
+    // Solo cuenta el tiempo de formatos de página; el audio no tiene páginas y
+    // desvirtuaría la velocidad si se incluyera.
+    const pagesPerHour = pageMin > 0 && totPag > 0 ? Math.round(totPag / (pageMin / 60)) : null;
 
     // --- Días medios para terminar un libro ---
     let avgDaysToFinish: number | null = null;
@@ -567,6 +586,7 @@ export async function getReadingInsights(timeZone?: string): Promise<ReadingInsi
         formats,
         formatsTotal,
         pagesPerHour,
+        listeningMinutes: audioMin,
         avgDaysToFinish,
         projectedBooks,
         goalTarget,

@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Button } from "./Button";
 import { Badge } from "./Badge";
-import { BookOpenText, Dna, HeartPulse, Lock, ShieldCheck, Trash2 } from "lucide-react";
+import { BookOpenText, BookText, Dna, Headphones, HeartPulse, Lock, ShieldCheck, Tablet, Trash2 } from "lucide-react";
 
 export type BookResourceAccess = {
     kind: "guide" | "genome";
@@ -18,8 +18,9 @@ export interface BookCardProps {
     progress?: {
         current: number;
         total: number | null;
-        label: string; // e.g., "pág 210/460" or "45%"
-        unit: "PAGES" | "PERCENT" | "CHAPTERS";
+        label: string; // e.g., "pág 210/460", "45%" o "3h 20m / 11h"
+        unit: "PAGES" | "PERCENT" | "CHAPTERS" | "TIME";
+        percent?: number | null; // métrica canónica cross-formato (0-100)
     };
     lastSession?: string | null; // e.g. "Ayer"
     club?: {
@@ -55,6 +56,18 @@ export interface BookCardProps {
     reviewLabel?: string;
     status?: string;
     resources?: BookResourceAccess[];
+    format?: "paper" | "ebook" | "audio" | null;
+}
+
+function getFormatMeta(format: "paper" | "ebook" | "audio") {
+    switch (format) {
+        case "audio":
+            return { Icon: Headphones, label: "Audiolibro" };
+        case "ebook":
+            return { Icon: Tablet, label: "Ebook" };
+        default:
+            return { Icon: BookText, label: "Papel" };
+    }
 }
 
 const emotionLabels: Record<string, string> = {
@@ -95,12 +108,16 @@ function getResourceMeta(resource: BookResourceAccess) {
     return { Icon, statusLabel, unlocked };
 }
 
-export function BookCard({ title, author, coverUrl, progress, lastSession, club, emotionSummary, compact, onRegisterClick, actionLabel, onActionClick, tag, onDelete, onNotesClick, onEmotionClick, onCorrectLastClick, onEmotionToNoteClick, onReviewClick, reviewLabel, status, resources }: BookCardProps) {
-    // Calculate percentage for progress bar
+export function BookCard({ title, author, coverUrl, progress, lastSession, club, emotionSummary, compact, onRegisterClick, actionLabel, onActionClick, tag, onDelete, onNotesClick, onEmotionClick, onCorrectLastClick, onEmotionToNoteClick, onReviewClick, reviewLabel, status, resources, format }: BookCardProps) {
+    const formatMeta = format ? getFormatMeta(format) : null;
+    // Calculate percentage for progress bar. La métrica canónica (percent) manda;
+    // caemos al cálculo legacy solo si no viene.
     const percentage = progress
-        ? progress.unit === "PERCENT"
-            ? progress.current
-            : (progress.total ? Math.min((progress.current / progress.total) * 100, 100) : 0)
+        ? progress.percent != null
+            ? progress.percent
+            : progress.unit === "PERCENT"
+                ? progress.current
+                : (progress.total ? Math.min((progress.current / progress.total) * 100, 100) : 0)
         : 0;
 
     return (
@@ -124,6 +141,12 @@ export function BookCard({ title, author, coverUrl, progress, lastSession, club,
                         {title}
                     </h3>
                     <p className="line-clamp-1 text-sm font-medium text-coral">{author}</p>
+                    {formatMeta && (
+                        <span className="mt-1 inline-flex items-center gap-1 rounded-full bg-teal/5 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-teal/70">
+                            <formatMeta.Icon className="h-3 w-3" />
+                            {formatMeta.label}
+                        </span>
+                    )}
                 </div>
 
                 {/* Progress Section */}
@@ -131,7 +154,7 @@ export function BookCard({ title, author, coverUrl, progress, lastSession, club,
                     <div className="mt-auto mb-4">
                         <div className="flex justify-between items-end text-xs text-grey mb-1.5">
                             <span className="font-medium">{progress.label}</span>
-                            <span className="opacity-60">{percentage.toFixed(0)}% completado</span>
+                            <span className="opacity-60">{percentage.toFixed(0)}% {progress.unit === "TIME" ? "escuchado" : "completado"}</span>
                         </div>
                         <div className="w-full h-1.5 bg-grey/10 rounded-full overflow-hidden">
                             <div className="h-full bg-teal rounded-full transition-all duration-500" style={{ width: `${percentage}%` }} />

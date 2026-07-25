@@ -177,11 +177,19 @@ export function StatsLibrary({ stats, insights, isLoading }: StatsLibraryProps) 
                                 <span className="block text-2xl font-bold text-teal-dark">{insights.avgDaysToFinish ?? "—"}</span>
                                 <span className="text-xs text-grey/60 uppercase tracking-widest">Días / libro</span>
                             </div>
+                            {insights.listeningMinutes > 0 && (
+                                <div>
+                                    <span className="block text-2xl font-bold text-teal-dark">{formatListening(insights.listeningMinutes)}</span>
+                                    <span className="text-xs text-grey/60 uppercase tracking-widest">Audio (año)</span>
+                                </div>
+                            )}
                         </div>
                         <p className="text-center text-[10px] text-grey/40 opacity-70 mt-4">
-                            {insights.pagesPerHour === null
+                            {insights.pagesPerHour === null && insights.listeningMinutes === 0
                                 ? "Registra el tiempo de tus sesiones para ver tu ritmo."
-                                : "Tu velocidad media, sin presión."}
+                                : insights.listeningMinutes > 0
+                                    ? "Páginas y horas de escucha conviven, sin presión."
+                                    : "Tu velocidad media, sin presión."}
                         </p>
                     </Card>
                 </div>
@@ -195,3 +203,9 @@ const FORMAT_COLORS: Record<"paper" | "ebook" | "audio", string> = {
     ebook: "bg-coral",
     audio: "bg-yellow-400",
 };
+
+// Minutos escuchados → etiqueta compacta para la tarjeta ("12h" / "45m").
+function formatListening(minutes: number): string {
+    if (minutes >= 60) return `${Math.round(minutes / 60)}h`;
+    return `${minutes}m`;
+}

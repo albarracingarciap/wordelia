@@ -2872,12 +2872,15 @@ export type Database = {
       }
       user_books: {
         Row: {
+          audio_total_seconds: number | null
           book_id: string
           created_at: string
           current_page: number | null
           edition_id: string | null
           finish_date: string | null
+          format: string | null
           id: string
+          progress_percent: number | null
           rating: number | null
           review: string | null
           start_date: string | null
@@ -2886,12 +2889,15 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          audio_total_seconds?: number | null
           book_id: string
           created_at?: string
           current_page?: number | null
           edition_id?: string | null
           finish_date?: string | null
+          format?: string | null
           id?: string
+          progress_percent?: number | null
           rating?: number | null
           review?: string | null
           start_date?: string | null
@@ -2900,12 +2906,15 @@ export type Database = {
           user_id: string
         }
         Update: {
+          audio_total_seconds?: number | null
           book_id?: string
           created_at?: string
           current_page?: number | null
           edition_id?: string | null
           finish_date?: string | null
+          format?: string | null
           id?: string
+          progress_percent?: number | null
           rating?: number | null
           review?: string | null
           start_date?: string | null

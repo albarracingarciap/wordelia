@@ -25,7 +25,9 @@ export interface CurrentBook {
         current: number;
         total: number | null;
         label: string;
-        unit: 'PAGES' | 'PERCENT' | 'CHAPTERS';
+        unit: 'PAGES' | 'PERCENT' | 'CHAPTERS' | 'TIME';
+        /** Métrica canónica cross-formato (0-100). Fuente de verdad para barra y comparativas. */
+        percent: number | null;
     };
     lastSession: string | null; // Date string
     club: { name: string; href: string } | null;
@@ -329,6 +331,8 @@ type LibraryUserBookRow = {
     status?: string | null;
     format?: string | null;
     current_page?: number | null;
+    progress_percent?: number | null;
+    audio_total_seconds?: number | null;
     updated_at?: string | null;
     created_at?: string | null;
     user_edition?: Relation<LibraryEditionRelation>;
@@ -362,6 +366,8 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
             status,
             format,
             current_page,
+            progress_percent,
+            audio_total_seconds,
             updated_at,
             created_at,
             user_edition:editions!user_books_edition_id_fkey (id, isbn13, isbn, cover_url, page_count),
@@ -514,6 +520,13 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
         const userEdition = firstRelation(ub.user_edition);
         const edition = userEdition || preferredEdition;
         const pageCount = edition?.page_count ?? null;
+        const format = (ub.format as CurrentBook["format"]) ?? null;
+        const progress = buildProgress(format, {
+            currentPage: ub.current_page ?? null,
+            pageCount,
+            progressPercent: ub.progress_percent != null ? Number(ub.progress_percent) : null,
+            audioTotalSeconds: ub.audio_total_seconds ?? null,
+        });
 
         return {
             id: ub.book_id,
@@ -521,13 +534,8 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
             author: bookAuthorLabel(book, "Autor Desconocido"),
             coverUrl: edition?.cover_url ?? null,
             status: ub.status || undefined,
-            format: (ub.format as CurrentBook["format"]) ?? null,
-            progress: {
-                current: ub.current_page || 0, // Now using real data
-                total: pageCount,
-                label: `${ub.current_page || 0}/${pageCount || '?'}`,
-                unit: 'PAGES'
-            },
+            format,
+            progress,
             lastSession: ub.updated_at ? new Date(ub.updated_at).toLocaleDateString('es-ES', { day: 'numeric', month: 'short' }) : null,
             club: null,
             shelves: (myShelves as ShelfItemRow[] | null)?.map((s) => s.list_id) || [],
@@ -1152,14 +1160,160 @@ export async function updateBookStatus(bookId: string, status: string) {
 
 // --- NEW ACTIONS for Reading Features ---
 
-export async function logReadingSession(
+const VALID_FORMATS = ["paper", "ebook", "audio"] as const;
+
+/** Formatea segundos a una etiqueta corta "3h 20m" / "45m". */
+function formatDurationShort(totalSeconds: number): string {
+    const mins = Math.round(totalSeconds / 60);
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    if (h > 0) return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    return `${m}m`;
+}
+
+function clampPercent(value: number): number {
+    return Math.min(100, Math.max(0, Math.round(value * 10) / 10));
+}
+
+/**
+ * Construye el objeto de progreso para la UI a partir de la métrica canónica
+ * (progress_percent) y la unidad nativa de cada formato:
+ *  - audio: tiempo (segundos escuchados vs total) reconstruido desde el %.
+ *  - paper/ebook con páginas: current_page / page_count.
+ *  - ebook sin páginas: % directo.
+ */
+function buildProgress(
+    format: CurrentBook["format"],
+    data: { currentPage: number | null; pageCount: number | null; progressPercent: number | null; audioTotalSeconds: number | null }
+): CurrentBook["progress"] {
+    const { currentPage, pageCount, progressPercent, audioTotalSeconds } = data;
+
+    if (format === "audio") {
+        const total = audioTotalSeconds ?? null;
+        const percent = progressPercent;
+        const current = total != null && percent != null ? Math.round((percent / 100) * total) : 0;
+        return {
+            current,
+            total,
+            percent,
+            unit: "TIME",
+            label: total != null
+                ? `${formatDurationShort(current)} / ${formatDurationShort(total)}`
+                : percent != null ? `${Math.round(percent)}%` : "Sin duración",
+        };
+    }
+
+    // paper / ebook (o formato sin definir): páginas si hay total, si no porcentaje.
+    const pageBasedPercent = pageCount && pageCount > 0 && currentPage != null
+        ? clampPercent((currentPage / pageCount) * 100)
+        : null;
+    const percent = progressPercent ?? pageBasedPercent;
+
+    if (pageCount && pageCount > 0) {
+        return {
+            current: currentPage || 0,
+            total: pageCount,
+            percent,
+            unit: "PAGES",
+            label: `${currentPage || 0}/${pageCount}`,
+        };
+    }
+
+    // Sin paginación conocida (p.ej. ebook en modo %): mostramos porcentaje.
+    return {
+        current: currentPage || 0,
+        total: null,
+        percent,
+        unit: percent != null ? "PERCENT" : "PAGES",
+        label: percent != null ? `${Math.round(percent)}%` : `${currentPage || 0}/?`,
+    };
+}
+
+/** Resuelve page_count desde la edición del usuario o la edición preferida del libro. */
+async function resolvePageCount(
+    supabase: Awaited<ReturnType<typeof createClient>>,
     bookId: string,
-    durationMinutes: number,
-    pagesRead: number | null,
-    isFinished: boolean,
-    rating?: number,
-    format?: string | null
-) {
+    editionId: string | null
+): Promise<number | null> {
+    if (editionId) {
+        const { data } = await supabase.from("editions").select("page_count").eq("id", editionId).maybeSingle();
+        if (data?.page_count) return data.page_count;
+    }
+    const { data: book } = await supabase.from("books").select("preferred_edition_id").eq("id", bookId).maybeSingle();
+    if (book?.preferred_edition_id) {
+        const { data: ed } = await supabase.from("editions").select("page_count").eq("id", book.preferred_edition_id).maybeSingle();
+        return ed?.page_count ?? null;
+    }
+    return null;
+}
+
+/**
+ * Recalcula y persiste user_books.progress_percent (métrica canónica cross-formato)
+ * a partir del estado actual del libro. Lo llaman logReadingSession, updateReadingSession
+ * y deleteReadingSession para mantener el porcentaje coherente tras cualquier cambio.
+ *
+ * Nota Fase 2: el modo ebook-% fija progress_percent directamente en logReadingSession
+ * y no debe pasar por aquí (esta función lo pondría a null al no haber paginación).
+ */
+async function recomputeProgressPercent(
+    supabase: Awaited<ReturnType<typeof createClient>>,
+    userId: string,
+    bookId: string
+): Promise<void> {
+    const { data: ub } = await supabase
+        .from("user_books")
+        .select("current_page, format, audio_total_seconds, status, edition_id")
+        .eq("user_id", userId)
+        .eq("book_id", bookId)
+        .single();
+    if (!ub) return;
+
+    let percent: number | null = null;
+
+    if (ub.status === "READ") {
+        percent = 100;
+    } else if (ub.format === "audio") {
+        if (ub.audio_total_seconds && ub.audio_total_seconds > 0) {
+            const { data: sessions } = await supabase
+                .from("reading_sessions")
+                .select("duration_seconds")
+                .eq("user_id", userId)
+                .eq("book_id", bookId);
+            const listened = (sessions || []).reduce((acc, s) => acc + (s.duration_seconds || 0), 0);
+            percent = clampPercent((listened / ub.audio_total_seconds) * 100);
+        }
+    } else {
+        const pageCount = await resolvePageCount(supabase, bookId, ub.edition_id);
+        if (pageCount && pageCount > 0 && ub.current_page != null) {
+            percent = clampPercent((ub.current_page / pageCount) * 100);
+        }
+    }
+
+    await supabase
+        .from("user_books")
+        .update({ progress_percent: percent })
+        .eq("user_id", userId)
+        .eq("book_id", bookId);
+}
+
+export interface LogReadingSessionInput {
+    bookId: string;
+    durationMinutes: number;
+    isFinished: boolean;
+    rating?: number;
+    format?: string | null;
+    /** Delta de páginas avanzadas en esta sesión (modo página, legacy). */
+    pagesRead?: number | null;
+    /** Página absoluta "voy por la X" (modo página, preferido). Tiene prioridad sobre pagesRead. */
+    toPage?: number | null;
+    /** Porcentaje absoluto 0-100 (ebook sin paginación). Fija progress_percent directamente. */
+    toPercent?: number | null;
+    /** Duración total del audiolibro en segundos; se persiste en user_books. */
+    audioTotalSeconds?: number | null;
+}
+
+export async function logReadingSession(input: LogReadingSessionInput) {
+    const { bookId, durationMinutes, isFinished, rating, format, audioTotalSeconds } = input;
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { error: "User not authenticated" };
@@ -1167,12 +1321,29 @@ export async function logReadingSession(
     try {
         const { data: userBook } = await supabase
             .from("user_books")
-            .select("current_page, edition_id, start_date")
+            .select("current_page, edition_id, start_date, format")
             .eq("user_id", user.id)
             .eq("book_id", bookId)
             .single();
 
-        // 1. Insert Session
+        const effFormat = format && (VALID_FORMATS as readonly string[]).includes(format)
+            ? format
+            : (userBook?.format ?? null);
+        const isAudio = effFormat === "audio";
+
+        // Resolver el delta de páginas de esta sesión (formatos de página).
+        // toPage (absoluto "voy por la X") tiene prioridad sobre pagesRead (delta).
+        let pagesDelta: number | null = null;
+        let newCurrentPage: number | null = null;
+        if (input.toPage != null) {
+            newCurrentPage = Math.max(0, Math.round(input.toPage));
+            pagesDelta = newCurrentPage - (userBook?.current_page || 0);
+        } else if (input.pagesRead != null) {
+            pagesDelta = input.pagesRead;
+            newCurrentPage = (userBook?.current_page || 0) + input.pagesRead;
+        }
+
+        // 1. Insert Session (en audio no hay páginas; el progreso es el tiempo escuchado).
         const { data: sessionData, error: sessionError } = await supabase
             .from("reading_sessions")
             .insert({
@@ -1182,7 +1353,7 @@ export async function logReadingSession(
                 start_time: new Date(Date.now() - durationMinutes * 60000).toISOString(), // Estimated start
                 end_time: new Date().toISOString(),
                 duration_seconds: durationMinutes * 60,
-                pages_read: pagesRead,
+                pages_read: isAudio ? null : pagesDelta,
                 marked_finished: isFinished
             })
             .select("id")
@@ -1195,14 +1366,18 @@ export async function logReadingSession(
             updated_at: new Date().toISOString()
         };
 
-        if (pagesRead) {
-            const newPage = (userBook?.current_page || 0) + pagesRead;
-            updates.current_page = newPage;
+        if (!isAudio && newCurrentPage != null) {
+            updates.current_page = newCurrentPage;
         }
 
         // Formato de lectura (papel/ebook/audio): se guarda a nivel de libro.
-        if (format && ["paper", "ebook", "audio"].includes(format)) {
-            updates.format = format;
+        if (effFormat && (VALID_FORMATS as readonly string[]).includes(effFormat)) {
+            updates.format = effFormat;
+        }
+
+        // Duración total del audiolibro (segundos): habilita el % de progreso en audio.
+        if (audioTotalSeconds != null && audioTotalSeconds > 0) {
+            updates.audio_total_seconds = Math.round(audioTotalSeconds);
         }
 
         // Fecha de inicio: si es la primera sesión y no hay start_date, la fijamos
@@ -1217,6 +1392,12 @@ export async function logReadingSession(
             updates.finish_date = new Date().toISOString().split("T")[0];
         }
 
+        // Modo ebook-% : el usuario fija el porcentaje directamente (sin paginación).
+        const directPercent = input.toPercent != null;
+        if (directPercent) {
+            updates.progress_percent = clampPercent(input.toPercent as number);
+        }
+
         const { error: updateError } = await supabase
             .from("user_books")
             .update(updates)
@@ -1224,6 +1405,11 @@ export async function logReadingSession(
             .eq("book_id", bookId);
 
         if (updateError) throw updateError;
+
+        // 3. Recalcular la métrica canónica (salvo modo ebook-% que ya la fijó).
+        if (!directPercent) {
+            await recomputeProgressPercent(supabase, user.id, bookId);
+        }
 
         revalidatePath("/app/search"); // Dashboard
         revalidatePath("/app/mi-lectura");
@@ -1321,6 +1507,10 @@ export async function updateReadingSession(
                 .eq("book_id", session.book_id);
         }
 
+        // Recalcular la métrica canónica: en audio depende de la duración editada,
+        // en formatos de página del current_page reconciliado.
+        await recomputeProgressPercent(supabase, user.id, session.book_id);
+
         revalidatePath("/app/search");
         revalidatePath("/app/mi-lectura");
         return { success: true };
@@ -1384,6 +1574,9 @@ export async function deleteReadingSession(sessionId: string) {
             .update(bookUpdates)
             .eq("user_id", user.id)
             .eq("book_id", session.book_id);
+
+        // Recalcular la métrica canónica tras revertir páginas/estado.
+        await recomputeProgressPercent(supabase, user.id, session.book_id);
 
         revalidatePath("/app/search");
         revalidatePath("/app/mi-lectura");
