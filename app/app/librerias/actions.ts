@@ -2,11 +2,14 @@
 
 import { createClient } from '@/utils/supabase/server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createAdminClient } from '@/utils/supabase/admin';
+import { sendPushToUsers } from '@/lib/push-server';
 import { revalidatePath } from 'next/cache';
 import { Organization, OrganizationEvent, OrganizationLocation } from '@/types/organizations';
 import { isOrgProActive } from '@/lib/subscription-access';
 import { FREE_LOCATION_LIMIT, FREE_UPCOMING_EVENT_LIMIT } from '@/lib/org-limits';
 import { bookAuthorLabel } from '@/lib/book-author';
+import { selectInChunks } from '@/lib/supabase-chunks';
 
 async function orgIsPro(supabase: any, orgId: string): Promise<boolean> {
     const { data: sub } = await supabase
@@ -430,10 +433,14 @@ export async function getOrganizationMembers(orgId: string): Promise<Organizatio
     const userIds = Array.from(byUser.keys());
     if (userIds.length === 0) return [];
 
-    const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, full_name, username, avatar_url')
-        .in('id', userIds);
+    // Troceado: miembros únicos de todos los clubs de la org → evita 414 en librerías grandes.
+    const { data: profiles } = await selectInChunks<any>(
+        userIds,
+        (chunk) => supabase
+            .from('profiles')
+            .select('id, full_name, username, avatar_url')
+            .in('id', chunk),
+    );
     const profileById = new Map<string, any>((profiles || []).map((p: any) => [p.id, p]));
 
     return userIds.map((uid) => {
@@ -554,6 +561,30 @@ export async function createOrganizationEvent(orgId: string, data: Record<string
             .from('organization_events')
             .insert({ ...pickEventFields(data), organization_id: orgId, created_by: user.id });
         if (error) return { error: error.message };
+
+        // Push a los lectores que siguen esta librería (user_libraries tiene RLS
+        // "own", así que leemos los seguidores con service role). Categoría "libraries".
+        try {
+            const admin = createAdminClient() as unknown as { from: (t: string) => any };
+            const [{ data: followers }, { data: org }] = await Promise.all([
+                admin.from('user_libraries').select('user_id').eq('organization_id', orgId),
+                admin.from('organizations').select('name, slug').eq('id', orgId).maybeSingle(),
+            ]);
+            await sendPushToUsers(
+                (followers ?? []).map((f: any) => f.user_id),
+                'libraries',
+                {
+                    title: `Nuevo evento en ${org?.name || 'tu librería'}`,
+                    body: String(data.title).slice(0, 140),
+                    url: org?.slug ? `/libreria/${org.slug}` : '/app/librerias/descubrir',
+                    tag: `org-event-${orgId}`,
+                },
+                user.id,
+            );
+        } catch (e) {
+            console.error('[Push] evento de librería:', e);
+        }
+
         revalidatePath('/app/librerias');
         revalidatePath('/librerias');
         return { success: true };

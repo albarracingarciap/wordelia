@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { selectInChunks } from "@/lib/supabase-chunks";
 
 export interface FollowState {
     isSelf: boolean;
@@ -126,16 +127,21 @@ export async function getSimilarReaders(limit = 6): Promise<SimilarReader[]> {
     // para que surja gente aunque haya pocos "leídos".
     const LIB_STATUSES = ["READ", "READING", "WANT_TO_READ", "PAUSED"];
     const { data: mine } = await admin.from("user_books").select("book_id").eq("user_id", user.id).in("status", LIB_STATUSES);
-    const myBookIds = [...new Set(((mine ?? []) as any[]).map((r) => r.book_id).filter(Boolean))];
+    const myBookIds = [...new Set(((mine ?? []) as any[]).map((r) => r.book_id).filter(Boolean))] as string[];
     if (myBookIds.length === 0) return [];
 
-    const { data: others } = await admin
-        .from("user_books")
-        .select("user_id")
-        .in("book_id", myBookIds)
-        .in("status", LIB_STATUSES)
-        .neq("user_id", user.id)
-        .limit(5000);
+    // Troceado: myBookIds es toda la biblioteca del usuario (enorme tras un import)
+    // → evita 414. Es agregación (cuenta por usuario), así que unir lotes es correcto.
+    const { data: others } = await selectInChunks<any>(
+        myBookIds,
+        (chunk) => admin
+            .from("user_books")
+            .select("user_id")
+            .in("book_id", chunk)
+            .in("status", LIB_STATUSES)
+            .neq("user_id", user.id)
+            .limit(5000),
+    );
     const countByUser = new Map<string, number>();
     for (const r of (others ?? []) as any[]) countByUser.set(r.user_id, (countByUser.get(r.user_id) ?? 0) + 1);
     if (countByUser.size === 0) return [];

@@ -1,6 +1,7 @@
 'use server';
 
 import { createClient } from '@/utils/supabase/server';
+import { sendPushToUsers } from '@/lib/push-server';
 import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { isOrgProActive } from '@/lib/subscription-access';
 import { revalidatePath } from 'next/cache';
@@ -3470,6 +3471,28 @@ export async function createAnnouncement(
         });
 
     if (error) return { error: error.message };
+
+    // Push a los miembros del club (excepto al autor). Categoría "social".
+    try {
+        const [{ data: members }, { data: club }] = await Promise.all([
+            supabase.from('club_members').select('user_id').eq('club_id', clubId),
+            supabase.from('clubs').select('name').eq('id', clubId).single(),
+        ]);
+        await sendPushToUsers(
+            (members ?? []).map((m) => m.user_id),
+            'social',
+            {
+                title: `📣 Anuncio en ${club?.name || 'tu club'}`,
+                body: content.slice(0, 140),
+                url: `/app/clubs/${clubId}`,
+                tag: `club-${clubId}`,
+            },
+            user.id,
+        );
+    } catch (e) {
+        console.error('[Push] anuncio de club:', e);
+    }
+
     revalidatePath(`/app/clubs/${clubId}`);
     return { success: true };
 }

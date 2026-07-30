@@ -2,6 +2,7 @@
 // (géneros dominantes, autores, stats, personalidad). Server-only, service role
 // (lee user_books de otro usuario para la página pública compartible).
 import { createAdminClient } from "@/utils/supabase/admin";
+import { selectInChunks } from "@/lib/supabase-chunks";
 
 type LooseClient = { from: (table: string) => any };
 
@@ -67,20 +68,23 @@ export async function getReaderDna(username: string): Promise<ReaderDna | null> 
         .eq("status", "READ");
     const readRows = (ub ?? []) as any[];
 
-    const bookIds = [...new Set(readRows.map((r) => r.book_id).filter(Boolean))];
-    let books: any[] = [];
-    if (bookIds.length) {
-        const { data } = await admin.from("books").select("id, author, genre, preferred_edition_id").in("id", bookIds);
-        books = (data ?? []) as any[];
-    }
+    // bookIds es toda la biblioteca READ del usuario (puede ser enorme tras un
+    // import) → troceamos el .in() para no desbordar la URL (414).
+    const bookIds = [...new Set(readRows.map((r) => r.book_id).filter(Boolean))] as string[];
+    const { data: booksData } = await selectInChunks<any>(
+        bookIds,
+        (chunk) => admin.from("books").select("id, author, genre, preferred_edition_id").in("id", chunk),
+    );
+    const books = (booksData ?? []) as any[];
 
     // Páginas (edición preferida).
-    const edIds = books.map((b) => b.preferred_edition_id).filter(Boolean);
+    const edIds = books.map((b) => b.preferred_edition_id).filter(Boolean) as string[];
     const pagesByEd = new Map<string, number>();
-    if (edIds.length) {
-        const { data: eds } = await admin.from("editions").select("id, page_count").in("id", edIds);
-        for (const e of (eds ?? []) as any[]) pagesByEd.set(e.id, e.page_count ?? 0);
-    }
+    const { data: eds } = await selectInChunks<any>(
+        edIds,
+        (chunk) => admin.from("editions").select("id, page_count").in("id", chunk),
+    );
+    for (const e of (eds ?? []) as any[]) pagesByEd.set(e.id, e.page_count ?? 0);
 
     const genreCounts = new Map<string, number>();
     const authorCounts = new Map<string, number>();

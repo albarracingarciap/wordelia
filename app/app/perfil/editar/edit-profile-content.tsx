@@ -38,6 +38,7 @@ import {
 } from "../actions";
 import { ClubHeaderUpload } from "@/components/clubs/create/ClubHeaderUpload";
 import { SECONDARY_GOALS, normalizeSecondaryKeys } from "@/lib/secondary-goals";
+import { PushToggle } from "@/components/pwa/PushToggle";
 
 type NotificationSettings = Record<string, boolean>;
 type PrivacySettings = {
@@ -610,7 +611,9 @@ function NotificationsTab({ profile }: { profile: ProfileData }) {
         email_social: false,
         push_social: true,
         email_achievements: true,
-        push_achievements: true
+        push_achievements: true,
+        email_libraries: true,
+        push_libraries: true
     };
 
     const [currentSettings, setCurrentSettings] = React.useState(settings);
@@ -633,7 +636,8 @@ function NotificationsTab({ profile }: { profile: ProfileData }) {
         { title: "Recordatorios de lectura", desc: "Avisos para mantener tu racha.", keys: ["email_reading_reminders", "push_reading_reminders"] },
         { title: "Nuevas recomendaciones", desc: "Libros seleccionados para ti semanalmente.", keys: ["email_recommendations", "push_recommendations"] },
         { title: "Actividad social", desc: "Comentarios, menciones o reacciones.", keys: ["email_social", "push_social"] },
-        { title: "Logros y desafíos", desc: "Actualizaciones sobre insignias y retos.", keys: ["email_achievements", "push_achievements"] }
+        { title: "Logros y desafíos", desc: "Actualizaciones sobre insignias y retos.", keys: ["email_achievements", "push_achievements"] },
+        { title: "Actividad de librerías", desc: "Nuevos eventos de las librerías que sigues.", keys: ["email_libraries", "push_libraries"] }
     ];
 
     return (
@@ -650,6 +654,10 @@ function NotificationsTab({ profile }: { profile: ProfileData }) {
                     </div>
                 }
             />
+
+            {/* Interruptor maestro: pide permiso al navegador y suscribe ESTE dispositivo
+                a push. Sin esto, los checkboxes "Push" de abajo no reciben nada. */}
+            <PushToggle />
 
             <div className="space-y-3">
                 {items.map((item) => (

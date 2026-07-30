@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { selectInChunks } from "@/lib/supabase-chunks";
 
 // --- TYPES ---
 
@@ -337,17 +338,22 @@ export async function getReadingStats(range: StatsRange = "30d", timeZone?: stri
     let avgPages: number | null = null;
 
     if (bookIds.length > 0) {
+        // Troceado: bookIds = libros distintos con sesión en el rango (hasta 1 año)
+        // → evita 414 en lectores muy activos.
         const [genresRes, booksRes] = await Promise.all([
-            supabase
-                .from("book_genres")
-                .select("book_id, genres(name)")
-                .in("book_id", bookIds),
+            selectInChunks<{ book_id: string; genres: { name?: string } | { name?: string }[] | null }>(
+                bookIds,
+                (chunk) => supabase.from("book_genres").select("book_id, genres(name)").in("book_id", chunk),
+            ),
             // page_count vive en editions (movido desde books en 20260525); leemos la edición
             // preferida de cada libro para el promedio de páginas.
-            supabase
-                .from("books")
-                .select("id, author, preferred_edition:editions!books_preferred_edition_fk (page_count)")
-                .in("id", bookIds),
+            selectInChunks<{ id: string; author: string | null; preferred_edition: { page_count: number | null } | { page_count: number | null }[] | null }>(
+                bookIds,
+                (chunk) => supabase
+                    .from("books")
+                    .select("id, author, preferred_edition:editions!books_preferred_edition_fk (page_count)")
+                    .in("id", chunk),
+            ),
         ]);
 
         const genreCounts: Record<string, number> = {};

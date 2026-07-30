@@ -45,6 +45,36 @@ function admin(): LooseClient {
 }
 
 /**
+ * Lee filas por lista de ids en lotes. PostgREST filtra con `.in()` vía query
+ * string GET, así que una lista larga de UUIDs desborda el límite de longitud
+ * de URL del proxy (HTTP 414). Troceamos para que la URL siempre quepa.
+ * Además NO tragamos el error: si una query falla, se lanza (en vez de devolver
+ * una lista vacía silenciosa que parece "0 libros").
+ */
+async function selectByIdChunks<T = any>(
+    table: string,
+    columns: string,
+    ids: string[],
+    chunkSize = 60,
+): Promise<T[]> {
+    if (ids.length === 0) return [];
+    const db = admin();
+    const chunks: string[][] = [];
+    for (let i = 0; i < ids.length; i += chunkSize) chunks.push(ids.slice(i, i + chunkSize));
+
+    const results = await Promise.all(
+        chunks.map((chunk) => db.from(table).select(columns).in("id", chunk)),
+    );
+
+    const rows: T[] = [];
+    for (const r of results) {
+        if (r.error) throw new Error(`Error leyendo ${table}: ${r.error.message}`);
+        rows.push(...((r.data ?? []) as T[]));
+    }
+    return rows;
+}
+
+/**
  * Cola de curación: los libros que tienen guía Y genoma, con lo que les falta.
  * Es el conjunto que puede aparecer en /explorar.
  */
@@ -65,25 +95,23 @@ export async function getCurationQueue(): Promise<{ books: QueueBook[]; collecti
 
     if (bookIds.length === 0) return { books: [], collections: await listCollections() };
 
-    const [{ data: books }, { data: links }, collections] = await Promise.all([
-        db.from("books").select("id, title, author, genre, preferred_edition_id").in("id", bookIds),
+    const [books, { data: links }, collections] = await Promise.all([
+        selectByIdChunks<any>("books", "id, title, author, genre, preferred_edition_id", bookIds),
         db.from("curated_collection_books")
             .select("book_id, collection_id, collection:curated_collections(id, name)")
             .not("book_id", "is", null),
         listCollections(),
     ]);
 
-    const editionIds = (books ?? []).map((b: any) => b.preferred_edition_id).filter(Boolean);
-    const { data: editions } = editionIds.length
-        ? await db.from("editions").select("id, cover_url").in("id", editionIds)
-        : { data: [] };
+    const editionIds = books.map((b: any) => b.preferred_edition_id).filter(Boolean);
+    const editions = await selectByIdChunks<any>("editions", "id, cover_url", editionIds);
 
     const coverByEdition = new Map<string, string | null>(
-        (editions ?? []).map((e: any) => [e.id, e.cover_url]),
+        editions.map((e: any) => [e.id, e.cover_url]),
     );
     const linkByBook = new Map<string, any>((links ?? []).map((l: any) => [l.book_id, l]));
 
-    const queue: QueueBook[] = (books ?? []).map((b: any) => {
+    const queue: QueueBook[] = books.map((b: any) => {
         const link = linkByBook.get(b.id);
         return {
             id: b.id,
@@ -97,7 +125,7 @@ export async function getCurationQueue(): Promise<{ books: QueueBook[]; collecti
         };
     });
 
-    queue.sort((a, b) => a.title.localeCompare(b.title, "es"));
+    queue.sort((a, b) => (a.title ?? "").localeCompare(b.title ?? "", "es"));
     return { books: queue, collections };
 }
 

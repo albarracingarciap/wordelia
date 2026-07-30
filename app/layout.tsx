@@ -1,6 +1,7 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Playfair_Display, Outfit, Pinyon_Script, Dancing_Script } from "next/font/google";
 import { Providers } from "./providers";
+import { ServiceWorkerRegister } from "@/components/pwa/ServiceWorkerRegister";
 import "./globals.css";
 
 const playfair = Playfair_Display({
@@ -35,8 +36,18 @@ export const metadata: Metadata = {
   icons: {
     icon: "/assets/images/icono_logo.png",
     shortcut: "/assets/images/icono_logo.png",
-    apple: "/assets/images/icono_logo.png",
+    apple: "/icons/apple-touch-icon.png",
   },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Wordelia",
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#336871",
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -53,6 +64,7 @@ export default function RootLayout({
         <Providers>
           {children}
         </Providers>
+        <ServiceWorkerRegister />
       </body>
     </html>
   );

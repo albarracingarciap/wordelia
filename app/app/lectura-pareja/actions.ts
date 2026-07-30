@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
+import { sendPushIfEnabled } from "@/lib/push-server";
 import { resolveBookFromResult } from "@/lib/book-resolution";
 import type { BookSearchResult } from "@/lib/isbndb";
 
@@ -208,5 +209,24 @@ export async function sendBuddyMessage(id: string, content: string): Promise<{ m
     const { data: created, error } = await supabase.from("buddy_read_messages").insert({ buddy_read_id: id, user_id: user.id, content: text }).select("id, created_at").single();
     if (error) return { error: error.message };
     const { data: p } = await supabase.from("profiles").select("full_name, avatar_url").eq("id", user.id).maybeSingle();
+
+    // Push al otro participante de la lectura conjunta.
+    try {
+        const { data: br } = await supabase.from("buddy_reads").select("host_id, guest_id").eq("id", id).maybeSingle();
+        const pair = br as { host_id?: string; guest_id?: string } | null;
+        const recipient = pair ? (pair.host_id === user.id ? pair.guest_id : pair.host_id) : null;
+        if (recipient) {
+            const name = (p as any)?.full_name || "Tu compañero/a de lectura";
+            await sendPushIfEnabled(recipient, "social", {
+                title: `${name} · lectura conjunta`,
+                body: text.slice(0, 140),
+                url: "/app/lectura-pareja",
+                tag: `buddy-${id}`,
+            });
+        }
+    } catch (e) {
+        console.error("[Push] buddy read:", e);
+    }
+
     return { message: { id: created.id, userId: user.id, content: text, createdAt: created.created_at, authorName: (p as any)?.full_name ?? null, authorAvatar: (p as any)?.avatar_url ?? null, isMine: true } };
 }

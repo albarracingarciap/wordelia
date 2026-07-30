@@ -1,6 +1,7 @@
 // Lectura del resumen anual compartible "Tu año en lectura". Server-only, service
 // role: la página /anio/[username] es pública (sin login). Espejo de shared-challenge.
 import { createAdminClient } from "@/utils/supabase/admin";
+import { selectInChunks } from "@/lib/supabase-chunks";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type LooseClient = { from: (table: string) => any };
@@ -79,12 +80,13 @@ export async function fetchSharedWrapped(username: string, year: number): Promis
 
     // Género dominante entre los libros leídos.
     let topGenre: string | null = null;
-    const bookIds = Array.from(new Set(readRows.map((r) => r.book_id).filter(Boolean)));
+    const bookIds = Array.from(new Set(readRows.map((r) => r.book_id).filter(Boolean))) as string[];
     if (bookIds.length > 0) {
-        const { data: genreRows } = await admin
-            .from("book_genres")
-            .select("book_id, genres(name)")
-            .in("book_id", bookIds);
+        // Troceado: bookIds = libros READ del año (inflable por import) → evita 414.
+        const { data: genreRows } = await selectInChunks<{ genres: { name?: string } | { name?: string }[] | null }>(
+            bookIds,
+            (chunk) => admin.from("book_genres").select("book_id, genres(name)").in("book_id", chunk),
+        );
         const counts: Record<string, number> = {};
         for (const row of (genreRows || []) as { genres: { name?: string } | { name?: string }[] | null }[]) {
             const g = Array.isArray(row.genres) ? row.genres[0] : row.genres;

@@ -6,6 +6,7 @@ import { MobileNav } from "./MobileNav";
 import { PendingSubscriptionBanner } from "./PendingSubscriptionBanner";
 import { PastDueBanner } from "./PastDueBanner";
 import { GlobalAnnouncementBanner } from "./GlobalAnnouncementBanner";
+import { InstallPrompt } from "@/components/pwa/InstallPrompt";
 
 interface AppShellProps {
     children: React.ReactNode;
@@ -34,6 +35,9 @@ export function AppShell({ children }: AppShellProps) {
 
             {/* Mobile Nav (Fixed Bottom) */}
             <MobileNav />
+
+            {/* Banner de instalación PWA (Android/iOS) */}
+            <InstallPrompt />
         </div>
     );
 }

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/utils/supabase/server";
+import { sendPushIfEnabled, sendPushToUsers } from "@/lib/push-server";
 import { REACTIONS } from "@/lib/community-reactions";
 
 export type PostSubtype = "comentario" | "recomendacion" | "pregunta" | "leyendo";
@@ -115,6 +116,25 @@ export async function setReaction(activityId: string, emoji: string): Promise<{ 
 
     const { error } = await supabase.from("activity_reactions").upsert({ activity_id: activityId, user_id: user.id, emoji }, { onConflict: "activity_id,user_id" });
     if (error) return { error: error.message };
+
+    // Push al dueño de la actividad (solo al AÑADIR reacción, no al quitarla).
+    try {
+        const { data: activity } = await supabase.from("activity_feed").select("user_id").eq("id", activityId).maybeSingle();
+        const ownerId = (activity as { user_id?: string } | null)?.user_id;
+        if (ownerId && ownerId !== user.id) {
+            const { data: me } = await supabase.from("profiles").select("full_name, username").eq("id", user.id).maybeSingle();
+            const name = (me as any)?.full_name || (me as any)?.username || "Alguien";
+            await sendPushIfEnabled(ownerId, "social", {
+                title: `${name} reaccionó a tu actividad`,
+                body: emoji,
+                url: "/app",
+                tag: `activity-${activityId}`,
+            });
+        }
+    } catch (e) {
+        console.error("[Push] reacción:", e);
+    }
+
     return { mine: emoji };
 }
 
@@ -185,10 +205,31 @@ export async function addActivityComment(activityId: string, content: string, pa
     if (error) return { error: error.message };
 
     const { data: p } = await supabase.from("profiles").select("full_name, username, avatar_url").eq("id", user.id).maybeSingle();
+    const authorName = (p as any)?.full_name || (p as any)?.username || "Lector";
+
+    // Push al dueño de la actividad (y al del comentario padre, si es respuesta).
+    try {
+        const recipients: string[] = [];
+        const { data: activity } = await supabase.from("activity_feed").select("user_id").eq("id", activityId).maybeSingle();
+        if ((activity as { user_id?: string } | null)?.user_id) recipients.push((activity as { user_id: string }).user_id);
+        if (parentId) {
+            const { data: parent } = await supabase.from("activity_comments").select("user_id").eq("id", parentId).maybeSingle();
+            if ((parent as { user_id?: string } | null)?.user_id) recipients.push((parent as { user_id: string }).user_id);
+        }
+        await sendPushToUsers(recipients, "social", {
+            title: `${authorName} comentó tu actividad`,
+            body: text.slice(0, 140),
+            url: "/app",
+            tag: `activity-${activityId}`,
+        }, user.id);
+    } catch (e) {
+        console.error("[Push] comentario:", e);
+    }
+
     return {
         comment: {
             id: created.id, userId: user.id, parentId: parentId ?? null, content: text, createdAt: created.created_at,
-            authorName: (p as any)?.full_name || (p as any)?.username || "Lector", authorAvatar: (p as any)?.avatar_url ?? null, isMine: true,
+            authorName, authorAvatar: (p as any)?.avatar_url ?? null, isMine: true,
         },
     };
 }

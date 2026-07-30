@@ -6,6 +6,7 @@ import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ArrowLeft, BookOpen, Bookmark, Camera, Check, Eye, Loader2, Search, ScanLine, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { IsbnScanner } from "@/components/pwa/IsbnScanner";
 import { searchBooksAction, addBookToLibrary } from "@/app/app/search/actions";
 import { BookSearchResult } from "@/lib/isbndb";
 
@@ -78,7 +79,9 @@ function AddBookContent() {
     const [results, setResults] = React.useState<BookSearchResult[]>([]);
     const [isSearching, setIsSearching] = React.useState(false);
     const [isAdding, setIsAdding] = React.useState<string | null>(null);
+    const [openMenuFor, setOpenMenuFor] = React.useState<string | null>(null);
     const [showManualForm, setShowManualForm] = React.useState(false);
+    const [scannerOpen, setScannerOpen] = React.useState(false);
     const [actionError, setActionError] = React.useState("");
     const [statusMessage, setStatusMessage] = React.useState("");
     const [manualData, setManualData] = React.useState({
@@ -216,8 +219,14 @@ function AddBookContent() {
 
     const handleScanClick = () => {
         setActionError("");
-        setStatusMessage("ISBN de ejemplo cargado. Puedes buscarlo o sustituirlo.");
-        setSearchQuery("9788418055663");
+        setStatusMessage("");
+        setScannerOpen(true);
+    };
+
+    const handleScanDetected = (isbn: string) => {
+        setScannerOpen(false);
+        setShowManualForm(false);
+        setSearchQuery(isbn);
     };
 
     const hasQuery = searchQuery.length > 2;
@@ -442,6 +451,9 @@ function AddBookContent() {
                                                     className="flex h-9 items-center gap-1.5 rounded-lg bg-teal/5 px-4 text-xs font-bold text-teal transition-all hover:bg-teal hover:text-white disabled:cursor-not-allowed disabled:opacity-50"
                                                     disabled={!!isAdding}
                                                     type="button"
+                                                    onClick={() => setOpenMenuFor((cur) => (cur === bookKey ? null : bookKey))}
+                                                    aria-haspopup="menu"
+                                                    aria-expanded={openMenuFor === bookKey}
                                                 >
                                                     {isThisBookAdding ? (
                                                         <Loader2 className="animate-spin" size={14} />
@@ -453,24 +465,33 @@ function AddBookContent() {
                                                     )}
                                                 </button>
 
-                                                {!isAdding && (
-                                                    <div className="absolute right-0 top-full z-20 mt-1 hidden w-48 origin-top-right animate-fade-in-up overflow-hidden rounded-xl border border-teal/10 bg-white shadow-xl group-hover/actions:block">
-                                                        {statusOptions.map((option) => {
-                                                            const Icon = option.icon;
+                                                {!isAdding && openMenuFor === bookKey && (
+                                                    <>
+                                                        {/* Fondo para cerrar al tocar fuera: en móvil no hay hover, el menú se abre con tap. */}
+                                                        <div
+                                                            className="fixed inset-0 z-20"
+                                                            aria-hidden="true"
+                                                            onClick={() => setOpenMenuFor(null)}
+                                                        />
+                                                        <div className="absolute right-0 top-full z-30 mt-1 block w-48 origin-top-right animate-fade-in-up overflow-hidden rounded-xl border border-teal/10 bg-white shadow-xl" role="menu">
+                                                            {statusOptions.map((option) => {
+                                                                const Icon = option.icon;
 
-                                                            return (
-                                                                <button
-                                                                    key={option.status}
-                                                                    onClick={() => handleAddBook(book, option.status)}
-                                                                    className="flex w-full items-center gap-2 border-b border-teal/5 px-4 py-3 text-left text-xs font-medium text-grey transition-colors last:border-b-0 hover:bg-teal/5 hover:text-teal"
-                                                                    type="button"
-                                                                >
-                                                                    <Icon size={14} />
-                                                                    {option.label}
-                                                                </button>
-                                                            );
-                                                        })}
-                                                    </div>
+                                                                return (
+                                                                    <button
+                                                                        key={option.status}
+                                                                        onClick={() => { setOpenMenuFor(null); handleAddBook(book, option.status); }}
+                                                                        className="flex w-full items-center gap-2 border-b border-teal/5 px-4 py-3 text-left text-xs font-medium text-grey transition-colors last:border-b-0 hover:bg-teal/5 hover:text-teal"
+                                                                        type="button"
+                                                                        role="menuitem"
+                                                                    >
+                                                                        <Icon size={14} />
+                                                                        {option.label}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
+                                                    </>
                                                 )}
                                             </div>
                                         </div>
@@ -505,6 +526,10 @@ function AddBookContent() {
                         </div>
                     )}
                 </section>
+            )}
+
+            {scannerOpen && (
+                <IsbnScanner onDetected={handleScanDetected} onClose={() => setScannerOpen(false)} />
             )}
         </div>
     );

@@ -4,6 +4,7 @@ import { createClient } from '@/utils/supabase/server';
 import { createAdminClient, hasSupabaseAdminConfig } from '@/utils/supabase/admin';
 import { BookSearchResult } from '@/lib/isbndb';
 import { discussionGuides } from '@/lib/guides';
+import { selectInChunks } from '@/lib/supabase-chunks';
 
 export interface CuratedCollection {
     id: string;
@@ -206,16 +207,22 @@ async function loadPublicCollections(perCollection?: number, onlySlug?: string):
     const eligible = (links ?? []).filter((l: any) => publishedIds.has(l.book_id));
     if (eligible.length === 0) return collections.map((c: any) => mapCollection(c, [], 0));
 
-    const { data: books } = await db.from('books')
-        .select('id, title, author, description, preferred_edition_id')
-        .in('id', eligible.map((l: any) => l.book_id));
+    const { data: books } = await selectInChunks<BookRow>(
+        eligible.map((l: any) => l.book_id),
+        (chunk) => db.from('books')
+            .select('id, title, author, description, preferred_edition_id')
+            .in('id', chunk),
+    );
 
-    const editionIds = (books ?? []).map((b: BookRow) => b.preferred_edition_id).filter(Boolean);
-    const { data: editions } = editionIds.length
-        ? await db.from('editions')
+    const editionIds = (books ?? [])
+        .map((b: BookRow) => b.preferred_edition_id)
+        .filter((id: string | null): id is string => Boolean(id));
+    const { data: editions } = await selectInChunks<any>(
+        editionIds,
+        (chunk) => db.from('editions')
             .select('id, cover_url, page_count, publisher, published_date, isbn13, isbn')
-            .in('id', editionIds)
-        : { data: [] };
+            .in('id', chunk),
+    );
 
     const editionById = new Map<string, any>((editions ?? []).map((e: any) => [e.id, e]));
     const bookById = new Map<string, BookRow>((books ?? []).map((b: any) => [b.id, b as BookRow]));

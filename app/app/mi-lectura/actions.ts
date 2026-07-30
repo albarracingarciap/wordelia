@@ -4,6 +4,8 @@ import { createClient } from "@/utils/supabase/server";
 import { revalidatePath } from "next/cache";
 import { isSubscriptionActive } from "@/lib/subscription-access";
 import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
+import { selectInChunks } from "@/lib/supabase-chunks";
+import { sendPushIfEnabled } from "@/lib/push-server";
 
 // --- TYPES ---
 export interface ReadingStats {
@@ -401,18 +403,18 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
 
     // 2. Custom Shelf Filter logic requires a different query structure (join lists)
     // If shelfId is provided, we first get the book_ids from list_items
+    // Filtro de estante: en vez de .in("book_id", ids) sobre la query base (que
+    // metería todos los ids del estante en la URL → 414 en estantes grandes),
+    // guardamos los ids y filtramos en JS tras ejecutar la query base.
+    let shelfBookIdSet: Set<string> | null = null;
     if (filters.shelfId) {
         const { data: listItems } = await supabase
             .from("list_items")
             .select("book_id")
             .eq("list_id", filters.shelfId);
 
-        if (listItems && listItems.length > 0) {
-            const bookIds = listItems.map(i => i.book_id);
-            query = query.in("book_id", bookIds);
-        } else {
-            return []; // Shelf is empty
-        }
+        if (!listItems || listItems.length === 0) return []; // Shelf is empty
+        shelfBookIdSet = new Set(listItems.map((i) => i.book_id));
     }
 
     // Execute Base Query
@@ -424,7 +426,10 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
     }
     if (!userBooks) return [];
 
-    const userBookRows = userBooks as unknown as LibraryUserBookRow[];
+    const allUserBookRows = userBooks as unknown as LibraryUserBookRow[];
+    const userBookRows = shelfBookIdSet
+        ? allUserBookRows.filter((ub) => shelfBookIdSet!.has(ub.book_id))
+        : allUserBookRows;
     const bookIds = userBookRows.map((ub) => ub.book_id).filter(Boolean);
     const emotionSummaries: Record<string, CurrentBook["emotionSummary"]> = {};
     const resourceAccessByBook = bookIds.length > 0
@@ -432,19 +437,35 @@ export async function getLibraryBooks(filters: FilterOptions = {}): Promise<Curr
         : {};
 
     if (bookIds.length > 0) {
-        const { data: emotions, error: emotionsError } = await supabase
-            .from("user_book_emotions")
-            .select("id, book_id, emotion, intensity, note, current_page, reading_session_id, created_at")
-            .eq("user_id", user.id)
-            .in("book_id", bookIds)
-            .order("created_at", { ascending: false });
+        // Troceado por lotes: bookIds es toda la biblioteca del usuario (puede ser
+        // enorme tras un import) → .in() en una sola URL daría 414. Reordenamos por
+        // created_at desc en JS tras unir, para que "última emoción" sea la correcta.
+        const { data: emotionsRaw, error: emotionsError } = await selectInChunks<
+            {
+                id: string; book_id: string; emotion: string; intensity: number;
+                note: string | null; current_page: number | null;
+                reading_session_id: string | null; created_at: string;
+            },
+            { code?: string; message?: string }
+        >(
+            bookIds,
+            (chunk) => supabase
+                .from("user_book_emotions")
+                .select("id, book_id, emotion, intensity, note, current_page, reading_session_id, created_at")
+                .eq("user_id", user.id)
+                .in("book_id", chunk)
+                .order("created_at", { ascending: false }),
+        );
 
         if (emotionsError) {
             if (emotionsError.code !== "42P01" && emotionsError.code !== "PGRST205") {
                 console.error("Error fetching book emotions:", emotionsError);
             }
         } else {
-            for (const emotion of emotions || []) {
+            const emotions = (emotionsRaw || []).sort(
+                (a, b) => String(b.created_at).localeCompare(String(a.created_at)),
+            );
+            for (const emotion of emotions) {
                 const bookId = emotion.book_id as string;
                 const current = emotionSummaries[bookId];
                 const nextTimeline = [
@@ -562,41 +583,46 @@ async function getBookResourceAccessForUser(
     const uniqueBookIds = Array.from(new Set(bookIds.filter(Boolean)));
     if (uniqueBookIds.length === 0) return {};
 
+    // Troceado: uniqueBookIds es toda la biblioteca del usuario (puede ser enorme
+    // tras un import) → un .in() por query desbordaría la URL (414).
+    type ResErr = { code?: string; message?: string };
     const [accessContext, guidesResult, genomesResult, grantsResult] = await Promise.all([
         getAccessContext(supabase, userId),
-        (supabase.from("book_guides" as never) as never as {
-            select: (columns: string) => {
-                in: (column: string, values: string[]) => Promise<{
-                    data: Array<{ book_id: string }> | null;
-                    error: { code?: string; message?: string } | null;
-                }>;
-            };
-        })
-            .select("book_id")
-            .in("book_id", uniqueBookIds),
-        (supabase.from("book_literary_chromosomes" as never) as never as {
-            select: (columns: string) => {
-                in: (column: string, values: string[]) => Promise<{
-                    data: Array<{ book_id: string }> | null;
-                    error: { code?: string; message?: string } | null;
-                }>;
-            };
-        })
-            .select("book_id")
-            .in("book_id", uniqueBookIds),
-        (supabase.from("user_book_resource_access" as never) as never as {
-            select: (columns: string) => {
-                eq: (column: string, value: string) => {
+        selectInChunks<{ book_id: string }, ResErr>(
+            uniqueBookIds,
+            (chunk) => (supabase.from("book_guides" as never) as never as {
+                select: (columns: string) => {
                     in: (column: string, values: string[]) => Promise<{
-                        data: ResourceGrantRow[] | null;
-                        error: { code?: string; message?: string } | null;
+                        data: Array<{ book_id: string }> | null;
+                        error: ResErr | null;
                     }>;
                 };
-            };
-        })
-            .select("book_id, resource_kind")
-            .eq("user_id", userId)
-            .in("book_id", uniqueBookIds),
+            }).select("book_id").in("book_id", chunk),
+        ),
+        selectInChunks<{ book_id: string }, ResErr>(
+            uniqueBookIds,
+            (chunk) => (supabase.from("book_literary_chromosomes" as never) as never as {
+                select: (columns: string) => {
+                    in: (column: string, values: string[]) => Promise<{
+                        data: Array<{ book_id: string }> | null;
+                        error: ResErr | null;
+                    }>;
+                };
+            }).select("book_id").in("book_id", chunk),
+        ),
+        selectInChunks<ResourceGrantRow, ResErr>(
+            uniqueBookIds,
+            (chunk) => (supabase.from("user_book_resource_access" as never) as never as {
+                select: (columns: string) => {
+                    eq: (column: string, value: string) => {
+                        in: (column: string, values: string[]) => Promise<{
+                            data: ResourceGrantRow[] | null;
+                            error: ResErr | null;
+                        }>;
+                    };
+                };
+            }).select("book_id, resource_kind").eq("user_id", userId).in("book_id", chunk),
+        ),
     ]);
 
     if (guidesResult.error && guidesResult.error.code !== "42P01" && guidesResult.error.code !== "PGRST205") {
@@ -1296,6 +1322,51 @@ async function recomputeProgressPercent(
         .eq("book_id", bookId);
 }
 
+/**
+ * Tras terminar un libro, avisa al usuario si con ello alcanza un hito de su reto
+ * anual: la mitad de la meta o la meta completa. Sin tabla de hitos persistida: se
+ * calcula comparando el conteo en vivo de libros READ del año contra el target.
+ */
+async function maybeNotifyChallengeMilestone(
+    supabase: Awaited<ReturnType<typeof createClient>>,
+    userId: string,
+): Promise<void> {
+    const year = new Date().getFullYear();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: goal } = await (supabase.from("reading_goals") as any)
+        .select("target")
+        .eq("user_id", userId)
+        .eq("year", year)
+        .maybeSingle();
+    const target: number | null = goal?.target ?? null;
+    if (!target || target < 1) return;
+
+    const { count } = await supabase
+        .from("user_books")
+        .select("*", { count: "exact", head: true })
+        .eq("user_id", userId)
+        .eq("status", "READ")
+        .gte("finish_date", `${year}-01-01`)
+        .lte("finish_date", `${year}-12-31`);
+    const booksRead = count ?? 0;
+
+    let payload: { title: string; body: string } | null = null;
+    if (booksRead === target) {
+        payload = {
+            title: "¡Reto completado! 🎉",
+            body: `Has leído ${target} ${target === 1 ? "libro" : "libros"} este año. Enhorabuena.`,
+        };
+    } else if (target > 1 && booksRead === Math.ceil(target / 2)) {
+        payload = {
+            title: "¡Vas por la mitad de tu reto! 📖",
+            body: `${booksRead} de ${target} libros. Sigue así.`,
+        };
+    }
+    if (!payload) return;
+
+    await sendPushIfEnabled(userId, "achievements", { ...payload, url: "/app/retos", tag: `reto-${year}` });
+}
+
 export interface LogReadingSessionInput {
     bookId: string;
     durationMinutes: number;
@@ -1409,6 +1480,15 @@ export async function logReadingSession(input: LogReadingSessionInput) {
         // 3. Recalcular la métrica canónica (salvo modo ebook-% que ya la fijó).
         if (!directPercent) {
             await recomputeProgressPercent(supabase, user.id, bookId);
+        }
+
+        // 4. Hito de reto: si al terminar este libro alcanza la mitad o la meta, avisar.
+        if (isFinished) {
+            try {
+                await maybeNotifyChallengeMilestone(supabase, user.id);
+            } catch (e) {
+                console.error("[Push] hito de reto:", e);
+            }
         }
 
         revalidatePath("/app/search"); // Dashboard

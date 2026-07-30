@@ -2,6 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
+import { selectInChunks } from "@/lib/supabase-chunks";
 
 export interface ActivityFeedItem {
     id: string;
@@ -45,11 +46,15 @@ export async function getFollowingCurrentlyReading(limit = 12): Promise<Followin
 
     const admin = createAdminClient() as unknown as { from: (t: string) => any };
 
-    // Solo lectores que permiten ver sus lecturas.
-    const { data: profs } = await admin
-        .from("profiles")
-        .select("id, full_name, username, avatar_url, privacy_settings")
-        .in("id", followedIds);
+    // Solo lectores que permiten ver sus lecturas. Troceado: el grafo de seguidos
+    // no tiene cota → evita 414 en usuarios muy sociales.
+    const { data: profs } = await selectInChunks<any>(
+        followedIds,
+        (chunk) => admin
+            .from("profiles")
+            .select("id, full_name, username, avatar_url, privacy_settings")
+            .in("id", chunk),
+    );
     const profById = new Map<string, any>();
     const allowedIds: string[] = [];
     for (const p of (profs ?? []) as any[]) {
@@ -63,14 +68,21 @@ export async function getFollowingCurrentlyReading(limit = 12): Promise<Followin
     }
     if (allowedIds.length === 0) return [];
 
-    const { data: ub } = await admin
-        .from("user_books")
-        .select("user_id, book_id, updated_at")
-        .in("user_id", allowedIds)
-        .eq("status", "READING")
-        .order("updated_at", { ascending: false })
-        .limit(limit);
-    const rows = (ub ?? []) as any[];
+    // Troceado por lote de allowedIds; cada lote trae su top `limit`, luego se
+    // reordena y recorta al top global.
+    const { data: ub } = await selectInChunks<any>(
+        allowedIds,
+        (chunk) => admin
+            .from("user_books")
+            .select("user_id, book_id, updated_at")
+            .in("user_id", chunk)
+            .eq("status", "READING")
+            .order("updated_at", { ascending: false })
+            .limit(limit),
+    );
+    const rows = ((ub ?? []) as any[])
+        .sort((a, b) => new Date(b.updated_at || 0).getTime() - new Date(a.updated_at || 0).getTime())
+        .slice(0, limit);
     if (rows.length === 0) return [];
 
     const bookIds = [...new Set(rows.map((r) => r.book_id))];
@@ -152,18 +164,25 @@ export async function getFollowingActivityFeed(limit = 15): Promise<ActivityFeed
     const ids = ((follows ?? []) as any[]).map((f) => f.following_id);
     if (ids.length === 0) return [];
 
-    const { data: feedData, error } = await supabase
-        .from("activity_feed")
-        .select(FEED_SELECT)
-        .in("user_id", ids)
-        .order("created_at", { ascending: false })
-        .limit(limit);
+    // Troceado por lote del grafo de seguidos; reordenamos y recortamos al top global.
+    const { data: feedData, error } = await selectInChunks<any, { message?: string }>(
+        ids,
+        (chunk) => supabase
+            .from("activity_feed")
+            .select(FEED_SELECT)
+            .in("user_id", chunk)
+            .order("created_at", { ascending: false })
+            .limit(limit),
+    );
 
     if (error) {
-        console.error("Error fetching following feed:", error?.message);
+        console.error("Error fetching following feed:", (error as { message?: string })?.message);
         return [];
     }
-    return formatFeedItems((feedData ?? []) as any[], user.id);
+    const feedRows = ((feedData ?? []) as any[])
+        .sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime())
+        .slice(0, limit);
+    return formatFeedItems(feedRows, user.id);
 }
 
 export async function getGlobalActivityFeed(limit = 10): Promise<ActivityFeedItem[]> {

@@ -3,6 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
 import { isSubscriptionActive } from "@/lib/subscription-access";
+import { selectInChunks } from "@/lib/supabase-chunks";
 
 export type ResourceKind = "guide" | "genome";
 export type ResourceAccessState = "admin" | "granted" | "requires_plan" | "locked";
@@ -225,11 +226,15 @@ async function getGrantMap(userId: string, bookIds: string[]) {
 
     const supabase = await createClient();
     const grantTable = supabase.from("user_book_resource_access" as never) as never as GenericTable<ResourceGrantRow>;
-    const { data, error } = await grantTable
-        .select("book_id, resource_kind")
-        .eq("user_id", userId)
-        .in("book_id", bookIds)
-        .order("book_id", { ascending: true });
+    // Troceado: bookIds puede ser todo el catálogo con recurso → evita 414.
+    const { data, error } = await selectInChunks<ResourceGrantRow, { code?: string; message?: string }>(
+        bookIds,
+        (chunk) => grantTable
+            .select("book_id, resource_kind")
+            .eq("user_id", userId)
+            .in("book_id", chunk)
+            .order("book_id", { ascending: true }),
+    );
 
     if (error && error.code !== "42P01" && error.code !== "PGRST205") {
         console.error("[Resources] Error fetching grants:", error.message);
@@ -314,10 +319,14 @@ export async function getResourceList(kind: ResourceKind): Promise<{ isAdmin: bo
 
     const [grants, booksResult] = await Promise.all([
         getGrantMap(user.id, bookIds),
-        (supabase.from("books" as never) as never as GenericTable<BookRow>)
-            .select("id, title, author, genre, first_publication_year")
-            .in("id", bookIds)
-            .order("title", { ascending: true }),
+        // Troceado: bookIds = todo el catálogo con este recurso → evita 414.
+        selectInChunks<BookRow, { code?: string; message?: string }>(
+            bookIds,
+            (chunk) => (supabase.from("books" as never) as never as GenericTable<BookRow>)
+                .select("id, title, author, genre, first_publication_year")
+                .in("id", chunk)
+                .order("title", { ascending: true }),
+        ),
     ]);
 
     const books = new Map((booksResult.data || []).map((book) => [book.id, mapBook(book)]));
