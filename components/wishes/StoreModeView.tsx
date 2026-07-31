@@ -6,6 +6,8 @@ import { WishlistCandidateData, addCandidateToWishlist, createWishlistCandidate,
 import { getBookDetailsAction } from "@/app/app/search/actions";
 import { createClient } from "@/utils/supabase/client";
 import { StoreModeCard } from "./StoreModeCard";
+import { useBarcodeScanner } from "@/components/pwa/useBarcodeScanner";
+import { resizeImageToBlob } from "@/lib/resize-image";
 import { BookOpen, Camera, CheckCircle2, Gift, Plus, ScanBarcode, Search, Store, X } from "lucide-react";
 
 interface StoreModeViewProps {
@@ -659,68 +661,6 @@ function IsbnScannerPanel({ wishlistId, onClose, onSaved }: { wishlistId: string
     const [saving, setSaving] = useState(false);
     const savingRef = useRef(false);
 
-    useEffect(() => {
-        let stream: MediaStream | null = null;
-        let frameId = 0;
-        let stopped = false;
-
-        async function startScanner() {
-            const Detector = (window as any).BarcodeDetector;
-            if (!navigator.mediaDevices?.getUserMedia) {
-                setMessage("Tu navegador no permite abrir la cámara aquí. Puedes introducir el ISBN manualmente.");
-                return;
-            }
-
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({
-                    video: { facingMode: { ideal: "environment" } },
-                    audio: false,
-                });
-
-                if (!videoRef.current) return;
-                videoRef.current.srcObject = stream;
-                await videoRef.current.play();
-
-                if (!Detector) {
-                    setMessage("Escáner automático no disponible en este navegador. Introduce el ISBN manualmente.");
-                    return;
-                }
-
-                const detector = new Detector({ formats: ["ean_13", "ean_8", "upc_a", "upc_e"] });
-
-                const scan = async () => {
-                    if (stopped || !videoRef.current || savingRef.current) return;
-
-                    try {
-                        const codes = await detector.detect(videoRef.current);
-                        const value = codes?.[0]?.rawValue;
-                        const isbn = normalizeIsbn(value || "");
-                        if (isbn.length >= 10) {
-                            await saveIsbnCandidate(isbn);
-                            return;
-                        }
-                    } catch {
-                        // Keep scanning; camera frames can fail transiently.
-                    }
-
-                    frameId = requestAnimationFrame(scan);
-                };
-
-                frameId = requestAnimationFrame(scan);
-            } catch {
-                setMessage("No hemos podido abrir la cámara. Puedes introducir el ISBN manualmente.");
-            }
-        }
-
-        startScanner();
-
-        return () => {
-            stopped = true;
-            if (frameId) cancelAnimationFrame(frameId);
-            stream?.getTracks().forEach(track => track.stop());
-        };
-    }, []);
-
     async function saveIsbnCandidate(rawIsbn: string) {
         const isbn = normalizeIsbn(rawIsbn);
         if (isbn.length < 10 || savingRef.current) return;
@@ -757,12 +697,18 @@ function IsbnScannerPanel({ wishlistId, onClose, onSaved }: { wishlistId: string
         onSaved();
     }
 
+    // Motor compartido: BarcodeDetector nativo con fallback ZXing (iOS/Safari).
+    const { error: camError } = useBarcodeScanner(videoRef, (raw) => {
+        const isbn = normalizeIsbn(raw);
+        if (isbn.length >= 10 && !savingRef.current) void saveIsbnCandidate(isbn);
+    });
+
     return (
         <div className="absolute inset-0 z-20 flex flex-col bg-cream">
             <div className="flex items-center justify-between border-b border-teal/10 bg-white px-4 py-3">
                 <div>
                     <h3 className="font-serif text-xl font-bold text-teal">Escanear ISBN</h3>
-                    <p className="text-xs text-grey/55">{message}</p>
+                    <p className="text-xs text-grey/55">{camError || message}</p>
                 </div>
                 <button
                     type="button"
@@ -814,11 +760,23 @@ async function captureCoverPhoto(wishlistId: string, file: File) {
         return;
     }
 
-    const extension = file.name.split(".").pop()?.toLowerCase() || file.type.split("/")[1] || "jpg";
+    // Redimensionar antes de subir (las fotos de móvil pueden pesar varios MB).
+    // Si el redimensionado falla por lo que sea, subimos el archivo original.
+    let upload: Blob = file;
+    let extension = "jpg";
+    let contentType = "image/jpeg";
+    try {
+        upload = await resizeImageToBlob(file);
+    } catch {
+        upload = file;
+        extension = file.name.split(".").pop()?.toLowerCase() || file.type.split("/")[1] || "jpg";
+        contentType = file.type || "image/jpeg";
+    }
+
     const filePath = `${user.id}/${wishlistId}/${Date.now()}.${extension}`;
     const { error: uploadError } = await supabase.storage
         .from("wishlist-candidate-photos")
-        .upload(filePath, file, { cacheControl: "3600", upsert: false });
+        .upload(filePath, upload, { cacheControl: "3600", upsert: false, contentType });
 
     if (uploadError) {
         alert("No hemos podido subir la foto. Revisa que la migración del bucket esté aplicada.");
