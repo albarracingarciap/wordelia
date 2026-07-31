@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Dialog, DialogPanel, DialogTitle, Transition } from "@headlessui/react";
 import { WishlistItemData } from "@/app/app/wishes/item-actions";
 import { Loader2 } from "lucide-react";
@@ -10,12 +10,26 @@ interface EnableCrowdfundingModalProps {
     onClose: () => void;
     item: WishlistItemData | null;
     onEnable: (targetAmount: number) => Promise<void>;
+    // Modo edición (reutilizado para "editar objetivo").
+    title?: string;
+    description?: string;
+    submitLabel?: string;
+    initialAmount?: number;
+    min?: number; // objetivo no puede bajar de lo ya recaudado
 }
 
-export function EnableCrowdfundingModal({ isOpen, onClose, item, onEnable }: EnableCrowdfundingModalProps) {
-    const [amount, setAmount] = useState<string>(item?.price?.toString() || "");
+export function EnableCrowdfundingModal({ isOpen, onClose, item, onEnable, title, description, submitLabel, initialAmount, min }: EnableCrowdfundingModalProps) {
+    const [amount, setAmount] = useState<string>("");
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState("");
+
+    // Al abrir, precargamos el importe (objetivo actual en edición, o precio del libro).
+    useEffect(() => {
+        if (isOpen) {
+            setAmount(String(initialAmount ?? item?.price ?? ""));
+            setError("");
+        }
+    }, [isOpen, initialAmount, item?.price]);
 
     if (!item) return null;
 
@@ -28,13 +42,17 @@ export function EnableCrowdfundingModal({ isOpen, onClose, item, onEnable }: Ena
             setError("La cantidad debe ser mayor que 0.");
             return;
         }
+        if (min != null && numAmount < min) {
+            setError(`No puede ser menor que ${min.toFixed(2)}€ (ya recaudado).`);
+            return;
+        }
 
         startTransition(async () => {
             try {
                 await onEnable(numAmount);
                 onClose();
             } catch (err: any) {
-                setError(err.message || "Error al activar bote. Inténtalo de nuevo.");
+                setError(err.message || "Error al guardar el bote. Inténtalo de nuevo.");
             }
         });
     };
@@ -46,11 +64,11 @@ export function EnableCrowdfundingModal({ isOpen, onClose, item, onEnable }: Ena
                 <div className="fixed inset-0 flex w-screen items-center justify-center p-4">
                     <DialogPanel className="w-full max-w-sm rounded-xl bg-white p-6 shadow-xl border border-teal/10">
                         <DialogTitle as="h3" className="font-serif text-xl font-bold text-teal mb-2">
-                            Activar Bote 🎁
+                            {title ?? "Activar Bote 🎁"}
                         </DialogTitle>
 
                         <p className="text-sm text-grey/70 mb-6">
-                            Permite que varios amigos contribuyan con dinero para comprarte "{item.title}".
+                            {description ?? `Permite que varios amigos contribuyan con dinero para comprarte "${item.title}".`}
                         </p>
 
                         {error && (
@@ -84,7 +102,7 @@ export function EnableCrowdfundingModal({ isOpen, onClose, item, onEnable }: Ena
                                 disabled={isPending}
                                 className="w-full bg-teal text-white py-3 rounded-xl font-bold hover:bg-opacity-90 transition-all flex items-center justify-center gap-2"
                             >
-                                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Empezar bote"}
+                                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : (submitLabel ?? "Empezar bote")}
                             </button>
                         </form>
                     </DialogPanel>

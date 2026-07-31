@@ -1,10 +1,11 @@
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ReservedItemData } from "@/app/app/wishes/gift-actions";
 import { cancelReservation, markWishlistItemPurchased } from "@/app/app/wishes/item-actions";
-import { CheckCircle2, X, Share } from "lucide-react";
+import { CheckCircle2, X } from "lucide-react";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 interface ReservedItemCardProps {
     item: ReservedItemData;
@@ -13,6 +14,7 @@ interface ReservedItemCardProps {
 export function ReservedItemCard({ item }: ReservedItemCardProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
+    const [isCancelConfirmOpen, setCancelConfirmOpen] = useState(false);
 
     function handleConfirmPurchase() {
         startTransition(async () => {
@@ -21,12 +23,10 @@ export function ReservedItemCard({ item }: ReservedItemCardProps) {
         });
     }
 
-    function handleCancelReservation() {
-        if (!confirm("¿Estás seguro de que quieres cancelar esta reserva? El regalo volverá a estar disponible para otras personas.")) {
-            return;
-        }
+    function confirmCancelReservation() {
         startTransition(async () => {
             await cancelReservation(item.id, item.wishlistId);
+            setCancelConfirmOpen(false);
             router.refresh();
         });
     }
@@ -76,7 +76,7 @@ export function ReservedItemCard({ item }: ReservedItemCardProps) {
             {/* Actions */}
             <div className="shrink-0 flex flex-col items-end justify-between border-l border-grey/10 pl-4 py-1 ml-auto">
                 <button
-                    onClick={handleCancelReservation}
+                    onClick={() => setCancelConfirmOpen(true)}
                     disabled={isPending}
                     className="p-1.5 text-grey/40 hover:text-coral hover:bg-coral/10 rounded-full transition-colors"
                     title="Cancelar reserva"
@@ -102,6 +102,18 @@ export function ReservedItemCard({ item }: ReservedItemCardProps) {
                     </div>
                 )}
             </div>
+
+            <ConfirmModal
+                open={isCancelConfirmOpen}
+                title="Cancelar reserva"
+                message="El regalo volverá a estar disponible para otras personas. ¿Cancelar la reserva?"
+                confirmLabel="Cancelar reserva"
+                cancelLabel="Volver"
+                tone="danger"
+                busy={isPending}
+                onConfirm={confirmCancelReservation}
+                onCancel={() => setCancelConfirmOpen(false)}
+            />
         </div>
     );
 }

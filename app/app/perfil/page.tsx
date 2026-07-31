@@ -3,6 +3,7 @@ import { createClient } from "@/utils/supabase/server";
 import { redirect } from "next/navigation";
 import UserProfile from "./user-profile";
 import { getSecondaryGoalsStatus } from "./actions";
+import { getRecommendedChallenge } from "@/app/app/retos/actions";
 import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
 // Force dynamic rendering as we depend on user session
@@ -237,6 +238,11 @@ export default async function ProfilePage() {
 
     const secondaryGoals = await getSecondaryGoalsStatus();
 
+    // Reto recomendado REAL (de la tabla challenges) según géneros favoritos.
+    const recommendedChallenge = await getRecommendedChallenge(
+        (profile.favorite_genres as string[] | null) || [],
+    );
+
     return <UserProfile
         profile={profile}
         stats={stats}
@@ -246,5 +252,6 @@ export default async function ProfilePage() {
         initialLibrary={initialLibrary}
         libraryCounts={libraryCounts}
         secondaryGoals={secondaryGoals}
+        recommendedChallenge={recommendedChallenge}
     />;
 }

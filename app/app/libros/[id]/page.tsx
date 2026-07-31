@@ -17,6 +17,7 @@ import { BookReviewsSection } from "@/components/reviews/BookReviewsSection";
 import { BuyBookButton } from "@/components/book/BuyBookButton";
 import { BookRecommenders } from "@/components/librerias/BookRecommenders";
 import { BookClubsReading } from "@/components/club/BookClubsReading";
+import { BookChallengeShortcut } from "@/components/retos/BookChallengeShortcut";
 import { SaveButton } from "@/components/social/SaveButton";
 import { bookAuthorName, bookAuthorLabel } from "@/lib/book-author";
 
@@ -314,30 +315,32 @@ function BookHelper() {
                         </div>
 
                         {/* Actions */}
-                        <div className="flex flex-col sm:flex-row items-center gap-4 mb-4 justify-center md:justify-start">
+                        <div className="flex flex-col sm:flex-row sm:flex-wrap items-center gap-4 mb-4 justify-center md:justify-start">
                             {isAdded ? (
-                                <Button size="lg" className="bg-green-600 hover:bg-green-700 pointer-events-none w-full sm:w-auto">
-                                    <Check size={20} className="mr-2" /> En tu biblioteca
+                                <Button size="lg" className="bg-green-600 hover:bg-green-700 pointer-events-none w-full sm:w-auto sm:shrink-0 whitespace-nowrap">
+                                    <Check size={20} className="mr-2 shrink-0" /> En tu biblioteca
                                 </Button>
                             ) : (
-                                <Button size="lg" onClick={handleAdd} isLoading={isAdding} className="w-full sm:w-auto shadow-lg shadow-coral/20">
-                                    <Plus size={20} className="mr-2" /> Añadir a mi lectura
+                                <Button size="lg" onClick={handleAdd} isLoading={isAdding} className="w-full sm:w-auto sm:shrink-0 whitespace-nowrap shadow-lg shadow-coral/20">
+                                    <Plus size={20} className="mr-2 shrink-0" /> Añadir a mi lectura
                                 </Button>
                             )}
 
                             {canReview && (
-                                <Button variant="outline" size="lg" className="w-full sm:w-auto" onClick={() => setIsReviewOpen(true)}>
-                                    <MessageSquare size={20} className="mr-2" /> {reviewButtonLabel}
+                                <Button variant="outline" size="lg" className="w-full sm:w-auto sm:shrink-0 whitespace-nowrap" onClick={() => setIsReviewOpen(true)}>
+                                    <MessageSquare size={20} className="mr-2 shrink-0" /> {reviewButtonLabel}
                                 </Button>
                             )}
 
-                            <BuyBookButton isbn={book.isbn} title={book.title} className="w-full sm:w-auto" />
+                            <BuyBookButton isbn={book.isbn} title={book.title} className="w-full sm:w-auto sm:shrink-0 whitespace-nowrap" />
                             {dbBookId && <SaveButton itemType="book" itemId={dbBookId} variant="pill" />}
                         </div>
 
                         <BookRecommenders bookId={dbBookId} isbn={book.isbn13 ?? book.isbn} />
 
                         <BookClubsReading bookId={dbBookId} />
+
+                        <BookChallengeShortcut bookId={dbBookId} status={userStatus} />
 
 
                         {/* Synopsis */}

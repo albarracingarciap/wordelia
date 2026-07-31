@@ -73,10 +73,10 @@ export default function MonedasClient({
                     </div>
                     <div className="mt-2 flex items-end gap-2">
                         <span className="text-5xl font-serif font-medium leading-none">{wallet.balance}</span>
-                        <span className="mb-1 text-lg text-white/80">monedas</span>
+                        <span className="mb-1 text-lg text-white/80">Wordix</span>
                     </div>
                     <p className="mt-3 text-sm text-white/60">
-                        Has ganado {wallet.lifetimeEarned} monedas en total. Cada moneda equivale a 1&nbsp;€ dentro de Wordelia.
+                        Has ganado {wallet.lifetimeEarned} Wordix en total. Cada Wordix equivale a 1&nbsp;€ dentro de Wordelia.
                     </p>
                 </div>
 
@@ -87,7 +87,7 @@ export default function MonedasClient({
                     </div>
                     <p className="mt-1.5 text-sm text-muted-foreground">
                         Comparte tu enlace. Cuando un amigo se registre y se una a su primer club, ganáis
-                        <span className="font-semibold text-teal"> 5 monedas cada uno</span>.
+                        <span className="font-semibold text-teal"> 5 Wordix cada uno</span>.
                     </p>
 
                     {referral ? (
@@ -154,7 +154,7 @@ export default function MonedasClient({
                     </div>
                     {txs.length === 0 ? (
                         <p className="mt-3 text-sm text-muted-foreground">
-                            Aún no tienes movimientos. Invita a un amigo para empezar a ganar monedas.
+                            Aún no tienes movimientos. Invita a un amigo para empezar a ganar Wordix.
                         </p>
                     ) : (
                         <>
@@ -198,7 +198,7 @@ export default function MonedasClient({
                         <CalendarHeart className="h-5 w-5 text-coral" /> Eventos Wordelia
                     </div>
                     <p className="mt-1.5 text-sm text-muted-foreground">
-                        Gasta tus monedas en los clubs oficiales y en los encuentros que organizamos para la comunidad.
+                        Gasta tus Wordix en los clubs oficiales y en los encuentros que organizamos para la comunidad.
                     </p>
                     <span className="mt-2 inline-block text-sm font-medium text-teal">Ver eventos →</span>
                 </Link>

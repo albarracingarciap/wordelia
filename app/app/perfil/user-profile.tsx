@@ -3,6 +3,8 @@
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { challengeGoalLabel } from "@/lib/challenges";
+import type { RetoItem } from "@/app/app/retos/actions";
 import {
     Award,
     BookOpen,
@@ -287,32 +289,10 @@ function GoalsOverview({
     );
 }
 
-function RecommendedChallenge({
-    genres,
-    booksRead
-}: {
-    genres: string[];
-    booksRead: number;
-}) {
-    const currentYear = new Date().getFullYear();
-    const primaryGenre = genres[0];
-    const challenge = primaryGenre
-        ? {
-            title: `Reto ${primaryGenre}`,
-            description: `Lee 3 libros de ${primaryGenre.toLowerCase()} antes de terminar ${currentYear}.`,
-            helper: "Basado en tus intereses lectores."
-        }
-        : booksRead === 0
-            ? {
-                title: "Primer libro del año",
-                description: "Elige una lectura breve y márcala como leída para estrenar tu perfil.",
-                helper: "Ideal para empezar sin presión."
-            }
-            : {
-                title: "Reto de exploración",
-                description: "Lee 3 libros de géneros distintos durante los próximos meses.",
-                helper: "Pensado para ampliar tu mapa lector."
-            };
+// Reto recomendado: ahora es un reto REAL (de la tabla challenges) que encaja con
+// los géneros del usuario. Si no hay ninguno recomendable, no se muestra nada.
+function RecommendedChallenge({ challenge }: { challenge: RetoItem | null }) {
+    if (!challenge) return null;
 
     return (
         <section className="relative overflow-hidden rounded-2xl border border-orange-100 bg-gradient-to-br from-[#FFF9C4] to-[#FFE0B2] p-4 shadow-sm transition-shadow hover:shadow-md sm:rounded-3xl sm:p-6">
@@ -320,11 +300,11 @@ function RecommendedChallenge({
                 <div className="text-xs font-bold uppercase tracking-[0.14em] text-teal-dark/50">Reto recomendado</div>
                 <h3 className="mt-2 text-xl text-teal-dark">{challenge.title}</h3>
                 <p className="mb-2 mt-2 text-sm font-medium leading-relaxed text-teal-dark/80">
-                    {challenge.description}
+                    {challenge.description || challengeGoalLabel(challenge.goalType, challenge.goalTarget, challenge.goalGenre)}
                 </p>
-                <p className="mb-4 text-xs font-semibold text-teal-dark/50">{challenge.helper}</p>
+                <p className="mb-4 text-xs font-semibold text-teal-dark/50">Basado en tus intereses lectores.</p>
                 <Link href="/app/retos" className="inline-flex items-center rounded-xl bg-white px-3 py-2 text-xs font-bold text-teal-dark shadow-sm transition-all hover:bg-teal hover:text-white">
-                    Ver retos de la comunidad <ChevronRight className="ml-1 h-3 w-3" />
+                    Ver el reto <ChevronRight className="ml-1 h-3 w-3" />
                 </Link>
             </div>
         </section>
@@ -381,7 +361,8 @@ export default function UserProfile({
     activity,
     initialLibrary = [],
     libraryCounts = { read: 0, reading: 0, wantToRead: 0, abandoned: 0 },
-    secondaryGoals = []
+    secondaryGoals = [],
+    recommendedChallenge = null
 }: {
     profile: ProfileData;
     stats: StatsData;
@@ -391,6 +372,7 @@ export default function UserProfile({
     initialLibrary?: LibraryBook[];
     libraryCounts?: LibraryCounts;
     secondaryGoals?: SecondaryGoalStatus[];
+    recommendedChallenge?: RetoItem | null;
 }) {
     const [activeTab, setActiveTab] = React.useState("Leídos");
     const [libraryBooks, setLibraryBooks] = React.useState<LibraryBook[]>(initialLibrary);
@@ -892,7 +874,7 @@ export default function UserProfile({
                         </Button>
                     </section>
 
-                    <RecommendedChallenge genres={genres} booksRead={stats.booksRead} />
+                    <RecommendedChallenge challenge={recommendedChallenge} />
                 </div>
             </main>
 

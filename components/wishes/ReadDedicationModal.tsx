@@ -11,7 +11,7 @@ interface ReadDedicationModalProps {
 }
 
 export function ReadDedicationModal({ isOpen, onClose, item }: ReadDedicationModalProps) {
-    if (!item || !item.dedication) return null;
+    if (!item || !item.dedication || !item.dedication.message) return null;
 
     const { message, style, from } = item.dedication;
 

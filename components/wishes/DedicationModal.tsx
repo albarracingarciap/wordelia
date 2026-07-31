@@ -1,25 +1,49 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { Dialog, DialogPanel, DialogTitle, Transition } from "@headlessui/react";
 import { WishlistItemData } from "@/app/app/wishes/item-actions";
-import { Loader2 } from "lucide-react";
+import { Loader2, Trash2 } from "lucide-react";
 
 interface DedicationModalProps {
     isOpen: boolean;
     onClose: () => void;
     item: WishlistItemData | null;
-    onAddDedication: (message: string, style: "classic" | "fun" | "romantic", from: string, isUnlocked: boolean, unlockDate?: string) => Promise<void>;
+    targetDate?: string | null;
+    onAddDedication: (message: string, style: "classic" | "fun" | "romantic", from: string, isUnlocked: boolean, unlockDate?: string, unlockOnEventDate?: boolean) => Promise<void>;
+    onRemove?: () => Promise<void>;
 }
 
-export function DedicationModal({ isOpen, onClose, item, onAddDedication }: DedicationModalProps) {
+export function DedicationModal({ isOpen, onClose, item, targetDate, onAddDedication, onRemove }: DedicationModalProps) {
     const [message, setMessage] = useState("");
     const [fromName, setFromName] = useState("");
     const [style, setStyle] = useState<"classic" | "fun" | "romantic">("classic");
-    const [unlockMode, setUnlockMode] = useState<"now" | "manual" | "date">("manual");
+    const [unlockMode, setUnlockMode] = useState<"now" | "manual" | "date" | "event">(targetDate ? "event" : "manual");
     const [unlockDate, setUnlockDate] = useState("");
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState("");
+
+    // Al abrir, precargamos la dedicatoria existente (para editar) o los valores por
+    // defecto. El autor recibe su propio `message` desde el servidor (mine).
+    useEffect(() => {
+        if (!isOpen) return;
+        const d = item?.dedication;
+        setMessage(d?.message ?? "");
+        // Regalo grupal (bote): firma por defecto "De parte de todos" (editable).
+        setFromName(d?.from ?? (item?.crowdfunding ? "De parte de todos" : ""));
+        setStyle((d?.style as "classic" | "fun" | "romantic") ?? "classic");
+        setError("");
+        if (d?.unlockOnEventDate) {
+            setUnlockMode("event");
+        } else if (d?.unlockDate) {
+            setUnlockMode("date");
+            setUnlockDate(d.unlockDate);
+        } else if (d?.isUnlocked) {
+            setUnlockMode("now");
+        } else {
+            setUnlockMode(targetDate ? "event" : "manual");
+        }
+    }, [isOpen, item?.dedication, item?.crowdfunding, targetDate]);
 
     const styles = {
         classic: { label: "Clásico 💌", bg: "bg-white", border: "border-grey/20" },
@@ -49,13 +73,27 @@ export function DedicationModal({ isOpen, onClose, item, onAddDedication }: Dedi
 
         const isUnlocked = unlockMode === "now";
         const finalDate = unlockMode === "date" ? unlockDate : undefined;
+        const onEventDate = unlockMode === "event";
 
         startTransition(async () => {
             try {
-                await onAddDedication(message.trim(), style, fromName.trim(), isUnlocked, finalDate);
+                await onAddDedication(message.trim(), style, fromName.trim(), isUnlocked, finalDate, onEventDate);
                 onClose();
             } catch (err: any) {
                 setError(err.message || "Error al guardar dedicatoria. Inténtalo de nuevo.");
+            }
+        });
+    };
+
+    const handleRemove = () => {
+        if (!onRemove) return;
+        setError("");
+        startTransition(async () => {
+            try {
+                await onRemove();
+                onClose();
+            } catch (err: any) {
+                setError(err.message || "No se pudo eliminar la dedicatoria.");
             }
         });
     };
@@ -131,6 +169,18 @@ export function DedicationModal({ isOpen, onClose, item, onAddDedication }: Dedi
                                     ¿Cuándo podrá leer este mensaje?
                                 </label>
                                 <div className="space-y-2">
+                                    {targetDate && (
+                                        <label className="flex items-center gap-2 text-sm text-grey disabled:opacity-50">
+                                            <input
+                                                type="radio"
+                                                checked={unlockMode === "event"}
+                                                onChange={() => setUnlockMode("event")}
+                                                disabled={isPending}
+                                                className="w-4 h-4 text-teal focus:ring-teal"
+                                            />
+                                            El día de la lista ({new Date(targetDate).toLocaleDateString()}) 🎂
+                                        </label>
+                                    )}
                                     <label className="flex items-center gap-2 text-sm text-grey disabled:opacity-50">
                                         <input
                                             type="radio"
@@ -177,23 +227,35 @@ export function DedicationModal({ isOpen, onClose, item, onAddDedication }: Dedi
                             </div>
                         </div>
 
-                        <div className="mt-6 flex flex-col sm:flex-row justify-end gap-3">
-                            <button
-                                type="button"
-                                className="inline-flex justify-center rounded-full border border-transparent px-4 py-2 text-sm font-medium text-grey/60 hover:bg-grey/10 focus:outline-none disabled:opacity-50"
-                                onClick={onClose}
-                                disabled={isPending}
-                            >
-                                Cancelar
-                            </button>
-                            <button
-                                type="button"
-                                disabled={isPending}
-                                className="inline-flex justify-center items-center gap-2 rounded-full border border-transparent bg-teal px-6 py-2 text-sm font-bold text-white hover:bg-opacity-90 transition-all disabled:opacity-50 shadow-md"
-                                onClick={handleSubmit}
-                            >
-                                {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : "Guardar Secreto 🔒"}
-                            </button>
+                        <div className="mt-6 flex items-center gap-3">
+                            {item.dedication && onRemove && (
+                                <button
+                                    type="button"
+                                    onClick={handleRemove}
+                                    disabled={isPending}
+                                    className="inline-flex items-center gap-1.5 text-sm font-medium text-grey/50 hover:text-coral transition-colors disabled:opacity-50"
+                                >
+                                    <Trash2 className="w-4 h-4" /> Eliminar
+                                </button>
+                            )}
+                            <div className="ml-auto flex flex-col sm:flex-row gap-3">
+                                <button
+                                    type="button"
+                                    className="inline-flex justify-center rounded-full border border-transparent px-4 py-2 text-sm font-medium text-grey/60 hover:bg-grey/10 focus:outline-none disabled:opacity-50"
+                                    onClick={onClose}
+                                    disabled={isPending}
+                                >
+                                    Cancelar
+                                </button>
+                                <button
+                                    type="button"
+                                    disabled={isPending}
+                                    className="inline-flex justify-center items-center gap-2 rounded-full border border-transparent bg-teal px-6 py-2 text-sm font-bold text-white hover:bg-opacity-90 transition-all disabled:opacity-50 shadow-md"
+                                    onClick={handleSubmit}
+                                >
+                                    {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : (item.dedication ? "Guardar cambios" : "Guardar Secreto 🔒")}
+                                </button>
+                            </div>
                         </div>
                     </DialogPanel>
                 </div>

@@ -2,13 +2,14 @@ import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Plus, Calendar, Trophy, Edit, Users, Award } from "lucide-react";
 import { DeleteChallengeButton } from "@/components/admin/retos/DeleteChallengeButton";
-import { adminListChallenges } from "./nuevo/actions";
+import { ModerationQueue } from "@/components/admin/retos/ModerationQueue";
+import { adminListChallenges, adminListPendingProposals } from "./nuevo/actions";
 import { challengeGoalLabel } from "@/lib/challenges";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminChallengesPage() {
-    const challenges = await adminListChallenges();
+    const [challenges, pending] = await Promise.all([adminListChallenges(), adminListPendingProposals()]);
 
     return (
         <div className="space-y-6">
@@ -21,6 +22,8 @@ export default async function AdminChallengesPage() {
                     <Button variant="primary" className="flex items-center gap-2"><Plus className="h-4 w-4" /> Crear reto</Button>
                 </Link>
             </div>
+
+            {pending.length > 0 && <ModerationQueue proposals={pending} />}
 
             {challenges.length === 0 ? (
                 <div className="rounded-xl border border-dashed border-border py-12 text-center">

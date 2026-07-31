@@ -9,6 +9,8 @@ import { Modal } from "@/components/ui/Modal";
 import { BookSearchModal, WishlistBook } from "@/components/gifts/BookSearchModal";
 import { AddGiftRecipientModal } from "@/components/gifts/AddGiftRecipientModal";
 import { GiftRecipientDetailData, GiftIdeaData, GiftIdeaStatus, addGiftIdea, markGiftIdeaAsPurchased, deleteGiftIdea, updateGiftIdea, updateGiftIdeaStatus } from "@/app/app/wishes/gift-idea-actions";
+import { deleteGiftRecipient } from "@/app/app/wishes/gift-actions";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 const STATUS_LABELS: Record<GiftIdeaStatus, string> = {
     IDEA: "Idea",
@@ -30,6 +32,8 @@ export function GiftRecipientView({ recipient, ideas: initialIdeas }: GiftRecipi
     const [isSearchOpen, setIsSearchOpen] = useState(false);
     const [isEditOpen, setIsEditOpen] = useState(false);
     const [editingIdea, setEditingIdea] = useState<GiftIdeaData | null>(null);
+    const [deletingIdeaId, setDeletingIdeaId] = useState<string | null>(null);
+    const [isDeletePersonOpen, setDeletePersonOpen] = useState(false);
     const [isPending, startTransition] = useTransition();
 
     function handleAddBook(book: WishlistBook) {
@@ -75,13 +79,22 @@ export function GiftRecipientView({ recipient, ideas: initialIdeas }: GiftRecipi
         });
     }
 
-    function handleDelete(ideaId: string) {
-        if (!confirm("¿Eliminar esta idea de regalo?")) return;
-
+    function confirmDeleteIdea() {
+        const ideaId = deletingIdeaId;
+        if (!ideaId) return;
         startTransition(async () => {
             const result = await deleteGiftIdea(ideaId, recipient.id);
-            if (result?.error) alert(result.error);
+            if (result?.error) { alert(result.error); return; }
+            setDeletingIdeaId(null);
             router.refresh();
+        });
+    }
+
+    function confirmDeletePerson() {
+        startTransition(async () => {
+            const result = await deleteGiftRecipient(recipient.id);
+            if (result?.error) { alert(result.error); return; }
+            router.push("/app/wishes?tab=gifts");
         });
     }
 
@@ -112,6 +125,30 @@ export function GiftRecipientView({ recipient, ideas: initialIdeas }: GiftRecipi
                 isPending={isPending}
                 onClose={() => setEditingIdea(null)}
                 onSave={handleSaveIdea}
+            />
+
+            <ConfirmModal
+                open={deletingIdeaId !== null}
+                title="Eliminar idea"
+                message="Se quitará este regalo de la persona. ¿Eliminarlo?"
+                confirmLabel="Eliminar"
+                cancelLabel="Volver"
+                tone="danger"
+                busy={isPending}
+                onConfirm={confirmDeleteIdea}
+                onCancel={() => setDeletingIdeaId(null)}
+            />
+
+            <ConfirmModal
+                open={isDeletePersonOpen}
+                title={`Eliminar a ${recipient.name}`}
+                message="Se borrará esta persona y todas sus ideas de regalo guardadas. Esta acción no se puede deshacer."
+                confirmLabel="Eliminar persona"
+                cancelLabel="Volver"
+                tone="danger"
+                busy={isPending}
+                onConfirm={confirmDeletePerson}
+                onCancel={() => setDeletePersonOpen(false)}
             />
 
             <div className="pb-24">
@@ -151,14 +188,24 @@ export function GiftRecipientView({ recipient, ideas: initialIdeas }: GiftRecipi
                                     </p>
                                 </div>
 
-                                <button
-                                    type="button"
-                                    onClick={() => setIsEditOpen(true)}
-                                    className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-teal/10 bg-white px-5 text-sm font-bold text-teal shadow-sm transition-colors hover:border-teal/25"
-                                >
-                                    <Pencil className="h-4 w-4" />
-                                    Editar
-                                </button>
+                                <div className="flex shrink-0 items-center gap-2">
+                                    <button
+                                        type="button"
+                                        onClick={() => setIsEditOpen(true)}
+                                        className="inline-flex h-11 items-center justify-center gap-2 rounded-full border border-teal/10 bg-white px-5 text-sm font-bold text-teal shadow-sm transition-colors hover:border-teal/25"
+                                    >
+                                        <Pencil className="h-4 w-4" />
+                                        Editar
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setDeletePersonOpen(true)}
+                                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-grey/15 bg-white text-grey/45 shadow-sm transition-colors hover:border-coral/30 hover:text-coral"
+                                        title="Eliminar persona"
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </button>
+                                </div>
                             </div>
 
                             <div className="mt-5 grid gap-3 sm:grid-cols-2">
@@ -247,7 +294,7 @@ export function GiftRecipientView({ recipient, ideas: initialIdeas }: GiftRecipi
                                             onMarkPurchased={() => handleMarkPurchased(idea.id)}
                                             onUpdateStatus={(status) => handleUpdateStatus(idea.id, status)}
                                             onEdit={() => setEditingIdea(idea)}
-                                            onDelete={() => handleDelete(idea.id)}
+                                            onDelete={() => setDeletingIdeaId(idea.id)}
                                         />
                                     ))}
                                 </div>
@@ -266,7 +313,7 @@ export function GiftRecipientView({ recipient, ideas: initialIdeas }: GiftRecipi
                                             onMarkPurchased={() => undefined}
                                             onUpdateStatus={(status) => handleUpdateStatus(idea.id, status)}
                                             onEdit={() => setEditingIdea(idea)}
-                                            onDelete={() => handleDelete(idea.id)}
+                                            onDelete={() => setDeletingIdeaId(idea.id)}
                                         />
                                     ))}
                                 </div>

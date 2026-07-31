@@ -6,8 +6,8 @@ import MonedasClient from "./MonedasClient";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-    title: "Monedas Wordelia | Wordelia",
-    description: "Gana monedas invitando a tus amigos y gástalas en los clubs oficiales de Wordelia.",
+    title: "Wordix | Wordelia",
+    description: "Gana Wordix invitando a tus amigos y gástalos en los clubs oficiales de Wordelia.",
 };
 
 export default async function MonedasPage() {
@@ -20,9 +20,9 @@ export default async function MonedasPage() {
     return (
         <div className="space-y-8">
             <SectionHeader
-                eyebrow="MONEDAS WORDELIA"
+                eyebrow="WORDIX"
                 title="Invita, acumula y disfruta"
-                subtitle="Gana monedas cuando tus amigos se unen a su primer club. Gástalas en los clubs oficiales de Wordelia."
+                subtitle="Wordix son las monedas de Wordelia. Gánalos cuando tus amigos se unen a su primer club y gástalos en los clubs oficiales."
             />
 
             <MonedasClient wallet={wallet} referral={referral} transactions={transactions} />

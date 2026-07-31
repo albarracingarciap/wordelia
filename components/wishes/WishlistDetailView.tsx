@@ -210,7 +210,9 @@ export function WishlistDetailView({ wishlist, items, isOwner, candidates }: Wis
                     <div className="mt-6 rounded-2xl border border-teal/5 bg-white/55 p-3 shadow-sm md:flex md:items-center md:justify-between md:gap-6">
                         <p className="min-w-0 text-sm leading-relaxed text-grey/60">
                             {isGuestView
-                                ? "Puedes reservar un libro para que otros invitados no lo compren también. La persona que creó la lista no verá quién reservó cada regalo."
+                                ? (isOwner
+                                    ? "Vista previa de cómo ven tu lista tus amigos. No te mostramos las reservas ni las compras para no estropear la sorpresa."
+                                    : "Puedes reservar un libro para que otros invitados no lo compren también. La persona que creó la lista no verá quién reservó cada regalo.")
                                 : "Vista de propietario: ves todos los libros y puedes gestionar la lista."}
                         </p>
 
@@ -281,6 +283,7 @@ export function WishlistDetailView({ wishlist, items, isOwner, candidates }: Wis
                                     item={item}
                                     isGuestView={isGuestView}
                                     isOwner={isOwner}
+                                    wishlistTargetDate={wishlist.targetDate}
                                 />
                             ))}
                         </div>

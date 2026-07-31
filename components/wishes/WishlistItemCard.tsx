@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import Image from "next/image";
-import { WishlistItemData, removeItemFromWishlist, updateItemPriority, reserveWishlistItem, contributeToCrowdfunding, enableCrowdfunding, markWishlistItemPurchased, addDedication } from "@/app/app/wishes/item-actions";
+import { WishlistItemData, removeItemFromWishlist, updateItemPriority, reserveWishlistItem, contributeToCrowdfunding, enableCrowdfunding, markWishlistItemPurchased, addDedication, removeDedication, updateCrowdfundingTarget, disableCrowdfunding } from "@/app/app/wishes/item-actions";
 import { Trash2, Star, Coins, Gift, PenLine } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { ReserveModal } from "./ReserveModal";
@@ -10,19 +10,26 @@ import { CrowdfundingModal } from "./CrowdfundingModal";
 import { EnableCrowdfundingModal } from "./EnableCrowdfundingModal";
 import { DedicationModal } from "./DedicationModal";
 import { ReadDedicationModal } from "./ReadDedicationModal";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 interface WishlistItemCardProps {
     item: WishlistItemData;
     isGuestView: boolean;
     isOwner: boolean;
+    wishlistTargetDate?: string | null;
 }
 
-export function WishlistItemCard({ item, isGuestView, isOwner }: WishlistItemCardProps) {
+export function WishlistItemCard({ item, isGuestView, isOwner, wishlistTargetDate }: WishlistItemCardProps) {
     const router = useRouter();
     const [isPending, startTransition] = useTransition();
     const [isReserveModalOpen, setReserveModalOpen] = useState(false);
     const [isCrowdModalOpen, setCrowdModalOpen] = useState(false);
     const [isEnableCrowdModalOpen, setEnableCrowdModalOpen] = useState(false);
+    const [isEditTargetModalOpen, setEditTargetModalOpen] = useState(false);
+    const [showContributors, setShowContributors] = useState(false);
+    const [isDisableConfirmOpen, setDisableConfirmOpen] = useState(false);
+    const [disableBusy, setDisableBusy] = useState(false);
+    const [disableError, setDisableError] = useState("");
     const [isDedicationModalOpen, setDedicationModalOpen] = useState(false);
     const [isReadDedicationModalOpen, setReadDedicationModalOpen] = useState(false);
     const [myItems, setMyItems] = useState<string[]>([]);
@@ -41,13 +48,18 @@ export function WishlistItemCard({ item, isGuestView, isOwner }: WishlistItemCar
     // Solo mostramos gris/bloqueado si estamos en la vista de invitado, no es nuestro item, es crowdfunding, etc
     const showAsBlocked = isGuestView && isReservedOrPurchased && !item.crowdfunding && !isMyItem;
 
+    // El propietario en "Vista amigo" solo previsualiza la presentación: sin mecánica
+    // de regalo (nada de reservar/contribuir/dedicar/abrir sorpresa/ver avance del bote).
+    const isOwnerPreview = isOwner && isGuestView;
+
     const isCrowdfunding = !!item.crowdfunding;
     const progress = isCrowdfunding
         ? Math.min((item.crowdfunding!.collected / item.crowdfunding!.target) * 100, 100)
         : 0;
 
     const hasDedication = !!item.dedication;
-    const canReadDedication = item.dedication?.isUnlocked || (item.dedication?.unlockDate && new Date() >= new Date(item.dedication.unlockDate));
+    // El estado de desbloqueo ya lo calcula el servidor (buildDedication).
+    const canReadDedication = !!item.dedication?.isUnlocked;
 
     function handleDelete() {
         startTransition(async () => {
@@ -82,14 +94,20 @@ export function WishlistItemCard({ item, isGuestView, isOwner }: WishlistItemCar
         });
     }
 
-    async function handleAddDedication(message: string, style: "classic" | "fun" | "romantic", from: string, isUnlocked: boolean, unlockDate?: string) {
-        const res = await addDedication(item.id, item.wishlistId, { message, style, from, isUnlocked, unlockDate });
+    async function handleAddDedication(message: string, style: "classic" | "fun" | "romantic", from: string, isUnlocked: boolean, unlockDate?: string, unlockOnEventDate?: boolean) {
+        const res = await addDedication(item.id, item.wishlistId, { message, style, from, isUnlocked, unlockDate, unlockOnEventDate });
         if (res.error) throw new Error(res.error);
         router.refresh();
     }
 
-    async function handleContribute(amount: number) {
-        const res = await contributeToCrowdfunding(item.id, item.wishlistId, amount);
+    async function handleRemoveDedication() {
+        const res = await removeDedication(item.id, item.wishlistId);
+        if (res.error) throw new Error(res.error);
+        router.refresh();
+    }
+
+    async function handleContribute(amount: number, note?: string, anonymous?: boolean) {
+        const res = await contributeToCrowdfunding(item.id, item.wishlistId, amount, note, anonymous);
         if (res.error) throw new Error(res.error);
         router.refresh();
     }
@@ -97,6 +115,27 @@ export function WishlistItemCard({ item, isGuestView, isOwner }: WishlistItemCar
     async function handleEnableCrowdfunding(targetAmount: number) {
         const res = await enableCrowdfunding(item.id, targetAmount, item.wishlistId);
         if (res.error) throw new Error(res.error);
+        router.refresh();
+    }
+
+    async function handleUpdateTarget(targetAmount: number) {
+        const res = await updateCrowdfundingTarget(item.id, item.wishlistId, targetAmount);
+        if (res.error) throw new Error(res.error);
+        router.refresh();
+    }
+
+    function openDisableConfirm() {
+        setDisableError("");
+        setDisableConfirmOpen(true);
+    }
+
+    async function confirmDisableCrowdfunding() {
+        setDisableBusy(true);
+        setDisableError("");
+        const res = await disableCrowdfunding(item.id, item.wishlistId);
+        setDisableBusy(false);
+        if (res.error) { setDisableError(res.error); return; }
+        setDisableConfirmOpen(false);
         router.refresh();
     }
 
@@ -122,16 +161,18 @@ export function WishlistItemCard({ item, isGuestView, isOwner }: WishlistItemCar
                     </div>
                 )}
 
-                {/* Dedication Badge */}
-                {hasDedication && (
+                {/* Dedication Badge (oculta en la preview del propietario) */}
+                {hasDedication && !isOwnerPreview && (
                     <button
                         onClick={() => {
                             if (canReadDedication) {
                                 setReadDedicationModalOpen(true);
                             } else {
-                                const msg = item.dedication?.unlockDate
-                                    ? `Este mensaje está bloqueado. Se desbloqueará el ${new Date(item.dedication.unlockDate).toLocaleDateString()}.`
-                                    : `Este mensaje está bloqueado. El remitente decidirá cuándo puedes leerlo.`;
+                                const msg = item.dedication?.unlockOnEventDate && item.dedication?.unlockDate
+                                    ? `Este mensaje se desbloqueará el día de la lista (${new Date(item.dedication.unlockDate).toLocaleDateString()}).`
+                                    : item.dedication?.unlockDate
+                                        ? `Este mensaje se desbloqueará el ${new Date(item.dedication.unlockDate).toLocaleDateString()}.`
+                                        : `Este mensaje está bloqueado. El remitente decidirá cuándo puedes leerlo.`;
                                 alert(msg);
                             }
                         }}
@@ -154,36 +195,107 @@ export function WishlistItemCard({ item, isGuestView, isOwner }: WishlistItemCar
 
                 {isCrowdfunding ? (
                     <div className="w-full mt-2">
-                        {isGuestView ? (
-                            <>
-                                <div className="flex justify-between text-xs mb-1">
-                                    <span className="text-teal font-bold">{progress.toFixed(0)}% <span className="font-normal text-grey/60">recaudado</span></span>
-                                    <span className="text-grey/60">{item.crowdfunding!.collected}€ / {item.crowdfunding!.target}€</span>
-                                </div>
-                                <div className="h-2 w-full bg-grey/10 rounded-full overflow-hidden mb-3">
-                                    <div className="h-full bg-teal rounded-full transition-all" style={{ width: `${progress}%` }} />
-                                </div>
-                            </>
-                        ) : (
-                            <div className="flex justify-between items-center text-xs mb-3 bg-coral/5 p-2 rounded-lg border border-coral/10">
-                                <span className="text-coral font-bold flex items-center gap-1.5">
-                                    <Coins className="w-3.5 h-3.5" /> Bote activado
-                                </span>
-                                <span className="text-grey/60">Objetivo: {item.crowdfunding!.target}€</span>
-                            </div>
-                        )}
-                        {isGuestView && item.status !== "PURCHASED" && (
-                            <button
-                                onClick={() => setCrowdModalOpen(true)}
-                                className="bg-coral text-white text-xs font-bold px-4 py-1.5 rounded-full hover:bg-opacity-90 transition-colors flex items-center gap-1"
-                            >
-                                🎁 Contribuir
-                            </button>
-                        )}
-                        {isGuestView && item.status === "PURCHASED" && (
-                            <span className="text-xs font-bold text-coral bg-coral/10 px-3 py-1.5 rounded-full">
-                                🎁 YA COMPRADO
+                        {isOwnerPreview ? (
+                            <span className="inline-flex text-xs font-bold text-coral bg-coral/5 px-3 py-1.5 rounded-full">
+                                🎁 Regalo en grupo
                             </span>
+                        ) : (
+                        <>
+                        {/* Progreso del bote (amigo real, o Mi vista del propietario) */}
+                        <div className="flex justify-between text-xs mb-1">
+                            <span className="text-teal font-bold">{progress.toFixed(0)}% <span className="font-normal text-grey/60">recaudado</span></span>
+                            <span className="text-grey/60">{item.crowdfunding!.collected}€ / {item.crowdfunding!.target}€</span>
+                        </div>
+                        <div className="h-2 w-full bg-grey/10 rounded-full overflow-hidden mb-3">
+                            <div className="h-full bg-teal rounded-full transition-all" style={{ width: `${progress}%` }} />
+                        </div>
+
+                        {isGuestView ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                                {item.status !== "PURCHASED" && !isOwner && (
+                                    <button
+                                        onClick={() => setCrowdModalOpen(true)}
+                                        className="bg-coral text-white text-xs font-bold px-4 py-1.5 rounded-full hover:bg-opacity-90 transition-colors flex items-center gap-1"
+                                    >
+                                        🎁 Contribuir
+                                    </button>
+                                )}
+                                {item.status === "PURCHASED" && (
+                                    <span className="text-xs font-bold text-coral bg-coral/10 px-3 py-1.5 rounded-full">
+                                        🎁 YA COMPRADO
+                                    </span>
+                                )}
+                                {/* Dedicatoria grupal: cualquier mecenas del bote puede escribirla. */}
+                                {item.canDedicate && (
+                                    <button
+                                        onClick={() => setDedicationModalOpen(true)}
+                                        className="bg-grey/10 text-grey text-xs font-bold px-3 py-1.5 rounded-full hover:bg-grey/20 transition-colors flex items-center gap-1.5"
+                                    >
+                                        <PenLine className="w-3.5 h-3.5" />
+                                        {item.dedication ? "Editar dedicatoria" : "Dedicar"}
+                                    </button>
+                                )}
+                                {item.canDedicate && item.dedication && !item.dedication.isUnlocked && item.dedication.mine && (
+                                    <button
+                                        onClick={() => handleAddDedication(item.dedication!.message ?? "", item.dedication!.style as any, item.dedication!.from, true)}
+                                        disabled={isPending}
+                                        className="bg-teal/10 text-teal text-xs font-bold px-3 py-1.5 rounded-full hover:bg-teal/20 transition-colors flex items-center gap-1.5"
+                                        title="Desbloquear la dedicatoria para que el dueño la pueda leer"
+                                    >
+                                        🔓 Desbloquear
+                                    </button>
+                                )}
+                            </div>
+                        ) : isOwner ? (
+                            <div className="space-y-2">
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <button
+                                        onClick={() => setEditTargetModalOpen(true)}
+                                        disabled={isPending}
+                                        className="text-xs font-bold text-teal bg-teal/5 px-3 py-1.5 rounded-full hover:bg-teal/10 transition-colors"
+                                    >
+                                        Editar objetivo
+                                    </button>
+                                    <button
+                                        onClick={openDisableConfirm}
+                                        disabled={isPending}
+                                        className="text-xs font-bold text-grey/60 bg-grey/10 px-3 py-1.5 rounded-full hover:text-coral transition-colors"
+                                    >
+                                        Desactivar bote
+                                    </button>
+                                    {item.crowdfunding!.collected === 0 && (
+                                        <button
+                                            onClick={handleDelete}
+                                            disabled={isPending}
+                                            className="inline-flex items-center gap-1 text-xs font-bold text-grey/50 px-3 py-1.5 rounded-full hover:text-coral hover:bg-coral/10 transition-colors"
+                                            title="Eliminar"
+                                        >
+                                            <Trash2 className="w-3.5 h-3.5" /> Borrar
+                                        </button>
+                                    )}
+                                    {(item.contributions?.length ?? 0) > 0 && (
+                                        <button
+                                            onClick={() => setShowContributors((v) => !v)}
+                                            className="text-xs font-medium text-teal/80 px-2 py-1.5 hover:underline"
+                                        >
+                                            {showContributors ? "Ocultar mecenas" : `Ver mecenas (${item.contributions!.length})`}
+                                        </button>
+                                    )}
+                                </div>
+
+                                {showContributors && item.contributions && item.contributions.length > 0 && (
+                                    <ul className="rounded-lg border border-teal/10 bg-cream/30 divide-y divide-teal/5 text-xs">
+                                        {item.contributions.map((c, idx) => (
+                                            <li key={idx} className="px-3 py-2">
+                                                <span className="font-semibold text-teal-dark">{c.name || "Anónimo"}</span>
+                                                {c.note && <span className="block truncate text-grey/55">&ldquo;{c.note}&rdquo;</span>}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        ) : null}
+                        </>
                         )}
                     </div>
                 ) : (
@@ -194,7 +306,7 @@ export function WishlistItemCard({ item, isGuestView, isOwner }: WishlistItemCar
 
                         {isGuestView ? (
                             <div className="flex items-center gap-2">
-                                {item.status === "AVAILABLE" && (
+                                {item.status === "AVAILABLE" && !isOwner && (
                                     <button
                                         onClick={() => setReserveModalOpen(true)}
                                         className="bg-teal text-white text-xs font-bold px-4 py-2 rounded-full hover:bg-opacity-90 transition-colors"
@@ -224,7 +336,7 @@ export function WishlistItemCard({ item, isGuestView, isOwner }: WishlistItemCar
                                         </button>
                                         {item.dedication && !item.dedication.isUnlocked && (
                                             <button
-                                                onClick={() => handleAddDedication(item.dedication!.message, item.dedication!.style as any, item.dedication!.from, true)}
+                                                onClick={() => handleAddDedication(item.dedication!.message ?? "", item.dedication!.style as any, item.dedication!.from, true)}
                                                 disabled={isPending}
                                                 className="bg-teal/10 text-teal text-xs font-bold px-3 py-1.5 rounded-full hover:bg-teal/20 transition-colors flex items-center gap-1.5"
                                                 title="Desbloquear la dedicatoria para que el dueño la pueda leer"
@@ -310,17 +422,44 @@ export function WishlistItemCard({ item, isGuestView, isOwner }: WishlistItemCar
                 onEnable={handleEnableCrowdfunding}
             />
 
+            <EnableCrowdfundingModal
+                isOpen={isEditTargetModalOpen}
+                onClose={() => setEditTargetModalOpen(false)}
+                item={item}
+                onEnable={handleUpdateTarget}
+                title="Editar objetivo del bote"
+                description={`Cambia el objetivo del bote de "${item.title}". No puede ser menor que lo ya recaudado.`}
+                submitLabel="Guardar objetivo"
+                initialAmount={item.crowdfunding?.target}
+                min={item.crowdfunding?.collected}
+            />
+
             <DedicationModal
                 isOpen={isDedicationModalOpen}
                 onClose={() => setDedicationModalOpen(false)}
                 item={item}
+                targetDate={wishlistTargetDate}
                 onAddDedication={handleAddDedication}
+                onRemove={handleRemoveDedication}
             />
 
             <ReadDedicationModal
                 isOpen={isReadDedicationModalOpen}
                 onClose={() => setReadDedicationModalOpen(false)}
                 item={item}
+            />
+
+            <ConfirmModal
+                open={isDisableConfirmOpen}
+                title="Desactivar bote"
+                message={disableError || ((item.crowdfunding?.collected ?? 0) > 0
+                    ? "Se borrarán las contribuciones registradas (el bote es simbólico, no hay dinero real) y el libro volverá a estado normal."
+                    : "El libro dejará de tener bote y volverá a estado normal.")}
+                confirmLabel="Desactivar"
+                tone="danger"
+                busy={disableBusy}
+                onConfirm={confirmDisableCrowdfunding}
+                onCancel={() => setDisableConfirmOpen(false)}
             />
         </div>
     );

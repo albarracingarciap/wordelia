@@ -5,7 +5,7 @@ import Image from "next/image";
 import { SearchInput } from "../ui/SearchInput";
 import { Avatar } from "../ui/Avatar";
 import { Badge } from "../ui/Badge";
-import { Sparkles, LayoutDashboard } from "lucide-react";
+import { Sparkles, LayoutDashboard, UserPlus } from "lucide-react";
 import { signout } from "@/app/auth/actions";
 
 import { createClient } from "@/utils/supabase/client";
@@ -151,6 +151,14 @@ export function TopBar() {
                                         <circle cx="12" cy="7" r="4" />
                                     </svg>
                                     Mi perfil
+                                </Link>
+                                <Link
+                                    href="/app/monedas"
+                                    onClick={() => setIsDropdownOpen(false)}
+                                    className="w-full text-left px-4 py-2 text-sm text-grey hover:bg-teal/5 transition-colors flex items-center gap-2"
+                                >
+                                    <UserPlus className="h-4 w-4" aria-hidden="true" />
+                                    Invitar amigo
                                 </Link>
                                 <Link
                                     href="/planes"

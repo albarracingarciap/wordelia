@@ -97,14 +97,14 @@ export function BookReviewsSection({
                         Reseñas finales y primeras impresiones para decidir mejor tu proxima lectura.
                     </p>
                 </div>
-                <div className="flex flex-col gap-2 sm:flex-row">
+                <div className="flex shrink-0 flex-col gap-2 sm:flex-row">
                     {canReview && (
-                        <Button type="button" size="sm" onClick={onOpenReview}>
-                            <MessageSquare size={16} className="mr-2" />
+                        <Button type="button" size="sm" onClick={onOpenReview} className="whitespace-nowrap">
+                            <MessageSquare size={16} className="mr-2 shrink-0" />
                             {reviewButtonLabel}
                         </Button>
                     )}
-                    <Button type="button" size="sm" variant="outline" onClick={onOpenAll} disabled={!bookId}>
+                    <Button type="button" size="sm" variant="outline" onClick={onOpenAll} disabled={!bookId} className="whitespace-nowrap">
                         Leer todas
                     </Button>
                 </div>

@@ -67,26 +67,32 @@ export function ChallengeForm({
 
                 {/* Criterio medible */}
                 <div className="rounded-lg border border-teal/15 bg-teal/5 p-4">
-                    <p className="mb-3 text-sm font-semibold text-teal-dark">Objetivo (se mide solo desde las lecturas)</p>
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <p className="mb-3 text-sm font-semibold text-teal-dark">Objetivo</p>
+                    <div className="space-y-3">
                         <label className="block text-sm">
                             <span className="mb-1 block font-medium">Tipo</span>
                             <select className={inputCls} value={form.goal_type} onChange={(e) => set({ goal_type: e.target.value })}>
                                 {CHALLENGE_GOAL_TYPES.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
                             </select>
                         </label>
-                        <label className="block text-sm">
-                            <span className="mb-1 block font-medium">Objetivo</span>
-                            <input type="number" min={1} className={inputCls} value={form.goal_target ?? ""} onChange={(e) => set({ goal_target: e.target.value === "" ? null : Number(e.target.value) })} />
-                        </label>
-                        {form.goal_type === "genre" && (
+                        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                             <label className="block text-sm">
-                                <span className="mb-1 block font-medium">Género</span>
-                                <input className={inputCls} value={form.goal_genre} onChange={(e) => set({ goal_genre: e.target.value })} placeholder="Ej. Ciencia ficción" />
+                                <span className="mb-1 block font-medium">{form.goal_type === "manual" ? "Nº de libros a elegir" : "Objetivo"}</span>
+                                <input type="number" min={1} className={inputCls} value={form.goal_target ?? ""} onChange={(e) => set({ goal_target: e.target.value === "" ? null : Number(e.target.value) })} />
                             </label>
-                        )}
+                            {form.goal_type === "genre" && (
+                                <label className="block text-sm">
+                                    <span className="mb-1 block font-medium">Género</span>
+                                    <input className={inputCls} value={form.goal_genre} onChange={(e) => set({ goal_genre: e.target.value })} placeholder="Ej. Ciencia ficción" />
+                                </label>
+                            )}
+                        </div>
                     </div>
-                    <p className="mt-2 text-xs text-grey/50">El progreso se cuenta desde los libros leídos (o páginas) dentro de las fechas del reto.</p>
+                    <p className="mt-2 text-xs text-grey/50">
+                        {form.goal_type === "manual"
+                            ? "Reto temático: cada participante elige a mano qué libros de su biblioteca (leídos) cuentan. Ideal para temas que ninguna regla puede vigilar (p.ej. “Clásicos rusos”)."
+                            : "El progreso se cuenta solo desde los libros leídos (o páginas) dentro de las fechas del reto."}
+                    </p>
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">

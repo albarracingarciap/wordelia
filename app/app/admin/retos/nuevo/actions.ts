@@ -54,7 +54,7 @@ function toRow(input: ChallengeInput) {
         end_date: input.end_date || null,
         rules: input.rules?.trim() || null,
         is_published: !!input.is_published,
-        goal_type: ["books", "genre", "pages"].includes(input.goal_type) ? input.goal_type : "books",
+        goal_type: ["books", "genre", "pages", "manual"].includes(input.goal_type) ? input.goal_type : "books",
         goal_target: target,
         goal_genre: input.goal_type === "genre" ? (input.goal_genre?.trim() || null) : null,
         reward_badge_id: input.reward_badge_id || null,
@@ -118,6 +118,63 @@ export async function deleteChallenge(id: string) {
     try { await assertAdmin(); } catch { return { error: "No autorizado" }; }
     const { error } = await admin().from("challenges").delete().eq("id", id);
     if (error) { console.error("deleteChallenge:", error); return { error: error.message }; }
+    revalidatePath("/app/admin/retos");
+    revalidatePath("/app/retos");
+    return { success: true };
+}
+
+// --- Moderación de retos propuestos por la comunidad ---
+
+export interface PendingProposal {
+    id: string;
+    title: string;
+    description: string | null;
+    goalType: string | null;
+    goalTarget: number | null;
+    goalGenre: string | null;
+    startDate: string | null;
+    endDate: string | null;
+    authorName: string | null;
+    createdAt: string;
+}
+
+export async function adminListPendingProposals(): Promise<PendingProposal[]> {
+    try { await assertAdmin(); } catch { return []; }
+    const a = admin();
+    const { data } = await a.from("challenges").select("*").eq("moderation_status", "pending").order("created_at", { ascending: true });
+    const rows = (data ?? []) as any[];
+    const authorIds = rows.map((r) => r.created_by).filter(Boolean);
+    let names: Record<string, string> = {};
+    if (authorIds.length) {
+        const { data: ps } = await a.from("profiles").select("id, full_name, username").in("id", authorIds);
+        names = Object.fromEntries((ps ?? []).map((p: any) => [p.id, p.full_name || p.username || "Un lector"]));
+    }
+    return rows.map((r) => ({
+        id: r.id, title: r.title, description: r.description ?? null,
+        goalType: r.goal_type ?? null, goalTarget: r.goal_target ?? null, goalGenre: r.goal_genre ?? null,
+        startDate: r.start_date ?? null, endDate: r.end_date ?? null,
+        authorName: r.created_by ? (names[r.created_by] ?? null) : null,
+        createdAt: r.created_at,
+    }));
+}
+
+export async function approveCommunityChallenge(id: string) {
+    try { await assertAdmin(); } catch { return { error: "No autorizado" }; }
+    const { error } = await admin().from("challenges")
+        .update({ moderation_status: "approved", is_published: true, updated_at: new Date().toISOString() })
+        .eq("id", id);
+    if (error) { console.error("approveCommunityChallenge:", error); return { error: error.message }; }
+    revalidatePath("/app/admin/retos");
+    revalidatePath("/app/retos");
+    return { success: true };
+}
+
+export async function rejectCommunityChallenge(id: string) {
+    try { await assertAdmin(); } catch { return { error: "No autorizado" }; }
+    const { error } = await admin().from("challenges")
+        .update({ moderation_status: "rejected", is_published: false, updated_at: new Date().toISOString() })
+        .eq("id", id);
+    if (error) { console.error("rejectCommunityChallenge:", error); return { error: error.message }; }
     revalidatePath("/app/admin/retos");
     revalidatePath("/app/retos");
     return { success: true };

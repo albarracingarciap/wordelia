@@ -9,11 +9,13 @@ interface CrowdfundingModalProps {
     isOpen: boolean;
     onClose: () => void;
     item: WishlistItemData | null;
-    onContribute: (amount: number) => Promise<void>;
+    onContribute: (amount: number, note?: string, anonymous?: boolean) => Promise<void>;
 }
 
 export function CrowdfundingModal({ isOpen, onClose, item, onContribute }: CrowdfundingModalProps) {
     const [amount, setAmount] = useState<string>("10");
+    const [note, setNote] = useState("");
+    const [anonymous, setAnonymous] = useState(false);
     const [isPending, startTransition] = useTransition();
     const [error, setError] = useState("");
 
@@ -37,7 +39,7 @@ export function CrowdfundingModal({ isOpen, onClose, item, onContribute }: Crowd
 
         startTransition(async () => {
             try {
-                await onContribute(numAmount);
+                await onContribute(numAmount, note.trim() || undefined, anonymous);
                 onClose();
             } catch (err: any) {
                 setError(err.message || "Error al contribuir. Inténtalo de nuevo.");
@@ -108,6 +110,30 @@ export function CrowdfundingModal({ isOpen, onClose, item, onContribute }: Crowd
                                 />
                                 <span className="absolute right-3 top-1/2 -translate-y-1/2 text-grey/40">€</span>
                             </div>
+
+                            <div>
+                                <label className="block text-sm font-medium text-grey mb-1">Nota (opcional)</label>
+                                <textarea
+                                    value={note}
+                                    onChange={(e) => setNote(e.target.value)}
+                                    rows={2}
+                                    maxLength={200}
+                                    placeholder="Un mensaje para acompañar tu aportación…"
+                                    disabled={isPending}
+                                    className="w-full resize-none rounded-lg border border-grey/20 px-4 py-2 text-sm focus:border-teal focus:outline-none"
+                                />
+                            </div>
+
+                            <label className="flex items-center gap-2 text-sm text-grey/80">
+                                <input
+                                    type="checkbox"
+                                    checked={anonymous}
+                                    onChange={(e) => setAnonymous(e.target.checked)}
+                                    disabled={isPending}
+                                    className="h-4 w-4 accent-teal"
+                                />
+                                Contribuir de forma anónima
+                            </label>
 
                             <button
                                 type="submit"

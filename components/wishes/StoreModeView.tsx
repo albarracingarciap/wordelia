@@ -3,7 +3,8 @@ import { useRouter } from "next/navigation";
 import { createPortal } from "react-dom";
 import { WishlistItemData, WishlistDetailData } from "@/app/app/wishes/item-actions";
 import { WishlistCandidateData, addCandidateToWishlist, createWishlistCandidate, discardWishlistCandidate, updateWishlistCandidate } from "@/app/app/wishes/candidate-actions";
-import { getBookDetailsAction } from "@/app/app/search/actions";
+import { getBookDetailsAction, searchBooksAction } from "@/app/app/search/actions";
+import type { BookSearchResult } from "@/lib/isbndb";
 import { createClient } from "@/utils/supabase/client";
 import { StoreModeCard } from "./StoreModeCard";
 import { useBarcodeScanner } from "@/components/pwa/useBarcodeScanner";
@@ -20,11 +21,12 @@ interface StoreModeViewProps {
     onExit: () => void;
 }
 
-export function StoreModeView({ wishlist, items, candidates, isGuestView, isOwner, onAddBooks, onExit }: StoreModeViewProps) {
+export function StoreModeView({ wishlist, items, candidates, isGuestView, isOwner, onExit }: StoreModeViewProps) {
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
     const [myItems, setMyItems] = useState<string[]>([]);
     const [scannerOpen, setScannerOpen] = useState(false);
+    const [manualSearchOpen, setManualSearchOpen] = useState(false);
     const [photoBusy, setPhotoBusy] = useState(false);
 
     const availableCount = items.filter(item => item.status === "AVAILABLE").length;
@@ -60,8 +62,8 @@ export function StoreModeView({ wishlist, items, candidates, isGuestView, isOwne
     }
 
     function handleManualSearch() {
-        onExit();
-        onAddBooks?.();
+        // Antes salía del modo tienda; ahora la búsqueda ocurre DENTRO del modal.
+        setManualSearchOpen(true);
     }
 
     function requestExit() {
@@ -143,6 +145,14 @@ export function StoreModeView({ wishlist, items, candidates, isGuestView, isOwne
                         }}
                     />
                 )}
+
+                {manualSearchOpen && (
+                    <ManualSearchPanel
+                        wishlistId={wishlist.id}
+                        onClose={() => setManualSearchOpen(false)}
+                        onSaved={() => router.refresh()}
+                    />
+                )}
             </section>
         </div>,
         document.body
@@ -198,7 +208,7 @@ function OwnerStoreMode({
                     onClick={onOpenScanner}
                     active
                 />
-                <label className="rounded-2xl border border-teal/15 bg-white p-4 text-left shadow-sm transition-all hover:border-teal/35 hover:shadow-md">
+                <label className="rounded-xl border border-teal/15 bg-white p-3 text-left shadow-sm transition-all hover:border-teal/35 hover:shadow-md">
                     <input
                         type="file"
                         accept="image/*"
@@ -212,15 +222,15 @@ function OwnerStoreMode({
                         }}
                     />
                     <div className="flex items-start gap-3 md:block">
-                        <div className="mb-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal/10 text-teal md:mb-4">
-                            <Camera className="h-5 w-5" />
+                        <div className="mb-0 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal/10 text-teal md:mb-2">
+                            <Camera className="h-4 w-4" />
                         </div>
                         <div className="min-w-0">
-                            <h4 className="font-bold text-teal">Foto de portada</h4>
-                            <p className="mt-1 text-sm leading-relaxed text-grey/60">Guardar una portada para identificarla.</p>
+                            <h4 className="text-sm font-bold text-teal leading-tight">Foto de portada</h4>
+                            <p className="mt-0.5 text-xs leading-snug text-grey/60">Guardar una portada para identificarla.</p>
                         </div>
                     </div>
-                    <span className="mt-3 inline-flex rounded-full bg-coral px-3 py-1 text-xs font-bold text-white md:mt-4">
+                    <span className="mt-2 inline-flex rounded-full bg-coral px-3 py-1 text-xs font-bold text-white">
                         {photoBusy ? "Subiendo..." : "Hacer foto"}
                     </span>
                 </label>
@@ -345,21 +355,21 @@ function StoreActionCard({
             type="button"
             onClick={onClick}
             disabled={!active}
-            className={`rounded-2xl border p-4 text-left shadow-sm transition-all ${featured ? "col-span-2 md:col-span-1" : "min-h-[132px]"} ${active
+            className={`rounded-xl border p-3 text-left shadow-sm transition-all ${featured ? "col-span-2 md:col-span-1" : ""} ${active
                 ? "border-teal/15 bg-white hover:border-teal/35 hover:shadow-md"
                 : "cursor-not-allowed border-grey/10 bg-white/55 opacity-70"
                 }`}
         >
             <div className="flex items-start gap-3 md:block">
-                <div className="mb-0 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-teal/10 text-teal md:mb-4">
-                    <Icon className="h-5 w-5" />
+                <div className="mb-0 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal/10 text-teal md:mb-2">
+                    <Icon className="h-4 w-4" />
                 </div>
                 <div className="min-w-0">
-                    <h4 className="font-bold text-teal">{title}</h4>
-                    <p className="mt-1 text-sm leading-relaxed text-grey/60">{description}</p>
+                    <h4 className="text-sm font-bold text-teal leading-tight">{title}</h4>
+                    <p className="mt-0.5 text-xs leading-snug text-grey/60">{description}</p>
                 </div>
             </div>
-            <span className={`mt-3 inline-flex rounded-full px-3 py-1 text-xs font-bold md:mt-4 ${active ? "bg-coral text-white" : "bg-grey/10 text-grey/55"}`}>
+            <span className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-bold ${active ? "bg-coral text-white" : "bg-grey/10 text-grey/55"}`}>
                 {action}
             </span>
         </button>
@@ -794,6 +804,123 @@ async function captureCoverPhoto(wishlistId: string, file: File) {
         confidence: 0.2,
     });
     if (result.error) alert(result.error);
+}
+
+function ManualSearchPanel({ wishlistId, onClose, onSaved }: { wishlistId: string; onClose: () => void; onSaved: () => void }) {
+    const [query, setQuery] = useState("");
+    const [results, setResults] = useState<BookSearchResult[]>([]);
+    const [searching, setSearching] = useState(false);
+    const [savingKey, setSavingKey] = useState<string | null>(null);
+    const [message, setMessage] = useState("");
+
+    const runSearch = async () => {
+        const q = query.trim();
+        if (q.length < 2) return;
+        setSearching(true);
+        setMessage("");
+        try {
+            const data = await searchBooksAction(q);
+            setResults(data);
+            if (data.length === 0) setMessage("Sin resultados. Prueba con otro texto.");
+        } catch {
+            setResults([]);
+            setMessage("No hemos podido buscar ahora mismo.");
+        } finally {
+            setSearching(false);
+        }
+    };
+
+    const addBook = async (book: BookSearchResult) => {
+        const key = book.id || book.isbn13 || book.isbn || book.title;
+        setSavingKey(key);
+        setMessage("");
+        const res = await createWishlistCandidate(wishlistId, {
+            source: "manual",
+            status: "matched",
+            title: book.title,
+            author: book.authors?.[0] || null,
+            isbn: book.isbn13 || book.isbn || null,
+            coverUrl: book.cover_url,
+            price: book.price,
+            confidence: 1,
+        });
+        setSavingKey(null);
+        if (res.error) { setMessage(res.error); return; }
+        setMessage(`"${book.title}" añadido a capturados.`);
+        onSaved();
+    };
+
+    return (
+        <div className="absolute inset-0 z-20 flex flex-col bg-cream">
+            <div className="flex items-center justify-between border-b border-teal/10 bg-white px-4 py-3">
+                <div className="min-w-0">
+                    <h3 className="font-serif text-xl font-bold text-teal">Buscar libro</h3>
+                    <p className="truncate text-xs text-grey/55">{message || "Título, autor o ISBN."}</p>
+                </div>
+                <button
+                    type="button"
+                    onClick={onClose}
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-teal/10 bg-white text-grey/60 shadow-sm hover:text-coral"
+                    aria-label="Cerrar búsqueda"
+                >
+                    <X className="h-5 w-5" />
+                </button>
+            </div>
+
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
+                <div className="mb-4 flex gap-2">
+                    <input
+                        value={query}
+                        onChange={(e) => setQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === "Enter" && runSearch()}
+                        autoFocus
+                        placeholder="Escribe título, autor o ISBN…"
+                        className="min-w-0 flex-1 rounded-xl border border-teal/10 bg-white px-4 py-3 text-sm text-teal-dark outline-none focus:border-teal/30"
+                    />
+                    <button
+                        type="button"
+                        onClick={runSearch}
+                        disabled={searching}
+                        className="rounded-xl bg-teal px-4 text-sm font-bold text-white hover:bg-teal-dark disabled:opacity-50"
+                    >
+                        {searching ? "…" : "Buscar"}
+                    </button>
+                </div>
+
+                <div className="space-y-2">
+                    {results.map((book, i) => {
+                        const key = book.id || book.isbn13 || book.isbn || `${book.title}-${i}`;
+                        return (
+                            <div key={key} className="flex items-center gap-3 rounded-xl border border-teal/10 bg-white p-2 shadow-sm">
+                                <div className="relative h-16 w-12 shrink-0 overflow-hidden rounded bg-grey/10">
+                                    {book.cover_url ? (
+                                        // eslint-disable-next-line @next/next/no-img-element
+                                        <img src={book.cover_url} alt="" className="h-full w-full object-cover" />
+                                    ) : (
+                                        <div className="flex h-full w-full items-center justify-center text-grey/30">
+                                            <BookOpen className="h-4 w-4" />
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate font-bold text-teal">{book.title}</p>
+                                    <p className="truncate text-xs text-grey/60">{book.authors?.join(", ") || "Autor desconocido"}</p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={() => addBook(book)}
+                                    disabled={savingKey === key}
+                                    className="shrink-0 rounded-full bg-coral px-4 py-1.5 text-xs font-bold text-white disabled:opacity-50"
+                                >
+                                    {savingKey === key ? "…" : "Añadir"}
+                                </button>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
 }
 
 function normalizeIsbn(value: string) {

@@ -260,23 +260,13 @@ export function WishesDashboardClient({ initialWishlists, initialRecipients, ini
                                 )}
 
                                 <div className="space-y-4">
-                                    <div className="flex items-end justify-between gap-4">
-                                        <div>
-                                            <h3 className="font-serif text-xl text-teal">Personas a las que regalo</h3>
-                                            {upcomingRecipients.length > 0 && (
-                                                <p className="mt-1 text-sm text-grey/55">
-                                                    {upcomingRecipients.length} con fechas en los próximos 30 días.
-                                                </p>
-                                            )}
-                                        </div>
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowGiftStoreMode(true)}
-                                            className="hidden h-10 items-center gap-2 rounded-full border border-teal/10 bg-white px-4 text-sm font-bold text-teal shadow-sm transition-colors hover:border-teal/25 sm:inline-flex"
-                                        >
-                                            <Store className="h-4 w-4" />
-                                            Modo tienda
-                                        </button>
+                                    <div>
+                                        <h3 className="font-serif text-xl text-teal">Personas a las que regalo</h3>
+                                        {upcomingRecipients.length > 0 && (
+                                            <p className="mt-1 text-sm text-grey/55">
+                                                {upcomingRecipients.length} con fechas en los próximos 30 días.
+                                            </p>
+                                        )}
                                     </div>
                                     <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
                                         {initialRecipients.map((person) => (
