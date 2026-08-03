@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import Link from "next/link";
-import { ChevronLeft, ChevronRight, ShieldCheck } from "lucide-react";
+import { ChevronLeft, ChevronRight, ShieldCheck, Search } from "lucide-react";
 import type { ResourceAccessState, ResourceBook, ResourceKind } from "./actions";
 
 export type ResourceListPagerItem = {
@@ -20,15 +20,50 @@ function accessLabel(access: ResourceAccessState) {
     return "Bloqueado";
 }
 
+/** Normaliza para buscar sin distinguir mayúsculas ni acentos. */
+function normalize(value: string) {
+    return value.toLowerCase().normalize("NFD").replace(/\p{Diacritic}/gu, "");
+}
+
 export function ResourceListPager({ items }: { kind: ResourceKind; items: ResourceListPagerItem[] }) {
     const [page, setPage] = React.useState(1);
-    const pageCount = Math.max(1, Math.ceil(items.length / pageSize));
+    const [query, setQuery] = React.useState("");
+
+    const needle = normalize(query.trim());
+    const filtered = React.useMemo(() => {
+        if (!needle) return items;
+        return items.filter(
+            (item) => normalize(item.book.title).includes(needle) || normalize(item.book.author || "").includes(needle)
+        );
+    }, [items, needle]);
+
+    // Al cambiar la búsqueda, vuelve a la primera página.
+    React.useEffect(() => { setPage(1); }, [needle]);
+
+    const pageCount = Math.max(1, Math.ceil(filtered.length / pageSize));
     const currentPage = Math.min(page, pageCount);
     const start = (currentPage - 1) * pageSize;
-    const visibleItems = items.slice(start, start + pageSize);
+    const visibleItems = filtered.slice(start, start + pageSize);
 
     return (
         <div className="space-y-4">
+            <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-grey/40" aria-hidden="true" />
+                <input
+                    type="search"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    placeholder="Buscar por título o autor…"
+                    className="w-full rounded-xl border border-teal/15 bg-white py-2.5 pl-9 pr-3 text-sm outline-none transition-colors focus:border-teal/40"
+                />
+            </div>
+
+            {filtered.length === 0 ? (
+                <div className="rounded-xl border border-teal/10 bg-white p-6 text-center text-sm text-grey/60 shadow-sm">
+                    No hay resultados para “{query}”.
+                </div>
+            ) : (
+            <>
             <div className="grid gap-3">
                 {visibleItems.map((item) => (
                     <Link key={item.href} href={item.href} className="rounded-xl border border-teal/10 bg-white p-4 shadow-sm transition-colors hover:border-teal/25 hover:bg-teal/5">
@@ -46,12 +81,12 @@ export function ResourceListPager({ items }: { kind: ResourceKind; items: Resour
                 ))}
             </div>
 
-            {items.length > pageSize && (
+            {filtered.length > pageSize && (
                 <div className="flex flex-col gap-3 rounded-xl border border-teal/10 bg-white px-4 py-3 shadow-sm sm:flex-row sm:items-center sm:justify-between">
                     <p className="text-sm text-grey">
                         Mostrando <span className="font-semibold text-teal">{start + 1}</span>-
-                        <span className="font-semibold text-teal">{Math.min(start + pageSize, items.length)}</span> de{" "}
-                        <span className="font-semibold text-teal">{items.length}</span>
+                        <span className="font-semibold text-teal">{Math.min(start + pageSize, filtered.length)}</span> de{" "}
+                        <span className="font-semibold text-teal">{filtered.length}</span>
                     </p>
                     <div className="flex items-center gap-2">
                         <button
@@ -77,6 +112,8 @@ export function ResourceListPager({ items }: { kind: ResourceKind; items: Resour
                         </button>
                     </div>
                 </div>
+            )}
+            </>
             )}
         </div>
     );

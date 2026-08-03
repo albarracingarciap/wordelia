@@ -345,17 +345,19 @@ export async function getResourceList(kind: ResourceKind): Promise<{ isAdmin: bo
     const books = new Map((booksResult.data || []).map((book) => [book.id, mapBook(book)]));
     // Mostramos TODOS los recursos: los accesibles llevan al recurso; los
     // bloqueados llevan a desbloquear (comprar / plan), para que se descubran.
-    const items = bookIds.map((bookId) => {
-        const access = resolveAccess(kind, bookId, context, grants, freeSet);
-        const accessible = access === "granted" || access === "admin";
-        return {
-            book: books.get(bookId) || mapBook({ id: bookId, title: "Libro" }),
-            access,
-            href: accessible
-                ? `/app/recursos/${resourcePath(kind)}/${bookId}`
-                : `/app/recursos/desbloquear?resource=${kind}&book=${bookId}`,
-        };
-    });
+    const items = bookIds
+        .map((bookId) => {
+            const access = resolveAccess(kind, bookId, context, grants, freeSet);
+            const accessible = access === "granted" || access === "admin";
+            return {
+                book: books.get(bookId) || mapBook({ id: bookId, title: "Libro" }),
+                access,
+                href: accessible
+                    ? `/app/recursos/${resourcePath(kind)}/${bookId}`
+                    : `/app/recursos/desbloquear?resource=${kind}&book=${bookId}`,
+            };
+        })
+        .sort((a, b) => a.book.title.localeCompare(b.book.title, "es", { sensitivity: "base" }));
 
     return { isAdmin: context.isAdmin, items };
 }
