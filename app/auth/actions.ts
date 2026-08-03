@@ -49,6 +49,11 @@ function getSafeRedirect(next: FormDataEntryValue | null, fallback = '/app/mi-le
     return target.startsWith('/') && !target.startsWith('//') ? target : fallback
 }
 
+// URL base pública del sitio, para el enlace de confirmación del email.
+function getSiteUrl() {
+    return process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+}
+
 export async function login(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
     const supabase = await createClient()
 
@@ -117,6 +122,9 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
         email,
         password,
         options: {
+            // Tras confirmar el email, PayPal-style: el enlace vuelve a nuestro
+            // callback, que crea la sesión y registra el referido pendiente.
+            emailRedirectTo: `${getSiteUrl()}/auth/callback`,
             data: {
                 full_name: name,
                 signup_source: signupSource,
@@ -133,15 +141,16 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
     }
 
     // Monedas Wordelia: si el alta viene de un enlace de invitación (/r/<code>),
-    // registra el referido pendiente. Solo es posible si hay sesión inmediata
-    // (autoconfirm de email ON). La cualificación se produce al unirse al 1er club.
+    // registra el referido pendiente. La cualificación se produce al unirse al 1er club.
+    //
+    // Con confirmación de email ACTIVADA no hay sesión inmediata (data.session
+    // === null): NO registramos aún ni borramos la cookie; lo hará el callback
+    // (app/auth/callback) cuando el usuario confirme y se cree la sesión.
     try {
         const cookieStore = await cookies()
         const ref = cookieStore.get('wordelia_ref')?.value
-        if (ref) {
-            if (data.session) {
-                await supabase.rpc('record_referral', { p_code: ref })
-            }
+        if (ref && data.session) {
+            await supabase.rpc('record_referral', { p_code: ref })
             cookieStore.delete('wordelia_ref')
         }
     } catch (referralError) {
@@ -149,7 +158,32 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
     }
 
     revalidatePath('/', 'layout')
+
+    // Si no hay sesión, el email requiere confirmación: enviamos a la pantalla de
+    // "revisa tu correo" en vez de a una ruta protegida (que rebotaría a /login).
+    if (!data.session) {
+        redirect(`/auth/verifica-email?email=${encodeURIComponent(email)}`)
+    }
+
     redirect('/app/onboarding')
+}
+
+// Reenvía el email de confirmación de registro.
+export async function resendConfirmation(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
+    const email = String(formData.get('email') || '').trim().toLowerCase()
+    if (!email || !email.includes('@')) {
+        return { error: 'Introduce un email válido.' }
+    }
+    const supabase = await createClient()
+    const { error } = await supabase.auth.resend({
+        type: 'signup',
+        email,
+        options: { emailRedirectTo: `${getSiteUrl()}/auth/callback` },
+    })
+    if (error) {
+        return { error: getAuthErrorMessage(error.message) }
+    }
+    return null
 }
 
 export async function signout() {

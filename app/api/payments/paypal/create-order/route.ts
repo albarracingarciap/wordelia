@@ -5,9 +5,9 @@ import { getPrice, type BillingPeriod, type ProductType } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
 
-// Products with a real, gated UI flow. 'resource' remains fulfillment-supported
-// but not yet exposed. 'club' = unirse a un club oficial de pago (one-off).
-const SUPPORTED_PRODUCT_TYPES: ProductType[] = ["org_subscription", "user_plan", "club"];
+// Products with a real, gated UI flow. 'club' = unirse a un club oficial de pago
+// (one-off). 'resource' = compra individual de una guía/genoma para un libro.
+const SUPPORTED_PRODUCT_TYPES: ProductType[] = ["org_subscription", "user_plan", "club", "resource"];
 
 export async function POST(request: NextRequest) {
     const supabase = await createClient();
@@ -88,6 +88,21 @@ export async function POST(request: NextRequest) {
         } else {
             price = { amount_cents: fullCents, currency };
         }
+    } else if (productType === "resource") {
+        // Compra individual de un recurso (guía/genoma) para un libro.
+        if (resourceKind !== "guide" && resourceKind !== "genome") {
+            return NextResponse.json({ error: "invalid_resource_kind" }, { status: 400 });
+        }
+        // Evita el doble cobro: si ya tiene concesión para este recurso, no cobra.
+        const { data: owned } = await supabase
+            .from("user_book_resource_access")
+            .select("book_id")
+            .eq("user_id", user.id)
+            .eq("book_id", referenceId)
+            .eq("resource_kind", resourceKind)
+            .maybeSingle();
+        if (owned) return NextResponse.json({ error: "already_owned" }, { status: 409 });
+        price = getPrice({ productType, referenceId, period, resourceKind });
     } else {
         price = getPrice({ productType, referenceId, period, resourceKind });
     }

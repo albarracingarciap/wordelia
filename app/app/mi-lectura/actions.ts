@@ -588,27 +588,27 @@ async function getBookResourceAccessForUser(
     type ResErr = { code?: string; message?: string };
     const [accessContext, guidesResult, genomesResult, grantsResult] = await Promise.all([
         getAccessContext(supabase, userId),
-        selectInChunks<{ book_id: string }, ResErr>(
+        selectInChunks<{ book_id: string; is_free?: boolean }, ResErr>(
             uniqueBookIds,
             (chunk) => (supabase.from("book_guides" as never) as never as {
                 select: (columns: string) => {
                     in: (column: string, values: string[]) => Promise<{
-                        data: Array<{ book_id: string }> | null;
+                        data: Array<{ book_id: string; is_free?: boolean }> | null;
                         error: ResErr | null;
                     }>;
                 };
-            }).select("book_id").in("book_id", chunk),
+            }).select("book_id, is_free").in("book_id", chunk),
         ),
-        selectInChunks<{ book_id: string }, ResErr>(
+        selectInChunks<{ book_id: string; is_free?: boolean }, ResErr>(
             uniqueBookIds,
             (chunk) => (supabase.from("book_literary_chromosomes" as never) as never as {
                 select: (columns: string) => {
                     in: (column: string, values: string[]) => Promise<{
-                        data: Array<{ book_id: string }> | null;
+                        data: Array<{ book_id: string; is_free?: boolean }> | null;
                         error: ResErr | null;
                     }>;
                 };
-            }).select("book_id").in("book_id", chunk),
+            }).select("book_id, is_free").in("book_id", chunk),
         ),
         selectInChunks<ResourceGrantRow, ResErr>(
             uniqueBookIds,
@@ -640,20 +640,23 @@ async function getBookResourceAccessForUser(
     const { isAdmin, hasGuidePlan, hasGenomePlan } = accessContext;
     const guideBookIds = new Set((guidesResult.data || []).map((row) => row.book_id));
     const genomeBookIds = new Set((genomesResult.data || []).map((row) => row.book_id));
+    // Muestras gratis: accesibles para cualquier usuario registrado.
+    const freeGuideIds = new Set((guidesResult.data || []).filter((row) => row.is_free === true).map((row) => row.book_id));
+    const freeGenomeIds = new Set((genomesResult.data || []).filter((row) => row.is_free === true).map((row) => row.book_id));
     const grantedResources = new Set((grantsResult.data || []).map((row) => `${row.book_id}:${row.resource_kind}`));
     const resourcesByBook: Record<string, BookResourceAccess[]> = {};
 
     for (const bookId of uniqueBookIds) {
         const resources: BookResourceAccess[] = [];
-        const hasGuideGrant = grantedResources.has(`${bookId}:guide`);
-        const hasGenomeGrant = grantedResources.has(`${bookId}:genome`);
+        const guideOk = isAdmin || freeGuideIds.has(bookId) || grantedResources.has(`${bookId}:guide`) || hasGuidePlan;
+        const genomeOk = isAdmin || freeGenomeIds.has(bookId) || grantedResources.has(`${bookId}:genome`) || hasGenomePlan;
 
         if (guideBookIds.has(bookId)) {
             resources.push({
                 kind: "guide",
                 label: "Guia de discusion",
-                href: isAdmin || hasGuideGrant || hasGuidePlan ? `/app/recursos/guias/${bookId}` : `/app/recursos/desbloquear?resource=guide&book=${bookId}`,
-                access: isAdmin ? "admin" : hasGuideGrant || hasGuidePlan ? "granted" : "requires_plan",
+                href: guideOk ? `/app/recursos/guias/${bookId}` : `/app/recursos/desbloquear?resource=guide&book=${bookId}`,
+                access: isAdmin ? "admin" : guideOk ? "granted" : "requires_plan",
             });
         }
 
@@ -661,8 +664,8 @@ async function getBookResourceAccessForUser(
             resources.push({
                 kind: "genome",
                 label: "Genoma literario",
-                href: isAdmin || hasGenomeGrant || hasGenomePlan ? `/app/recursos/genomas/${bookId}` : `/app/recursos/desbloquear?resource=genome&book=${bookId}`,
-                access: isAdmin ? "admin" : hasGenomeGrant || hasGenomePlan ? "granted" : "requires_plan",
+                href: genomeOk ? `/app/recursos/genomas/${bookId}` : `/app/recursos/desbloquear?resource=genome&book=${bookId}`,
+                access: isAdmin ? "admin" : genomeOk ? "granted" : "requires_plan",
             });
         }
 

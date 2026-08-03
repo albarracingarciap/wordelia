@@ -48,13 +48,17 @@ function toSearchResult(book: PublicBook): BookSearchResult {
     };
 }
 
+export type ExploreVariant = "public" | "app";
+
 export function CollectionSection({
     collection,
     showAllLink = true,
+    variant = "public",
     onBookClick,
 }: {
     collection: PublicCollection;
     showAllLink?: boolean;
+    variant?: ExploreVariant;
     onBookClick: (book: PublicBook, collection: PublicCollection) => void;
 }) {
     const theme = COLOR_THEMES[collection.colorTheme] || COLOR_THEMES["blue-grey"];
@@ -78,7 +82,7 @@ export function CollectionSection({
                             </h2>
                             {showAllLink && hasMore && (
                                 <Link
-                                    href={`/explorar/${collection.slug}`}
+                                    href={`${variant === "app" ? "/app/explorar" : "/explorar"}/${collection.slug}`}
                                     className={`text-sm font-semibold ${theme.accent} hover:underline`}
                                 >
                                     Ver los {collection.totalBooks} →
@@ -112,9 +116,11 @@ export function CollectionSection({
 export function CatalogCollections({
     collections,
     showAllLink = true,
+    variant = "public",
 }: {
     collections: PublicCollection[];
     showAllLink?: boolean;
+    variant?: ExploreVariant;
 }) {
     const [selected, setSelected] = useState<{ book: PublicBook; collection: PublicCollection } | null>(null);
     const [isOpen, setIsOpen] = useState(false);
@@ -137,6 +143,7 @@ export function CatalogCollections({
                         key={collection.id}
                         collection={collection}
                         showAllLink={showAllLink}
+                        variant={variant}
                         onBookClick={handleClick}
                     />
                 ))}
@@ -146,6 +153,7 @@ export function CatalogCollections({
                 <BookPreviewModal
                     book={toSearchResult(selected.book)}
                     bookId={selected.book.id}
+                    variant={variant}
                     collection={{
                         name: selected.collection.name,
                         description: selected.collection.description,

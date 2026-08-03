@@ -414,7 +414,7 @@ export function ResourceListView({ kind, items, isAdmin }: { kind: ResourceKind;
                 <p className="mt-3 max-w-2xl text-sm leading-relaxed text-grey md:text-base">
                     {isAdmin
                         ? "Como administrador puedes visualizar cualquier recurso publicado."
-                        : "Aqui aparecen los recursos a los que tienes acceso por compra o plan."}
+                        : "Todos los recursos publicados: abre los que ya tienes por plan, compra o muestra gratis, y desbloquea el resto."}
                 </p>
             </section>
 

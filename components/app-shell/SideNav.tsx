@@ -75,8 +75,7 @@ export function SideNav() {
 
             <div className="mt-auto pt-8 border-t border-teal/5">
                 <div className="space-y-1">
-                    <Link href="/recursos" className="block px-4 py-2 text-sm text-grey/60 hover:text-teal transition-colors">Recursos</Link>
-                    <Link href="/normas" className="block px-4 py-2 text-sm text-grey/60 hover:text-teal transition-colors">Normas de la comunidad</Link>
+                    <Link href="/app/normas" className="block px-4 py-2 text-sm text-grey/60 hover:text-teal transition-colors">Normas de la comunidad</Link>
                 </div>
                 <p className="px-4 mt-6 text-[10px] text-grey/40">© 2026 Wordelia</p>
             </div>

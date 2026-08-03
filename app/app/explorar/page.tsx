@@ -42,7 +42,7 @@ export default async function ExplorarDashboardPage() {
                         icon={<BookOpen className="h-10 w-10" aria-hidden="true" />}
                     />
                 ) : (
-                    <CatalogCollections collections={collections} />
+                    <CatalogCollections collections={collections} variant="app" />
                 )}
             </div>
         </div>

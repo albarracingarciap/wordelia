@@ -93,16 +93,12 @@ function QuickActions({
                 <Link href="/app/clubs" className={actionClass}>
                     <Users className="h-4 w-4" /> Explorar clubs
                 </Link>
-                {isAdmin && (
-                    <>
-                        <Link href="/app/recursos/guias" className={actionClass}>
-                            <BookOpenText className="h-4 w-4" /> Guías
-                        </Link>
-                        <Link href="/app/recursos/genomas" className={actionClass}>
-                            <Dna className="h-4 w-4" /> Genomas
-                        </Link>
-                    </>
-                )}
+                <Link href="/app/recursos/guias" className={actionClass}>
+                    <BookOpenText className="h-4 w-4" /> Guías
+                </Link>
+                <Link href="/app/recursos/genomas" className={actionClass}>
+                    <Dna className="h-4 w-4" /> Genomas
+                </Link>
             </div>
         </section>
     );
@@ -660,16 +656,14 @@ export default function MiLecturaPage() {
                                     Explorar clubs
                                 </Link>
                             </div>
-                            {resourceContext.isAdmin && (
-                                <div className="grid grid-cols-2 gap-3 pt-2">
-                                    <Link href="/app/recursos/guias" className="p-3 bg-teal/5 border border-teal/10 rounded-lg text-xs font-bold text-teal hover:border-teal/25 hover:bg-teal/10 transition-all text-center shadow-sm flex items-center justify-center gap-2 h-full">
-                                        <BookOpenText className="h-4 w-4" /> Guías
-                                    </Link>
-                                    <Link href="/app/recursos/genomas" className="p-3 bg-teal/5 border border-teal/10 rounded-lg text-xs font-bold text-teal hover:border-teal/25 hover:bg-teal/10 transition-all text-center shadow-sm flex items-center justify-center gap-2 h-full">
-                                        <Dna className="h-4 w-4" /> Genomas
-                                    </Link>
-                                </div>
-                            )}
+                            <div className="grid grid-cols-2 gap-3 pt-2">
+                                <Link href="/app/recursos/guias" className="p-3 bg-teal/5 border border-teal/10 rounded-lg text-xs font-bold text-teal hover:border-teal/25 hover:bg-teal/10 transition-all text-center shadow-sm flex items-center justify-center gap-2 h-full">
+                                    <BookOpenText className="h-4 w-4" /> Guías
+                                </Link>
+                                <Link href="/app/recursos/genomas" className="p-3 bg-teal/5 border border-teal/10 rounded-lg text-xs font-bold text-teal hover:border-teal/25 hover:bg-teal/10 transition-all text-center shadow-sm flex items-center justify-center gap-2 h-full">
+                                    <Dna className="h-4 w-4" /> Genomas
+                                </Link>
+                            </div>
                         </div>
                     </section>
 

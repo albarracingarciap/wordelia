@@ -247,9 +247,12 @@ function resolveAccess(
     kind: ResourceKind,
     bookId: string,
     context: Awaited<ReturnType<typeof getAccessContext>>,
-    grants: Set<string>
+    grants: Set<string>,
+    freeSet: Set<string> = new Set()
 ): ResourceAccessState {
     if (context.isAdmin) return "admin";
+    // Muestra gratis: accesible para cualquier usuario registrado.
+    if (freeSet.has(`${bookId}:${kind}`)) return "granted";
     if (grants.has(`${bookId}:${kind}`)) return "granted";
     if (kind === "guide" && context.hasGuidePlan) return "granted";
     if (kind === "genome" && context.hasGenomePlan) return "granted";
@@ -284,7 +287,10 @@ export async function getResourceDetail(kind: ResourceKind, bookId: string): Pro
 
     const context = await getAccessContext(user.id);
     const grants = await getGrantMap(user.id, [bookId]);
-    const access = resolveAccess(kind, bookId, context, grants);
+    // Muestra gratis: el recurso mismo trae is_free (select "*").
+    const isFree = (resourceRows as Array<{ is_free?: boolean }>).some((r) => r?.is_free === true);
+    const freeSet = isFree ? new Set([`${bookId}:${kind}`]) : new Set<string>();
+    const access = resolveAccess(kind, bookId, context, grants, freeSet);
 
     return {
         kind,
@@ -302,9 +308,9 @@ export async function getResourceList(kind: ResourceKind): Promise<{ isAdmin: bo
     if (!user) return { isAdmin: false, items: [] };
 
     const context = await getAccessContext(user.id);
-    const resourceRowsTable = supabase.from(resourceTable(kind) as never) as never as GenericTable<ResourceRow>;
+    const resourceRowsTable = supabase.from(resourceTable(kind) as never) as never as GenericTable<ResourceRow & { is_free?: boolean }>;
     const { data: resources, error } = await resourceRowsTable
-        .select("book_id")
+        .select("book_id, is_free")
         .order("book_id", { ascending: true });
 
     if (error) {
@@ -316,6 +322,13 @@ export async function getResourceList(kind: ResourceKind): Promise<{ isAdmin: bo
 
     const bookIds = Array.from(new Set((resources || []).map((row) => row.book_id).filter((id): id is string => Boolean(id))));
     if (bookIds.length === 0) return { isAdmin: context.isAdmin, items: [] };
+
+    // Recursos marcados como muestra gratis (accesibles para cualquiera).
+    const freeSet = new Set(
+        (resources || [])
+            .filter((row) => row.is_free === true && row.book_id)
+            .map((row) => `${row.book_id}:${kind}`)
+    );
 
     const [grants, booksResult] = await Promise.all([
         getGrantMap(user.id, bookIds),
@@ -330,18 +343,19 @@ export async function getResourceList(kind: ResourceKind): Promise<{ isAdmin: bo
     ]);
 
     const books = new Map((booksResult.data || []).map((book) => [book.id, mapBook(book)]));
-    const items = bookIds
-        .map((bookId) => {
-            const access = resolveAccess(kind, bookId, context, grants);
-            if (!context.isAdmin && access !== "granted") return null;
-
-            return {
-                book: books.get(bookId) || mapBook({ id: bookId, title: "Libro" }),
-                access,
-                href: `/app/recursos/${resourcePath(kind)}/${bookId}`,
-            };
-        })
-        .filter((item): item is ResourceListItem => Boolean(item));
+    // Mostramos TODOS los recursos: los accesibles llevan al recurso; los
+    // bloqueados llevan a desbloquear (comprar / plan), para que se descubran.
+    const items = bookIds.map((bookId) => {
+        const access = resolveAccess(kind, bookId, context, grants, freeSet);
+        const accessible = access === "granted" || access === "admin";
+        return {
+            book: books.get(bookId) || mapBook({ id: bookId, title: "Libro" }),
+            access,
+            href: accessible
+                ? `/app/recursos/${resourcePath(kind)}/${bookId}`
+                : `/app/recursos/desbloquear?resource=${kind}&book=${bookId}`,
+        };
+    });
 
     return { isAdmin: context.isAdmin, items };
 }

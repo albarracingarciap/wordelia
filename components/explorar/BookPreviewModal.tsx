@@ -18,6 +18,8 @@ interface BookPreviewModalProps {
     bookId?: string;
     /** Colección curada desde la que se abrió la ficha, para dar contexto real. */
     collection?: { name: string; description: string; tag_line: string } | null;
+    /** "app" enruta a las páginas internas (/app/...); "public" a las públicas. */
+    variant?: "public" | "app";
     isOpen: boolean;
     onClose: () => void;
 }
@@ -50,7 +52,11 @@ function formatDate(value?: string | null): string | null {
         .format(new Date(year, month - 1, day));
 }
 
-export function BookPreviewModal({ book, bookId, collection, isOpen, onClose }: BookPreviewModalProps) {
+export function BookPreviewModal({ book, bookId, collection, variant = "public", isOpen, onClose }: BookPreviewModalProps) {
+    const inApp = variant === "app";
+    const clubHref = (slugOrId: string) => (inApp ? `/app/clubs/${slugOrId}` : `/clubes/${slugOrId}`);
+    const guideHref = bookId ? (inApp ? `/app/recursos/guias/${bookId}` : "/guias") : "/guias";
+    const bookHref = bookId ? (inApp ? `/app/libros/${bookId}` : `/libro/${bookId}`) : "";
     const router = useRouter();
     const supabase = useMemo(() => createClient(), []);
     const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -227,7 +233,7 @@ export function BookPreviewModal({ book, bookId, collection, isOpen, onClose }: 
                                 {/* Club oficial que lo está leyendo. Solo si existe de verdad. */}
                                 {extras?.club && (
                                     <Link
-                                        href={`/clubes/${extras.club.slug || extras.club.id}`}
+                                        href={clubHref(inApp ? extras.club.id : (extras.club.slug || extras.club.id))}
                                         className="block rounded-xl border border-coral/20 bg-coral/5 p-4 transition-colors hover:bg-coral/10"
                                     >
                                         <p className="mb-1 flex items-center gap-2 text-xs font-bold uppercase tracking-[0.14em] text-coral">
@@ -254,7 +260,7 @@ export function BookPreviewModal({ book, bookId, collection, isOpen, onClose }: 
                                 {/* Guía de discusión publicada para este libro. */}
                                 {extras?.guideSlug && (
                                     <Link
-                                        href="/guias"
+                                        href={guideHref}
                                         className="flex items-center gap-3 rounded-xl border border-teal/15 bg-white p-4 transition-colors hover:bg-teal/5"
                                     >
                                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-teal/10 text-teal">
@@ -325,7 +331,7 @@ export function BookPreviewModal({ book, bookId, collection, isOpen, onClose }: 
 
                                 {bookId && (
                                     <Link
-                                        href={`/libro/${bookId}`}
+                                        href={bookHref}
                                         className="mt-3 inline-flex w-full items-center justify-center gap-1.5 text-sm font-semibold text-teal transition-colors hover:text-coral"
                                     >
                                         Ver ficha completa y reseñas <ArrowRight className="h-4 w-4" />
