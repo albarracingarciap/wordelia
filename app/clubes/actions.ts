@@ -25,6 +25,8 @@ export interface PublicClub {
     /** Fecha de inicio de la lectura actual o programada. */
     start_date: string | null;
     hook_question: string | null;
+    /** Estilo de lectura del club: 'guided' | 'analysis' (null = guiada por defecto). */
+    readingType: string | null;
     book: { title: string | null; author: string | null; cover_url: string | null } | null;
 }
 
@@ -36,6 +38,7 @@ export interface HomeClub {
     tags?: string[] | null;
     start_date?: string | null;
     hook_question?: string | null;
+    readingType?: string | null;
     price?: number | null;
     currency?: string | null;
     destacado?: boolean;
@@ -46,7 +49,7 @@ export interface HomeClub {
 // Campos que necesitan las vistas públicas. El libro se toma de club_books:
 // primero la lectura en curso y, si no hay, la programada.
 const PUBLIC_CLUB_SELECT = `
-    id, name, slug, description, tags, price, currency, destacado, cover_url,
+    id, name, slug, description, tags, price, currency, destacado, cover_url, reading_type,
     club_books ( status, start_date, cover_url, pregunta_apertura, book:books ( title, author ) )
 `;
 
@@ -73,6 +76,7 @@ function mapPublicClub(club: any): PublicClub {
         headerImage: club.cover_url ?? null,
         start_date: clubBook?.start_date ?? null,
         hook_question: clubBook?.pregunta_apertura ?? null,
+        readingType: club.reading_type ?? null,
         book: book
             ? {
                 title: book.title ?? null,

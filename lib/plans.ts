@@ -24,6 +24,8 @@ export interface Plan {
     popular?: boolean;
     founderClubs: number;
     features: PlanFeature[];
+    /** Nota al pie de la tarjeta (p. ej. aclaración del asterisco de las funciones IA). */
+    footnote?: string;
 }
 
 export const PLANS: Plan[] = [
@@ -79,11 +81,12 @@ export const PLANS: Plan[] = [
             { text: "Todo lo del plan Voraz", included: true },
             { text: "Guías de discusión ilimitadas", included: true },
             { text: "Nuevas guías y genomas cada mes", included: true },
-            { text: "Recomendaciones de lectura con IA", included: true },
-            { text: "Tus estadísticas contadas por IA", included: true },
-            { text: "Herramientas de club con IA (mapa emocional y sesiones)", included: true },
+            { text: "Recomendaciones de lectura con IA *", included: true },
+            { text: "Tus estadísticas contadas por IA *", included: true },
+            { text: "Herramientas de club con IA (mapa emocional y sesiones) *", included: true },
             { text: "Acceso anticipado a novedades", included: true },
             { text: "Soporte prioritario", included: true },
         ],
+        footnote: "* Las funciones con IA estarán disponibles en septiembre de 2026.",
     },
 ];

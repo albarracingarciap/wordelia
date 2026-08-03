@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { Sparkles, RefreshCw, ArrowRight } from "lucide-react";
+import { AIComingSoonModal } from "@/components/ai/AIComingSoonModal";
 import { peekStatsNarrative, getStatsNarrative, type NarrativeResult } from "@/app/app/asistente/actions";
 
 type ViewState = NarrativeResult | { status: "empty" } | { status: "loading" };
@@ -9,6 +10,10 @@ type ViewState = NarrativeResult | { status: "empty" } | { status: "loading" };
 export function StatsNarrativeCard() {
     const [state, setState] = React.useState<ViewState>({ status: "loading" });
     const [generating, setGenerating] = React.useState(false);
+    const [modalOpen, setModalOpen] = React.useState(false);
+
+    // Función IA restringida a admin (hasta septiembre 2026): al resto, aviso.
+    const comingSoon = state.status === "locked" && state.reason === "coming_soon";
 
     React.useEffect(() => {
         let active = true;
@@ -19,6 +24,7 @@ export function StatsNarrativeCard() {
     }, []);
 
     const generate = async (force: boolean) => {
+        if (comingSoon) { setModalOpen(true); return; }
         setGenerating(true);
         try {
             const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -32,8 +38,8 @@ export function StatsNarrativeCard() {
     };
 
     if (state.status === "loading") return null;
-    // Sin plan: no metemos ruido en estadísticas (es un extra Bibliófilo).
-    if (state.status === "locked") return null;
+    // "coming_soon" (no-admin) SÍ se muestra: el clic abre el aviso. Sin sesión, no.
+    if (state.status === "locked" && state.reason !== "coming_soon") return null;
     // Sin datos suficientes: mejor no mostrar nada aún.
     if (state.status === "no_data") return null;
 
@@ -78,6 +84,8 @@ export function StatsNarrativeCard() {
                     </button>
                 </div>
             )}
+
+            <AIComingSoonModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
         </div>
     );
 }

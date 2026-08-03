@@ -19,6 +19,7 @@ import {
     AlertTriangle,
     Clock,
     Calendar,
+    Coins,
 } from "lucide-react";
 import type { AdminUserDetail } from "../data";
 import { isSubscriptionActive } from "@/lib/subscription-access";
@@ -35,6 +36,7 @@ import {
     confirmEmailAction,
     setOnboardingAction,
     deleteUserAction,
+    giftCoinsAction,
 } from "../actions";
 
 function fmtDate(iso: string | null) {
@@ -119,7 +121,7 @@ export function UserDetailClient({
     currentAdminId: string;
 }) {
     const router = useRouter();
-    const { profile, auth, subscription, payments } = detail;
+    const { profile, auth, subscription, payments, wallet } = detail;
 
     const [pending, startTransition] = useTransition();
     const [busy, setBusy] = useState<string | null>(null);
@@ -128,6 +130,7 @@ export function UserDetailClient({
     const [role, setRole] = useState(profile.role ?? "user");
     const [grantPlan, setGrantPlan] = useState<"voraz" | "ai">("voraz");
     const [grantMonths, setGrantMonths] = useState<string>("12");
+    const [giftAmount, setGiftAmount] = useState<string>("10");
     const [deleteConfirm, setDeleteConfirm] = useState("");
 
     const isSelf = profile.id === currentAdminId;
@@ -413,6 +416,68 @@ export function UserDetailClient({
                                 Revocar acceso
                             </button>
                         )}
+                    </div>
+                </Card>
+
+                {/* Wordix */}
+                <Card title="Wordix" icon={<Coins className="w-4 h-4 text-teal" />}>
+                    <div className="mb-4 flex items-end justify-between gap-3">
+                        <div>
+                            <p className="text-xs text-muted-foreground">Saldo actual</p>
+                            <p className="text-3xl font-serif font-medium text-teal-dark">{wallet?.balance ?? 0} <span className="text-base font-sans text-muted-foreground">Wordix</span></p>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Ganados en total: {wallet?.lifetimeEarned ?? 0}</p>
+                    </div>
+
+                    <div className="rounded-lg border border-teal/10 bg-muted/30 p-4 space-y-3">
+                        <p className="text-sm font-medium flex items-center gap-1.5">
+                            <Gift className="w-4 h-4 text-teal" /> Regalar Wordix
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2">
+                            {[5, 10, 25, 50].map((n) => (
+                                <button
+                                    key={n}
+                                    type="button"
+                                    disabled={pending}
+                                    onClick={() => setGiftAmount(String(n))}
+                                    className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors disabled:opacity-50 ${
+                                        giftAmount === String(n)
+                                            ? "border-teal bg-teal/10 text-teal-dark"
+                                            : "border-input hover:bg-muted"
+                                    }`}
+                                >
+                                    +{n}
+                                </button>
+                            ))}
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                            <input
+                                type="number"
+                                min={1}
+                                max={10000}
+                                value={giftAmount}
+                                onChange={(e) => setGiftAmount(e.target.value)}
+                                disabled={pending}
+                                className="w-28 bg-background border border-input rounded-md text-sm px-3 py-2 focus:outline-none focus:ring-1 focus:ring-teal disabled:opacity-50"
+                            />
+                            <button
+                                disabled={pending || !(Number(giftAmount) > 0)}
+                                onClick={() =>
+                                    run(
+                                        "gift-coins",
+                                        () => giftCoinsAction(profile.id, Number(giftAmount)),
+                                        `Se han regalado ${Number(giftAmount)} Wordix.`,
+                                    )
+                                }
+                                className="inline-flex items-center gap-1.5 text-sm font-medium bg-teal text-white py-2 px-4 rounded-md hover:bg-teal-dark transition-colors disabled:opacity-40"
+                            >
+                                {busy === "gift-coins" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Coins className="w-4 h-4" />}
+                                Regalar
+                            </button>
+                        </div>
+                        <p className="text-xs text-muted-foreground">
+                            Se añaden al instante como “Ajuste de Wordelia” en su historial. 1 Wordix = 1&nbsp;€ dentro de la app.
+                        </p>
                     </div>
                 </Card>
 

@@ -73,6 +73,10 @@ export function PlanCard({ plan, price, period, action, hidePopularBadge = false
                 ))}
             </ul>
 
+            {plan.footnote && (
+                <p className="mb-5 -mt-3 text-xs leading-relaxed text-grey/55">{plan.footnote}</p>
+            )}
+
             <div className="mt-auto">{action}</div>
         </article>
     );

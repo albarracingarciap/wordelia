@@ -5,6 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Sparkles, RefreshCw, BookOpen, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { AIComingSoonModal } from "@/components/ai/AIComingSoonModal";
 import { peekNextRead, getNextReadRecommendation, type NextReadResult } from "@/app/app/asistente/actions";
 
 const sectionTitleClass = "text-xs font-bold uppercase tracking-widest text-grey/40 lg:text-sm";
@@ -14,6 +15,11 @@ type ViewState = NextReadResult | { status: "empty" } | { status: "loading" };
 export function NextReadCard() {
     const [state, setState] = React.useState<ViewState>({ status: "loading" });
     const [generating, setGenerating] = React.useState(false);
+    const [modalOpen, setModalOpen] = React.useState(false);
+
+    // Función IA restringida a admin (hasta septiembre 2026): al resto se le
+    // muestra el aviso "próximamente" en vez de generar.
+    const comingSoon = state.status === "locked" && state.reason === "coming_soon";
 
     React.useEffect(() => {
         let active = true;
@@ -24,6 +30,7 @@ export function NextReadCard() {
     }, []);
 
     const generate = async (force: boolean) => {
+        if (comingSoon) { setModalOpen(true); return; }
         setGenerating(true);
         try {
             const r = await getNextReadRecommendation(force);
@@ -35,31 +42,10 @@ export function NextReadCard() {
         }
     };
 
-    // No mostramos nada mientras carga ni si el usuario no tiene el plan
-    // (evita ruido; es un extra del plan Bibliófilo).
+    // Mientras carga, nada. Si no hay sesión, tampoco. Para "coming_soon"
+    // (no-admin) SÍ mostramos la tarjeta: el clic abrirá el aviso.
     if (state.status === "loading") return null;
-    if (state.status === "locked") {
-        if (state.reason === "unauthenticated") return null;
-        return (
-            <section>
-                <h2 className={`${sectionTitleClass} mb-3`}>Tu próxima lectura</h2>
-                <Card className="border-coral/15 bg-gradient-to-br from-coral/5 to-cream/30">
-                    <div className="flex items-start gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-coral/10 text-coral">
-                            <Sparkles className="h-4 w-4" />
-                        </span>
-                        <div className="min-w-0">
-                            <p className="text-sm font-bold text-teal-dark">Recomendaciones con IA</p>
-                            <p className="mt-1 text-xs text-grey/60">Deja que el bibliotecario de Wordelia elija tu próxima lectura según tus gustos.</p>
-                            <Link href="/planes" className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-coral hover:underline">
-                                Incluido en Bibliófilo <ArrowRight className="h-3 w-3" />
-                            </Link>
-                        </div>
-                    </div>
-                </Card>
-            </section>
-        );
-    }
+    if (state.status === "locked" && state.reason !== "coming_soon") return null;
 
     return (
         <section>
@@ -128,6 +114,8 @@ export function NextReadCard() {
                     </div>
                 )}
             </Card>
+
+            <AIComingSoonModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
         </section>
     );
 }

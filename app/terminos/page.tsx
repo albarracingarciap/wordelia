@@ -10,8 +10,8 @@ export default function TerminosPage() {
         <LegalPage title="Términos y condiciones" lastUpdated="30 de junio de 2026">
             <p>
                 Estos términos y condiciones regulan el acceso y uso de Wordelia (en adelante, «el Servicio»),
-                titularidad de <strong>[NOMBRE LEGAL DE LA EMPRESA]</strong>, con NIF/CIF <strong>[NIF/CIF]</strong> y
-                domicilio en <strong>[DIRECCIÓN COMPLETA]</strong>. Al registrarte o utilizar el Servicio aceptas
+                titularidad de <strong>Pedro Albarracín García</strong>, con NIF/CIF <strong>35081361J</strong> y
+                domicilio en <strong> Calle Silos, 51, Alcalá de Guadaíra, Sevilla.</strong>. Al registrarte o utilizar el Servicio aceptas
                 estos términos en su totalidad. Si no estás de acuerdo con ellos, por favor no uses Wordelia.
             </p>
 
@@ -104,7 +104,7 @@ export default function TerminosPage() {
             <h2>12. Ley aplicable y jurisdicción</h2>
             <p>
                 Estos términos se rigen por la legislación española. Para la resolución de cualquier controversia, las
-                partes se someten a los juzgados y tribunales de <strong>[CIUDAD]</strong>, salvo que la normativa de
+                partes se someten a los juzgados y tribunales de <strong>Sevilla</strong>, salvo que la normativa de
                 consumo establezca otro fuero.
             </p>
 

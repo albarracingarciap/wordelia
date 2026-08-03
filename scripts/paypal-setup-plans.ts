@@ -9,7 +9,7 @@
  *
  *   Voraz       →  mensual 6,99 € · anual 67,10 €
  *   Bibliófilo  →  mensual 14,99 € · anual 143,90 €
- *   Librería Pro→  mensual 19,00 € · anual 190,00 €
+ *   Librería Pro→  mensual 24,99 € · anual 239,90 €
  *
  * Los importes se derivan de lib/pricing.ts (única fuente de verdad). Idempotente:
  * si un product/plan con el mismo nombre ya existe, lo reutiliza en lugar de

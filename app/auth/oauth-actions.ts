@@ -10,8 +10,11 @@ export async function signInWithGoogle(formData: FormData) {
 
     const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
+        // El callback vive en /auth/callback (ruta pública que intercambia el code
+        // por sesión y registra el referido). Antes apuntaba a /app/auth/callback,
+        // que NO existe y además cae en zona protegida → el login quedaba colgado.
         options: {
-            redirectTo: `${origin}/app/auth/callback`,
+            redirectTo: `${origin}/auth/callback`,
         },
     })
 

@@ -36,6 +36,16 @@ const footerGroups = [
     },
 ];
 
+// TikTok no está en lucide-react: SVG inline con fill=currentColor para heredar
+// el color (teal → coral al hover) igual que el resto de iconos sociales.
+function TikTokIcon({ className }: { className?: string }) {
+    return (
+        <svg viewBox="0 0 24 24" fill="currentColor" className={className} aria-hidden="true">
+            <path d="M16.5 3c.3 2.03 1.44 3.24 3.5 3.5v2.65c-1.2.12-2.25-.27-3.47-1.01v4.6c0 5.85-6.38 7.68-8.94 3.49-1.65-2.7-.64-7.43 4.67-7.62v2.79c-.4.07-.83.17-1.23.31-1.19.4-1.86 1.15-1.67 2.48.36 2.55 5.04 3.3 4.65-1.68V3h2.49z" />
+        </svg>
+    );
+}
+
 export function Footer() {
     const [email, setEmail] = useState("");
     const [subscribed, setSubscribed] = useState(false);
@@ -81,14 +91,17 @@ export function Footer() {
                             cuidados, sin spoilers y con ritmo propio.
                         </p>
                         <div className="flex items-center gap-4 text-teal">
-                            <a href="https://instagram.com" target="_blank" rel="noreferrer" className="transition-colors hover:text-coral" aria-label="Instagram">
+                            <a href="https://www.instagram.com/somoswordelia/" target="_blank" rel="noreferrer" className="transition-colors hover:text-coral" aria-label="Instagram">
                                 <Instagram className="h-5 w-5" />
                             </a>
-                            <a href="https://telegram.org" target="_blank" rel="noreferrer" className="transition-colors hover:text-coral" aria-label="Telegram">
+                            <a href="https://t.me/+PMVyX_PWx5M4ODNk" target="_blank" rel="noreferrer" className="transition-colors hover:text-coral" aria-label="Telegram">
                                 <Send className="h-5 w-5" />
                             </a>
-                            <a href="https://youtube.com" target="_blank" rel="noreferrer" className="transition-colors hover:text-coral" aria-label="Youtube">
+                            <a href="https://www.youtube.com/@Wordelia" target="_blank" rel="noreferrer" className="transition-colors hover:text-coral" aria-label="Youtube">
                                 <Youtube className="h-5 w-5" />
+                            </a>
+                            <a href="https://www.tiktok.com/@wordelia.libros" target="_blank" rel="noreferrer" className="transition-colors hover:text-coral" aria-label="TikTok">
+                                <TikTokIcon className="h-5 w-5" />
                             </a>
                         </div>
                     </div>

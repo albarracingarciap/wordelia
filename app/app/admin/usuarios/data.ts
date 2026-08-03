@@ -119,6 +119,7 @@ export interface AdminUserDetail {
           })
         | null;
     payments: AdminUserPayment[];
+    wallet: { balance: number; lifetimeEarned: number } | null;
 }
 
 /** Ficha completa de un usuario: perfil, datos de auth, suscripción y pagos. */
@@ -133,7 +134,7 @@ export async function fetchUserDetail(id: string): Promise<AdminUserDetail | nul
 
     if (!profile) return null;
 
-    const [authRes, subRes, paymentsRes] = await Promise.all([
+    const [authRes, subRes, paymentsRes, walletRes] = await Promise.all([
         admin.auth.admin.getUserById(id),
         admin
             .from("user_subscriptions")
@@ -148,9 +149,16 @@ export async function fetchUserDetail(id: string): Promise<AdminUserDetail | nul
             .eq("user_id", id)
             .order("created_at", { ascending: false })
             .limit(50),
+        // coin_wallets no está en los tipos generados (desfasados): casteamos.
+        (admin as unknown as { from: (t: string) => any })
+            .from("coin_wallets")
+            .select("balance, lifetime_earned")
+            .eq("user_id", id)
+            .maybeSingle(),
     ]);
 
     const authUser = authRes.data?.user;
+    const walletRow = walletRes.data as { balance: number; lifetime_earned: number } | null;
 
     return {
         profile,
@@ -164,5 +172,6 @@ export async function fetchUserDetail(id: string): Promise<AdminUserDetail | nul
             : null,
         subscription: (subRes.data as AdminUserDetail["subscription"]) ?? null,
         payments: (paymentsRes.data as AdminUserPayment[]) ?? [],
+        wallet: walletRow ? { balance: walletRow.balance, lifetimeEarned: walletRow.lifetime_earned } : null,
     };
 }

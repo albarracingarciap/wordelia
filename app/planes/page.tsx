@@ -171,6 +171,12 @@ function PlansContent() {
                         <h4 className="mb-2 font-bold text-teal-dark">¿Puedo cambiar de plan en cualquier momento?</h4>
                         <p className="text-sm text-grey/80">Sí, puedes mejorar o cancelar tu suscripción en cualquier momento desde tu perfil.</p>
                     </div>
+                    <div className="rounded-xl border border-teal/5 bg-white p-6">
+                        <h4 className="mb-2 font-bold text-teal-dark">Las funciones con IA del plan Bibliófilo llevan un asterisco, ¿cuándo estarán disponibles?</h4>
+                        <p className="text-sm text-grey/80">
+                            Las funciones marcadas con <strong>*</strong> (recomendaciones de lectura con IA, tus estadísticas contadas por IA y las herramientas de club con IA) estarán disponibles en <strong>septiembre de 2026</strong>. Todo lo demás del plan Bibliófilo —guías de discusión y genomas literarios ilimitados, novedades cada mes, acceso anticipado y soporte prioritario— lo tienes desde el primer día. Cuando activemos las funciones de IA se añadirán a tu plan <strong>sin coste adicional</strong> y sin que tengas que hacer nada.
+                        </p>
+                    </div>
                     {founderWindowOpen && (
                         <div className="rounded-xl border border-teal/5 bg-white p-6">
                             <h4 className="mb-2 font-bold text-teal-dark">¿Qué es el beneficio fundador?</h4>

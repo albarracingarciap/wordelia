@@ -1,9 +1,9 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
-import { Sparkles, RefreshCw, HeartPulse, CalendarClock, ArrowRight } from "lucide-react";
+import { Sparkles, RefreshCw, HeartPulse, CalendarClock } from "lucide-react";
 import { Card } from "@/components/ui/Card";
+import { AIComingSoonModal } from "@/components/ai/AIComingSoonModal";
 import { peekClubEmotionalMap, getClubEmotionalMap, type ClubEmotionResult } from "@/app/app/asistente/club-actions";
 import { peekClubSessionPlan, getClubSessionPlan, type ClubSessionResult } from "@/app/app/asistente/club-actions";
 
@@ -37,6 +37,11 @@ export function ClubHostTools({ clubId }: { clubId: string }) {
     const [session, setSession] = React.useState<SessionState>({ status: "loading" });
     const [emoBusy, setEmoBusy] = React.useState(false);
     const [sesBusy, setSesBusy] = React.useState(false);
+    const [modalOpen, setModalOpen] = React.useState(false);
+
+    // Herramientas IA restringidas a admin (hasta septiembre 2026): al resto se
+    // le muestran las opciones, pero el clic abre el aviso "próximamente".
+    const comingSoon = emotion.status === "locked" && emotion.reason === "coming_soon";
 
     React.useEffect(() => {
         let active = true;
@@ -46,12 +51,14 @@ export function ClubHostTools({ clubId }: { clubId: string }) {
     }, [clubId]);
 
     const genEmotion = async (force: boolean) => {
+        if (comingSoon) { setModalOpen(true); return; }
         setEmoBusy(true);
         try { setEmotion(await getClubEmotionalMap(clubId, force)); }
         catch { setEmotion({ status: "error", message: "No hemos podido generar el resumen." }); }
         finally { setEmoBusy(false); }
     };
     const genSession = async (force: boolean) => {
+        if (comingSoon) { setModalOpen(true); return; }
         setSesBusy(true);
         try { setSession(await getClubSessionPlan(clubId, force)); }
         catch { setSession({ status: "error", message: "No hemos podido preparar la sesión." }); }
@@ -59,25 +66,9 @@ export function ClubHostTools({ clubId }: { clubId: string }) {
     };
 
     if (emotion.status === "loading") return null;
-    // Host sin plan/librería → upsell único. No-host/no-auth → nada.
-    if (emotion.status === "locked") {
-        if (emotion.reason !== "requires_plan") return null;
-        return (
-            <section className="mb-6">
-                <ToolsHeading />
-                <Card className="bg-white">
-                    <div className="flex items-start gap-3">
-                        <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-coral/10 text-coral"><Sparkles className="h-4 w-4" /></span>
-                        <div className="min-w-0">
-                            <p className="text-sm font-bold text-teal-dark">Herramientas de anfitrión con IA</p>
-                            <p className="mt-1 text-xs text-grey/60">Resumen del mapa emocional del grupo y preparación de sesiones de análisis. Incluido en el plan Bibliófilo y para librerías.</p>
-                            <Link href="/planes" className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-coral hover:underline">Ver Bibliófilo <ArrowRight className="h-3 w-3" /></Link>
-                        </div>
-                    </div>
-                </Card>
-            </section>
-        );
-    }
+    // "coming_soon" (host no-admin) SÍ muestra las herramientas; el clic abre el
+    // aviso. No-host / no-auth (otros locked) → nada.
+    if (emotion.status === "locked" && !comingSoon) return null;
 
     return (
         <section className="mb-6 space-y-4">
@@ -144,6 +135,8 @@ export function ClubHostTools({ clubId }: { clubId: string }) {
                     </div>
                 )}
             </Card>
+
+            <AIComingSoonModal isOpen={modalOpen} onClose={() => setModalOpen(false)} />
         </section>
     );
 }

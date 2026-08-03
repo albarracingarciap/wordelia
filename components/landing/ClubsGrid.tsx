@@ -33,6 +33,7 @@ interface InitialClub {
     tags?: string[] | null;
     start_date?: string | null;
     hook_question?: string | null;
+    readingType?: string | null;
     price?: number | null;
     price_cents?: number | null;
     currency?: string | null;
@@ -154,6 +155,11 @@ function formatClubPriceFromCents(priceCents?: number | null, currency = "EUR") 
     }).format(priceCents / 100);
 }
 
+// Etiqueta de la píldora según el estilo real del club (columna clubs.reading_type).
+function readingTypeLabel(readingType?: string | null): string {
+    return readingType === "analysis" ? "Análisis de obra" : "Lectura guiada";
+}
+
 function mapDbClub(dbClub: InitialClub): Club {
     const bookData = dbClub.book_data;
     const bookTitle = bookData?.title || dbClub.book?.title || "Libro por confirmar";
@@ -167,7 +173,7 @@ function mapDbClub(dbClub: InitialClub): Club {
         book: bookTitle,
         author: bookData?.authors?.join(", ") || dbClub.book?.author || "Autor por confirmar",
         cover: bookData?.cover_url || dbClub.book?.cover_url || "/assets/images/default_cover.jpg",
-        pace: "Lectura guiada",
+        pace: readingTypeLabel(dbClub.readingType),
         status: formatClubStartDate(dbClub.start_date),
         badges: dbClub.tags?.slice(0, 3) || bookData?.categories?.slice(0, 3) || ["Sin spoilers", "Checkpoints"],
         description: dbClub.description || "Un club para leer con calma, contexto y conversación cuidada.",

@@ -5,7 +5,6 @@ import { createAdminClient, hasSupabaseAdminConfig } from "@/utils/supabase/admi
 import { getBookResourceAvailability } from "@/app/app/recursos/actions";
 import { callMistral } from "@/lib/mistral";
 import { FEATURE_MAX_TOKENS } from "@/lib/assistant-config";
-import { isSubscriptionActive } from "@/lib/subscription-access";
 import { hasMonthlyQuota, withinRateLimit, logAiUsage, getCachedGeneration, saveGeneration } from "@/lib/assistant-access";
 
 // Umbral de anonimato: nunca resumimos emociones si hay muy pocos participantes
@@ -16,7 +15,7 @@ export interface ClubHostAccess {
     isHost: boolean;
     isAdmin: boolean;
     allowed: boolean;
-    reason?: "unauthenticated" | "not_host" | "requires_plan";
+    reason?: "unauthenticated" | "not_host" | "requires_plan" | "coming_soon";
 }
 
 // Gate de herramientas de anfitrión: host del club (owner o admin/moderador) Y
@@ -26,11 +25,10 @@ export async function getClubHostAccess(clubId: string): Promise<ClubHostAccess>
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { isHost: false, isAdmin: false, allowed: false, reason: "unauthenticated" };
 
-    const [clubRes, membershipRes, profileRes, subRes] = await Promise.all([
+    const [clubRes, membershipRes, profileRes] = await Promise.all([
         supabase.from("clubs").select("owner_id, organization_id").eq("id", clubId).maybeSingle(),
         supabase.from("club_members").select("role").eq("club_id", clubId).eq("user_id", user.id).maybeSingle(),
         supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
-        supabase.from("user_subscriptions").select("plan, status, current_period_end").eq("user_id", user.id).maybeSingle(),
     ]);
 
     const club = clubRes.data as { owner_id: string; organization_id: string | null } | null;
@@ -41,28 +39,18 @@ export async function getClubHostAccess(clubId: string): Promise<ClubHostAccess>
 
     const globalRole = (profileRes.data as { role?: string } | null)?.role;
     const isAdmin = globalRole === "admin" || globalRole === "editor";
-    const sub = subRes.data as { plan: string; status: string; current_period_end: string | null } | null;
-    const isBibliofilo = !!sub && isSubscriptionActive(sub.status, sub.current_period_end) && sub.plan === "ai";
-
-    let isLibraryMember = false;
-    if (club.organization_id) {
-        const { data: orgMember } = await supabase
-            .from("organization_members")
-            .select("user_id")
-            .eq("organization_id", club.organization_id)
-            .eq("user_id", user.id)
-            .maybeSingle();
-        isLibraryMember = !!orgMember;
-    }
 
     if (!isHost) return { isHost: false, isAdmin, allowed: false, reason: "not_host" };
-    const allowed = isAdmin || isBibliofilo || isLibraryMember;
-    return { isHost, isAdmin, allowed, reason: allowed ? undefined : "requires_plan" };
+    // Temporal (hasta septiembre de 2026): las herramientas de club con IA solo
+    // están activas para admin/editor. Restaurar el acceso por plan Bibliófilo y
+    // por librería (isBibliofilo || isLibraryMember) cuando se activen.
+    const allowed = isAdmin;
+    return { isHost, isAdmin, allowed, reason: allowed ? undefined : "coming_soon" };
 }
 
 export type ClubEmotionResult =
     | { status: "ok"; text: string; bookTitle: string; participants: number; cached: boolean }
-    | { status: "locked"; reason: "unauthenticated" | "not_host" | "requires_plan" }
+    | { status: "locked"; reason: "unauthenticated" | "not_host" | "requires_plan" | "coming_soon" }
     | { status: "no_book" }
     | { status: "not_enough"; participants: number }
     | { status: "limit" }
@@ -180,7 +168,7 @@ export async function getClubEmotionalMap(clubId: string, forceRefresh = false):
 
 export type ClubSessionResult =
     | { status: "ok"; text: string; bookTitle: string; cached: boolean }
-    | { status: "locked"; reason: "unauthenticated" | "not_host" | "requires_plan" }
+    | { status: "locked"; reason: "unauthenticated" | "not_host" | "requires_plan" | "coming_soon" }
     | { status: "no_book" }
     | { status: "no_resources" }
     | { status: "limit" }

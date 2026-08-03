@@ -17,7 +17,7 @@ export interface AssistantAccess {
     isAdmin: boolean;
     plan: string | null;
     allowed: boolean;
-    reason?: "unauthenticated" | "requires_plan";
+    reason?: "unauthenticated" | "requires_plan" | "coming_soon";
 }
 
 export async function getAssistantAccess(): Promise<AssistantAccess> {
@@ -34,9 +34,13 @@ export async function getAssistantAccess(): Promise<AssistantAccess> {
     const isAdmin = role === "admin" || role === "editor";
     const sub = subRes.data as { plan: string; status: string; current_period_end: string | null } | null;
     const plan = sub && isSubscriptionActive(sub.status, sub.current_period_end) ? sub.plan : null;
-    const allowed = isAdmin || plan === "ai";
+    // Temporal (hasta septiembre de 2026): las funciones de IA solo están activas
+    // para admin/editor (para poder probarlas). El plan Bibliófilo aún no las
+    // desbloquea; al resto se le muestra "próximamente". Restaurar a
+    // `isAdmin || plan === "ai"` cuando se activen.
+    const allowed = isAdmin;
 
-    return { userId: user.id, isAdmin, plan, allowed, reason: allowed ? undefined : "requires_plan" };
+    return { userId: user.id, isAdmin, plan, allowed, reason: allowed ? undefined : "coming_soon" };
 }
 
 // Nº de acciones de IA del usuario en el mes natural en curso.

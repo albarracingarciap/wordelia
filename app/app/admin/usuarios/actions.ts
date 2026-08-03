@@ -172,6 +172,46 @@ export async function revokePlanAction(userId: string): Promise<ActionResult> {
 }
 
 // ---------------------------------------------------------------------------
+// Wordix (monedas): regalo manual
+// ---------------------------------------------------------------------------
+
+const MAX_GIFT_COINS = 10000;
+
+/**
+ * Regala Wordix a un usuario (cortesía, incidencia, evento). Usa la función
+ * atómica `credit_coins` (security definer) con motivo `admin_adjust`, que
+ * actualiza saldo + ledger en una sola operación. Solo importes positivos.
+ */
+export async function giftCoinsAction(userId: string, amount: number): Promise<ActionResult & { balance?: number }> {
+    const amt = Math.floor(Number(amount));
+    if (!Number.isFinite(amt) || amt <= 0) {
+        return { success: false, error: "Introduce una cantidad de Wordix mayor que 0." };
+    }
+    if (amt > MAX_GIFT_COINS) {
+        return { success: false, error: `Máximo ${MAX_GIFT_COINS} Wordix por operación.` };
+    }
+    try {
+        const { id: grantorId } = await requireAdmin();
+        const admin = createAdminClient();
+        // Tipos de Supabase desfasados: la RPC no está en el Database generado.
+        const { data, error } = await (admin as unknown as {
+            rpc: (fn: string, args: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }>;
+        }).rpc("credit_coins", {
+            p_user: userId,
+            p_amount: amt,
+            p_reason: "admin_adjust",
+            p_reference: `admin:${grantorId}`,
+        });
+        if (error) throw error;
+        revalidatePath(`/app/admin/usuarios/${userId}`);
+        return { success: true, balance: typeof data === "number" ? data : undefined };
+    } catch (e) {
+        console.error("giftCoinsAction:", e);
+        return { success: false, error: "No se pudieron regalar los Wordix." };
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Acciones de cuenta
 // ---------------------------------------------------------------------------
 

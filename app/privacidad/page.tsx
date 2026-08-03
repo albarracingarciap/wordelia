@@ -16,8 +16,8 @@ export default function PrivacidadPage() {
 
             <h2>1. Responsable del tratamiento</h2>
             <p>
-                El responsable del tratamiento de tus datos es <strong>[NOMBRE LEGAL DE LA EMPRESA]</strong>, con
-                NIF/CIF <strong>[NIF/CIF]</strong> y domicilio en <strong>[DIRECCIÓN COMPLETA]</strong>.
+                El responsable del tratamiento de tus datos es <strong>Pedro Albarracín Garcia</strong>, con
+                NIF/CIF <strong>35081361J</strong> y domicilio en <strong>Calle Silos, 51, Alcalá de Guadaíra, Sevilla.</strong>.
             </p>
             <p>
                 Para cualquier cuestión relacionada con tus datos puedes escribirnos a{" "}
@@ -89,19 +89,9 @@ export default function PrivacidadPage() {
             <h2>6. Destinatarios y encargados del tratamiento</h2>
             <p>
                 No vendemos tus datos. Para prestar el servicio nos apoyamos en proveedores que actúan como
-                encargados del tratamiento, con los que mantenemos los correspondientes contratos:
+                encargados del tratamiento de tales datos.
             </p>
-            <ul>
-                <li>
-                    <strong>Supabase</strong> — alojamiento de la base de datos y autenticación.
-                </li>
-                <li>
-                    <strong>[PROVEEDOR DE HOSTING / DESPLIEGUE]</strong> — alojamiento de la aplicación.
-                </li>
-                <li>
-                    <strong>[PROVEEDOR DE EMAIL]</strong> — envío de correos transaccionales y newsletter.
-                </li>
-            </ul>
+            
             <p>
                 Algunos proveedores pueden estar ubicados fuera del Espacio Económico Europeo; en tales casos nos
                 aseguramos de que existan garantías adecuadas para la transferencia internacional de datos.
