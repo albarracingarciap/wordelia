@@ -5,7 +5,7 @@ import Image from "next/image";
 import { SearchInput } from "../ui/SearchInput";
 import { Avatar } from "../ui/Avatar";
 import { Badge } from "../ui/Badge";
-import { Sparkles, LayoutDashboard, UserPlus } from "lucide-react";
+import { Sparkles, LayoutDashboard, UserPlus, Rocket } from "lucide-react";
 import { signout } from "@/app/auth/actions";
 
 import { createClient } from "@/utils/supabase/client";
@@ -16,6 +16,7 @@ type Profile = {
     full_name?: string | null;
     avatar_url?: string | null;
     role?: string | null;
+    onboarding_completed?: boolean | null;
 };
 
 export function TopBar() {
@@ -140,7 +141,20 @@ export function TopBar() {
 
                         {/* Dropdown Menu */}
                         {isDropdownOpen && (
-                            <div className="fixed right-3 top-14 z-[80] w-48 rounded-xl border border-teal/10 bg-white py-1 shadow-lg animate-fade-in md:right-8 md:top-[68px]">
+                            <div className="fixed right-3 top-14 z-[80] w-56 rounded-xl border border-teal/10 bg-white py-1 shadow-lg animate-fade-in md:right-8 md:top-[68px]">
+                                {profile && !profile.onboarding_completed && (
+                                    <>
+                                        <Link
+                                            href="/app/onboarding"
+                                            onClick={() => setIsDropdownOpen(false)}
+                                            className="w-full text-left px-4 py-2 text-sm font-semibold text-teal hover:bg-teal/5 transition-colors flex items-center gap-2"
+                                        >
+                                            <Rocket className="h-4 w-4" aria-hidden="true" />
+                                            Terminar configuración
+                                        </Link>
+                                        <div className="my-1 border-t border-teal/5" />
+                                    </>
+                                )}
                                 <Link
                                     href="/app/perfil"
                                     onClick={() => setIsDropdownOpen(false)}

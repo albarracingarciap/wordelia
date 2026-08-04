@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ChangeEvent, type FormEvent, type ReactNode } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { completeOnboarding } from "./actions";
@@ -320,6 +321,12 @@ export default function OnboardingPage() {
                             </span>
                         </div>
                     )}
+                </div>
+                {/* Escape del onboarding: puedes entrar en la app y completarlo cuando quieras. */}
+                <div className="pointer-events-auto">
+                    <Link href="/app/mi-lectura" className="text-sm font-medium text-grey/50 transition-colors hover:text-teal">
+                        Hacerlo más tarde
+                    </Link>
                 </div>
             </header>
 

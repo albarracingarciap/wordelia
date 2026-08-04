@@ -37,15 +37,32 @@ export async function GET(request: Request) {
             console.error('[auth/callback] record_referral:', referralError)
         }
 
+        // Destino: si el `next` es el genérico (login/registro por Google o
+        // confirmación de email) y el usuario aún no ha hecho el onboarding, lo
+        // guiamos allí (sin atraparlo: puede salir con "Hacerlo más tarde"). Si
+        // hay un `next` explícito (p.ej. /auth/nueva-password del reset), se respeta.
+        let dest = next
+        if (dest === '/app/mi-lectura') {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (user) {
+                const { data: profile } = await supabase
+                    .from('profiles')
+                    .select('onboarding_completed')
+                    .eq('id', user.id)
+                    .maybeSingle()
+                if (profile && !profile.onboarding_completed) dest = '/app/onboarding'
+            }
+        }
+
         const forwardedHost = request.headers.get('x-forwarded-host') // original origin before load balancer
         const isLocalEnv = process.env.NODE_ENV === 'development'
         if (isLocalEnv) {
             // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
-            return NextResponse.redirect(`${origin}${next}`)
+            return NextResponse.redirect(`${origin}${dest}`)
         } else if (forwardedHost) {
-            return NextResponse.redirect(`https://${forwardedHost}${next}`)
+            return NextResponse.redirect(`https://${forwardedHost}${dest}`)
         } else {
-            return NextResponse.redirect(`${origin}${next}`)
+            return NextResponse.redirect(`${origin}${dest}`)
         }
     }
 

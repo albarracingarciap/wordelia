@@ -73,16 +73,14 @@ export async function updateSession(request: NextRequest) {
         const isCompleted = profile?.onboarding_completed;
         const isServerAction = request.headers.has("next-action");
 
-        // 1. If onboarding NOT complete and NOT on onboarding page -> Redirect to /app/onboarding
-        // Only enforce this for /app pages (not /perfil/editar/api etc if any)
-        if (!isCompleted && !isOnboardingRoute && request.nextUrl.pathname.startsWith("/app")) {
-            const url = request.nextUrl.clone();
-            url.pathname = "/app/onboarding";
-            return NextResponse.redirect(url);
-        }
+        // Onboarding BLANDO: NO se fuerza. Al registrarse se envía al onboarding
+        // (desde el signup / callback), pero el usuario puede salir con "Hacerlo
+        // más tarde" y usar la app; un aviso en la app le deja retomarlo cuando
+        // quiera. Antes se forzaba en cada visita a /app y dejaba al usuario
+        // atrapado sin poder entrar si no lo completaba.
 
-        // 2. If onboarding IS complete and user is ON onboarding page -> Redirect to /app/mi-lectura
-        // IMPORTANT: Do NOT redirect if this is a Server Action request (POST), because that will break the action response.
+        // Si el onboarding YA está completo y el usuario aterriza en él, lo
+        // llevamos a su lectura (evita repetirlo). No redirige en Server Actions.
         if (isCompleted && isOnboardingRoute && !isServerAction) {
             const url = request.nextUrl.clone();
             url.pathname = "/app/mi-lectura";
