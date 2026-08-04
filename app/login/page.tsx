@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import Link from "next/link";
 import Image from "next/image";
 import { Input } from "@/components/ui/Input";
+import { GoogleButton } from "@/components/auth/GoogleButton";
 
 function SubmitButton() {
     const { pending } = useFormStatus();
@@ -97,7 +98,7 @@ function LoginContent() {
                                     required
                                 />
                                 <div className="mt-2 text-right">
-                                    <Link href="#" className="text-sm font-medium text-coral hover:underline">
+                                    <Link href="/auth/recuperar" className="text-sm font-medium text-coral hover:underline">
                                         ¿Olvidaste tu contraseña?
                                     </Link>
                                 </div>
@@ -108,6 +109,14 @@ function LoginContent() {
                             <SubmitButton />
                         </div>
                     </form>
+
+                    <div className="flex items-center gap-3">
+                        <span className="h-px flex-1 bg-grey/15" />
+                        <span className="text-xs font-medium uppercase tracking-wide text-grey/40">o</span>
+                        <span className="h-px flex-1 bg-grey/15" />
+                    </div>
+
+                    <GoogleButton />
 
                     <p className="text-center text-sm text-grey/60 sm:text-base">
                         ¿Aún no tienes una cuenta?{" "}

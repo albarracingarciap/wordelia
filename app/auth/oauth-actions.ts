@@ -4,28 +4,28 @@ import { redirect } from 'next/navigation'
 import { createClient } from '@/utils/supabase/server'
 import { headers } from 'next/headers'
 
-export async function signInWithGoogle(formData: FormData) {
+// Server action usable directamente como `action` de un <form>: no devuelve
+// valor (redirige siempre). El callback vive en /auth/callback (ruta pública que
+// intercambia el code por sesión y registra el referido). Antes apuntaba a
+// /app/auth/callback, que NO existe y caía en zona protegida → login colgado.
+export async function signInWithGoogle() {
     const supabase = await createClient()
     const origin = (await headers()).get('origin')
 
     const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        // El callback vive en /auth/callback (ruta pública que intercambia el code
-        // por sesión y registra el referido). Antes apuntaba a /app/auth/callback,
-        // que NO existe y además cae en zona protegida → el login quedaba colgado.
         options: {
             redirectTo: `${origin}/auth/callback`,
         },
     })
 
     if (error) {
-        console.error(error)
-        return { error: error.message }
+        console.error('[signInWithGoogle]', error)
+        redirect('/login?error=google')
     }
 
-    if (data.url) {
-        redirect(data.url)
-    }
+    if (data?.url) redirect(data.url)
+    redirect('/login?error=google')
 }
 
 export async function signInWithApple(formData: FormData) {

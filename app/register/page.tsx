@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Checkbox } from "@/components/ui/Checkbox";
 import { signup } from "@/app/auth/actions";
+import { GoogleButton } from "@/components/auth/GoogleButton";
 
 function RegisterContent() {
     const searchParams = useSearchParams();
@@ -166,6 +167,14 @@ function RegisterContent() {
                             </Button>
                         </div>
                     </form>
+
+                    <div className="flex items-center gap-3">
+                        <span className="h-px flex-1 bg-grey/15" />
+                        <span className="text-xs font-medium uppercase tracking-wide text-grey/40">o</span>
+                        <span className="h-px flex-1 bg-grey/15" />
+                    </div>
+
+                    <GoogleButton label="Regístrate con Google" />
 
                     <div className="pt-4 text-center">
                         <p className="text-sm text-grey/60">

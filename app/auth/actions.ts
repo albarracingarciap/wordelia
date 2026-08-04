@@ -186,6 +186,48 @@ export async function resendConfirmation(_prevState: AuthActionState, formData: 
     return null
 }
 
+// --- Recuperación de contraseña -------------------------------------------
+
+type ResetState = { error?: string; sent?: boolean } | null
+
+// Envía el email de recuperación. El enlace vuelve a /auth/callback (que crea la
+// sesión de recuperación) y de ahí a /auth/nueva-password para fijar la nueva.
+export async function requestPasswordReset(_prevState: ResetState, formData: FormData): Promise<ResetState> {
+    const email = String(formData.get('email') || '').trim().toLowerCase()
+    if (!email || !email.includes('@')) {
+        return { error: 'Introduce un email válido.' }
+    }
+    const supabase = await createClient()
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${getSiteUrl()}/auth/callback?next=/auth/nueva-password`,
+    })
+    if (error) {
+        console.error('[requestPasswordReset]', error)
+        // Aun así respondemos genérico para no revelar si el email existe.
+    }
+    return { sent: true }
+}
+
+// Fija la nueva contraseña. Requiere la sesión de recuperación creada por el
+// enlace del correo (el callback ya la habrá establecido).
+export async function updatePassword(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
+    const password = String(formData.get('password') || '')
+    if (password.length < 8) {
+        return { error: 'La contraseña debe tener al menos 8 caracteres.' }
+    }
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+        return { error: 'El enlace ha caducado o no es válido. Pide uno nuevo.' }
+    }
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error) {
+        return { error: getAuthErrorMessage(error.message) }
+    }
+    revalidatePath('/', 'layout')
+    redirect('/app/mi-lectura')
+}
+
 export async function signout() {
     const supabase = await createClient()
     await supabase.auth.signOut()
