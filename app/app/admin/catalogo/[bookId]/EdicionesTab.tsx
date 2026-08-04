@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "@/components/ui/confirm";
+
 import { useState, useTransition } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
@@ -199,8 +201,8 @@ function EditionCard({ bookId, edition }: { bookId: string; edition: BookEdition
                         </button>
                         <button
                             disabled={pending}
-                            onClick={() => {
-                                if (confirm("¿Borrar esta edición?")) run(() => deleteEditionAction(bookId, edition.id));
+                            onClick={async () => {
+                                if (await confirmDialog({ title: "Borrar edición", message: "¿Borrar esta edición?", confirmLabel: "Borrar", tone: "danger" })) run(() => deleteEditionAction(bookId, edition.id));
                             }}
                             className="inline-flex items-center gap-1 text-xs text-coral hover:underline disabled:opacity-50"
                         >

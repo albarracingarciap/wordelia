@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+
 import { useEffect, useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -45,7 +47,7 @@ export function GiftRecipientView({ recipient, ideas: initialIdeas }: GiftRecipi
                 price: book.price ?? undefined,
                 bookId: book.isbn ?? book.id,
             });
-            if (result?.error) alert(result.error);
+            if (result?.error) toast.error(result.error);
             setIsSearchOpen(false);
             router.refresh();
         });
@@ -54,7 +56,7 @@ export function GiftRecipientView({ recipient, ideas: initialIdeas }: GiftRecipi
     function handleMarkPurchased(ideaId: string) {
         startTransition(async () => {
             const result = await markGiftIdeaAsPurchased(ideaId, recipient.id);
-            if (result?.error) alert(result.error);
+            if (result?.error) toast.error(result.error);
             router.refresh();
         });
     }
@@ -62,7 +64,7 @@ export function GiftRecipientView({ recipient, ideas: initialIdeas }: GiftRecipi
     function handleUpdateStatus(ideaId: string, status: GiftIdeaStatus) {
         startTransition(async () => {
             const result = await updateGiftIdeaStatus(ideaId, recipient.id, status);
-            if (result?.error) alert(result.error);
+            if (result?.error) toast.error(result.error);
             router.refresh();
         });
     }
@@ -71,7 +73,7 @@ export function GiftRecipientView({ recipient, ideas: initialIdeas }: GiftRecipi
         startTransition(async () => {
             const result = await updateGiftIdea(idea.id, recipient.id, data);
             if (result?.error) {
-                alert(result.error);
+                toast.error(result.error);
                 return;
             }
             setEditingIdea(null);
@@ -84,7 +86,7 @@ export function GiftRecipientView({ recipient, ideas: initialIdeas }: GiftRecipi
         if (!ideaId) return;
         startTransition(async () => {
             const result = await deleteGiftIdea(ideaId, recipient.id);
-            if (result?.error) { alert(result.error); return; }
+            if (result?.error) { toast.error(result.error); return; }
             setDeletingIdeaId(null);
             router.refresh();
         });
@@ -93,7 +95,7 @@ export function GiftRecipientView({ recipient, ideas: initialIdeas }: GiftRecipi
     function confirmDeletePerson() {
         startTransition(async () => {
             const result = await deleteGiftRecipient(recipient.id);
-            if (result?.error) { alert(result.error); return; }
+            if (result?.error) { toast.error(result.error); return; }
             router.push("/app/wishes?tab=gifts");
         });
     }
@@ -509,7 +511,7 @@ function EditGiftIdeaModal({
                     event.preventDefault();
                     const parsedPrice = price.trim() ? Number(price.replace(",", ".")) : null;
                     if (parsedPrice !== null && Number.isNaN(parsedPrice)) {
-                        alert("El precio no tiene un formato válido.");
+                        toast.error("El precio no tiene un formato válido.");
                         return;
                     }
                     onSave(idea, { title, author, price: parsedPrice, privateNote });

@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+
 import { useState } from "react";
 import { Star, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -27,7 +29,7 @@ export function ReviewModal({ bookId, bookTitle, isOpen, onClose, initialRating 
 
     const handleSubmit = async () => {
         if (rating === 0) {
-            alert("Por favor, selecciona una valoración (estrellas).");
+            toast.error("Por favor, selecciona una valoración (estrellas).");
             return;
         }
 
@@ -38,10 +40,10 @@ export function ReviewModal({ bookId, bookTitle, isOpen, onClose, initialRating 
                 onClose();
                 // Optional: Trigger a refresh or toast
             } else {
-                alert(result.error);
+                toast.error(result.error ?? "No se pudo enviar la reseña.");
             }
         } catch (e) {
-            alert("Error al enviar la reseña.");
+            toast.error("Error al enviar la reseña.");
         } finally {
             setLoading(false);
         }

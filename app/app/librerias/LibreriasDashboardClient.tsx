@@ -12,7 +12,8 @@ import { Select } from "@/components/ui/Select";
 import { BuyLinkTemplateField } from "@/components/librerias/BuyLinkTemplateField";
 import { RecommendationsSection } from "@/components/librerias/RecommendationsSection";
 import { createClient } from "@/utils/supabase/client";
-import { createOrganization, updateOrganization, createOrganizationEvent, updateOrganizationEvent, deleteOrganizationEvent, createLocation, updateLocation, deleteLocation, type OrganizationAnalytics, type OrganizationMember } from "./actions";
+import { createOrganization, updateOrganization, deleteOrganization, createOrganizationEvent, updateOrganizationEvent, deleteOrganizationEvent, createLocation, updateLocation, deleteLocation, type OrganizationAnalytics, type OrganizationMember } from "./actions";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { FREE_LOCATION_LIMIT, FREE_UPCOMING_EVENT_LIMIT } from "@/lib/org-limits";
 import { inviteMemberByUsername } from "@/app/app/clubs/[id]/actions";
 import { PayPalSubscriptionProvider, PayPalSubscribeButton } from "@/components/payments/PayPalSubscribe";
@@ -71,6 +72,7 @@ export function LibreriasDashboardClient({
     events,
     members,
     locations,
+    currentUserId,
 }: {
     organizations: Organization[];
     organization: Organization | null;
@@ -79,6 +81,7 @@ export function LibreriasDashboardClient({
     events: OrganizationEvent[];
     members: OrganizationMember[];
     locations: OrganizationLocation[];
+    currentUserId: string | null;
 }) {
     if (!organization) return <div className="mx-auto max-w-2xl"><RegisterHeader /><Card><RegisterForm /></Card></div>;
     return (
@@ -90,6 +93,7 @@ export function LibreriasDashboardClient({
             events={events}
             members={members}
             locations={locations}
+            currentUserId={currentUserId}
         />
     );
 }
@@ -168,7 +172,7 @@ function RegisterForm({ onCreated }: { onCreated?: (orgId: string) => void } = {
     );
 }
 
-function Dashboard({ organizations, organization, clubs, analytics, events, members, locations }: { organizations: Organization[]; organization: Organization; clubs: any[]; analytics: OrganizationAnalytics | null; events: OrganizationEvent[]; members: OrganizationMember[]; locations: OrganizationLocation[] }) {
+function Dashboard({ organizations, organization, clubs, analytics, events, members, locations, currentUserId }: { organizations: Organization[]; organization: Organization; clubs: any[]; analytics: OrganizationAnalytics | null; events: OrganizationEvent[]; members: OrganizationMember[]; locations: OrganizationLocation[]; currentUserId: string | null }) {
     const router = useRouter();
     // Pro requires an active (or within-grace) paid subscription, not just tier.
     const isPro = isOrgProActive(organization.subscription);
@@ -334,6 +338,7 @@ function Dashboard({ organizations, organization, clubs, analytics, events, memb
                 organization={organization}
                 isOpen={isEditOpen}
                 onClose={() => setIsEditOpen(false)}
+                isOwner={!!currentUserId && organization.owner_id === currentUserId}
             />
 
             <Modal isOpen={isNewOrgOpen} onClose={() => setIsNewOrgOpen(false)} title="Nueva librería">
@@ -872,16 +877,29 @@ function EditProfileModal({
     organization,
     isOpen,
     onClose,
+    isOwner,
 }: {
     organization: Organization;
     isOpen: boolean;
     onClose: () => void;
+    isOwner: boolean;
 }) {
     const router = useRouter();
     const [form, setForm] = React.useState<Record<string, string>>({});
     const [error, setError] = React.useState("");
     const [isSaving, setIsSaving] = React.useState(false);
     const [uploading, setUploading] = React.useState<"logo_url" | "cover_url" | null>(null);
+    const [confirmDeleteOpen, setConfirmDeleteOpen] = React.useState(false);
+    const [deleting, setDeleting] = React.useState(false);
+
+    const handleDelete = async () => {
+        setDeleting(true);
+        const res = await deleteOrganization(organization.id);
+        setDeleting(false);
+        if (res?.error) { setError(res.error); setConfirmDeleteOpen(false); return; }
+        router.push("/app/librerias");
+        router.refresh();
+    };
     const supabase = React.useMemo(() => createClient(), []);
 
     // Reset the form to the organization's values each time the modal opens.
@@ -1038,6 +1056,23 @@ function EditProfileModal({
                     <p className="mt-1.5 ml-1 text-xs text-grey/40">Se usa como color de acento en tu ficha pública.</p>
                 </div>
 
+                {isOwner && (
+                    <div className="mt-2 rounded-2xl border border-coral/20 bg-coral/5 p-4">
+                        <p className="text-sm font-bold text-coral">Eliminar librería</p>
+                        <p className="mt-1 text-xs leading-relaxed text-grey/60">
+                            Borra la librería de forma permanente (perfil, equipo, eventos y sedes). Los clubs que aloja
+                            dejarán de estar alojados aquí, pero <strong>no se borran</strong>. Esta acción no se puede deshacer.
+                        </p>
+                        <button
+                            type="button"
+                            onClick={() => setConfirmDeleteOpen(true)}
+                            className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-coral/40 px-4 py-2 text-sm font-semibold text-coral transition-colors hover:bg-coral/10"
+                        >
+                            <Trash2 className="h-4 w-4" aria-hidden="true" /> Eliminar librería
+                        </button>
+                    </div>
+                )}
+
                 <div className="flex justify-end gap-3 pt-1">
                     <Button type="button" variant="ghost" onClick={onClose} className="h-11 px-6" disabled={isSaving}>
                         Cancelar
@@ -1047,6 +1082,17 @@ function EditProfileModal({
                     </Button>
                 </div>
             </div>
+
+            <ConfirmModal
+                open={confirmDeleteOpen}
+                title="Eliminar librería"
+                message={`Vas a eliminar "${organization.name}" de forma permanente. Esta acción no se puede deshacer.`}
+                confirmLabel="Eliminar definitivamente"
+                tone="danger"
+                busy={deleting}
+                onConfirm={handleDelete}
+                onCancel={() => setConfirmDeleteOpen(false)}
+            />
         </Modal>
     );
 }

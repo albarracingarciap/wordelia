@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "@/components/ui/confirm";
+
 import * as React from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -295,7 +297,7 @@ export function MembersList({ club }: { club?: unknown }) {
     };
 
     const handleRegenerate = async () => {
-        if (!confirm("¿Regenerar el código? El anterior dejará de funcionar.")) return;
+        if (!(await confirmDialog({ title: "Regenerar código", message: "¿Regenerar el código? El anterior dejará de funcionar.", confirmLabel: "Regenerar", tone: "danger" }))) return;
         const result = await regenerateJoinCode(clubId);
         const code = result && "code" in result ? result.code : null;
         if (result?.success && typeof code === "string") {
@@ -319,7 +321,7 @@ export function MembersList({ club }: { club?: unknown }) {
     };
 
     const handleRemove = async (userId: string, name: string) => {
-        if (!confirm(`¿Expulsar a ${name}?`)) return;
+        if (!(await confirmDialog({ title: "Expulsar del club", message: `¿Expulsar a ${name}?`, confirmLabel: "Expulsar", tone: "danger" }))) return;
         setOpenMenuId(null);
         setActionLoading(userId, true);
         await removeMember(clubId, userId);

@@ -1,5 +1,8 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+import { confirmDialog } from "@/components/ui/confirm";
+
 import * as React from "react";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
@@ -42,7 +45,7 @@ export function ReadingSetup({ book, onBack, onSave, isPro = false, initialConfi
             setIsProModalOpen(true);
             return;
         }
-        alert("Generando con IA... (Simulación)");
+        toast.info("Generando con IA… (simulación)");
         // Add AI generation logic here
     };
 
@@ -50,9 +53,9 @@ export function ReadingSetup({ book, onBack, onSave, isPro = false, initialConfi
         setConfig(prev => ({ ...prev, [field]: value }));
     };
 
-    const handleUnitChange = (newUnit: string) => {
+    const handleUnitChange = async (newUnit: string) => {
         const confirmReset = config.checkpoints.length > 0
-            ? confirm("Al cambiar la unidad, se borrarán los checkpoints actuales. ¿Continuar?")
+            ? await confirmDialog({ title: "Cambiar unidad", message: "Al cambiar la unidad, se borrarán los checkpoints actuales. ¿Continuar?", confirmLabel: "Continuar", tone: "danger" })
             : true;
 
         if (confirmReset) {

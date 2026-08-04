@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+
 import * as React from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -303,14 +305,14 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
         try {
             const result = await saveReadingPlan(club.id, selectedBook, config);
             if (result.error) {
-                alert("Error: " + result.error);
+                toast.error("Error: " + result.error);
             } else {
                 setSelectedBook(null);
                 setEditingConfig(null);
             }
         } catch (e) {
             console.error(e);
-            alert("Error al guardar la lectura.");
+            toast.error("Error al guardar la lectura.");
         } finally {
             setPlanBusy(false);
         }
@@ -327,10 +329,10 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                 setPlanBusy(true);
                 try {
                     const result = await activateReading(club.id, plannedId);
-                    if (result.error) alert("Error: " + result.error);
+                    if (result.error) toast.error("Error: " + result.error);
                 } catch (e) {
                     console.error(e);
-                    alert("Error al iniciar la lectura.");
+                    toast.error("Error al iniciar la lectura.");
                 } finally {
                     setPlanBusy(false);
                     setConfirmState(null);
@@ -350,10 +352,10 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                 setPlanBusy(true);
                 try {
                     const result = await revertReadingToPlanned(club.id, clubBookId);
-                    if (result.error) alert("Error: " + result.error);
+                    if (result.error) toast.error("Error: " + result.error);
                 } catch (e) {
                     console.error(e);
-                    alert("Error al revertir la lectura.");
+                    toast.error("Error al revertir la lectura.");
                 } finally {
                     setPlanBusy(false);
                     setConfirmState(null);
@@ -405,10 +407,10 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
                 setPlanBusy(true);
                 try {
                     const result = await cancelReadingPlan(club.id, plannedId);
-                    if (result.error) alert("Error: " + result.error);
+                    if (result.error) toast.error("Error: " + result.error);
                 } catch (e) {
                     console.error(e);
-                    alert("Error al descartar la lectura.");
+                    toast.error("Error al descartar la lectura.");
                 } finally {
                     setPlanBusy(false);
                     setConfirmState(null);
@@ -426,7 +428,7 @@ export function ClubDashboard({ club, activePoll, pollHistory = [] }: ClubDashbo
     const handleCreatePoll = async (question: string, options: string[]) => {
         const result = await createPoll(club.id, question, options);
         if (result?.error) {
-            alert("Error al crear la votación: " + result.error);
+            toast.error("Error al crear la votación: " + result.error);
         } else {
             // Success
         }

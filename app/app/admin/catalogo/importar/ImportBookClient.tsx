@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+
 import { useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/Button";
@@ -76,7 +78,7 @@ export function ImportBookClient() {
             try {
                 genomeObj = JSON.parse(formData.genome_data);
             } catch (e) {
-                alert("El ADN Literario debe ser un JSON válido.");
+                toast.error("El ADN Literario debe ser un JSON válido.");
                 setIsSubmitting(false);
                 return;
             }
@@ -88,14 +90,14 @@ export function ImportBookClient() {
 
             const result = await importBookAction(payload);
             if (result.error) {
-                alert(`Error: ${result.error}`);
+                toast.error(`Error: ${result.error}`);
             } else {
-                alert("Libro importado correctamente.");
+                toast.success("Libro importado correctamente.");
                 router.push("/app/admin/catalogo");
             }
         } catch (error) {
             console.error(error);
-            alert("Error al importar el libro");
+            toast.error("Error al importar el libro");
         } finally {
             setIsSubmitting(false);
         }

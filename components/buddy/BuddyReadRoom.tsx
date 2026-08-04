@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "@/components/ui/confirm";
+
 import * as React from "react";
 import Link from "next/link";
 import Image from "next/image";
@@ -54,7 +56,7 @@ export function BuddyReadRoom({ initialBuddy, initialMessages }: { initialBuddy:
     };
 
     const finish = async () => {
-        if (!confirm("¿Marcar esta lectura como terminada?")) return;
+        if (!(await confirmDialog({ title: "Terminar lectura", message: "¿Marcar esta lectura como terminada?", confirmLabel: "Terminar" }))) return;
         await finishBuddyRead(buddy.id);
         setBuddy((b) => ({ ...b, status: "finished" }));
     };

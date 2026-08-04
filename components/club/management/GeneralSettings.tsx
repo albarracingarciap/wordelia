@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "@/components/ui/confirm";
+
 import * as React from "react";
 import { Card } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
@@ -85,7 +87,7 @@ export function GeneralSettings({ club }: { club?: any }) {
     };
 
     const handleArchive = async () => {
-        if (!confirm("¿Archivar este club? El club quedará inactivo y dejará de aparecer en Explorar, pero podrás restaurarlo más adelante.")) return;
+        if (!(await confirmDialog({ title: "Archivar club", message: "El club quedará inactivo y dejará de aparecer en Explorar, pero podrás restaurarlo más adelante. ¿Archivarlo?", confirmLabel: "Archivar", tone: "danger" }))) return;
         setIsArchiving(true);
         setDangerError(null);
         const result = await archiveClub(clubId);

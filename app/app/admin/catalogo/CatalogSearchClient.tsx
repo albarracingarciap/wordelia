@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+
 import { useState } from "react";
 import { Input } from "@/components/ui/Input";
 import { Button } from "@/components/ui/Button";
@@ -26,7 +28,7 @@ export function CatalogSearchClient() {
             setResults(books);
         } catch (error) {
             console.error("Error searching books:", error);
-            alert("Error al buscar libros.");
+            toast.error("Error al buscar libros.");
         } finally {
             setIsSearching(false);
         }

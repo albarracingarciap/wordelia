@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Crown, CreditCard, Gift, Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
 import type { LibraryWorkspace, OrgPayment } from "../data";
 import { grantOrgProAction, revokeOrgProAction } from "../actions";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 function fmtDate(iso: string | null) {
     if (!iso) return "—";
@@ -36,6 +37,7 @@ export function PlanTab({
     const [pending, startTransition] = useTransition();
     const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
     const [months, setMonths] = useState("12");
+    const [confirmDowngrade, setConfirmDowngrade] = useState(false);
 
     const isPro = subscription?.tier === "pro" && subscription?.status !== "expired";
     const hasPaypal = Boolean(subscription?.provider_subscription_id);
@@ -108,11 +110,7 @@ export function PlanTab({
                 {isPro && (
                     <button
                         disabled={pending}
-                        onClick={() => {
-                            if (confirm("¿Bajar esta librería a Free? Perderá el acceso Pro de inmediato.")) {
-                                run(() => revokeOrgProAction(orgId), "Bajada a Free.");
-                            }
-                        }}
+                        onClick={() => setConfirmDowngrade(true)}
                         className="inline-flex items-center gap-1.5 text-sm font-medium text-coral hover:underline disabled:opacity-40"
                     >
                         Bajar a Free
@@ -159,6 +157,17 @@ export function PlanTab({
                     </div>
                 )}
             </div>
+
+            <ConfirmModal
+                open={confirmDowngrade}
+                title="Bajar a Free"
+                message="La librería perderá el acceso Pro de inmediato. Si tiene una suscripción de PayPal, recuerda cancelarla también en PayPal."
+                confirmLabel="Bajar a Free"
+                tone="danger"
+                busy={pending}
+                onConfirm={() => { setConfirmDowngrade(false); run(() => revokeOrgProAction(orgId), "Bajada a Free."); }}
+                onCancel={() => setConfirmDowngrade(false)}
+            />
         </div>
     );
 }

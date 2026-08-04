@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+
 import Image from "next/image";
 import Link from "next/link";
 import { BookOpen, Star } from "lucide-react";
@@ -66,7 +68,7 @@ export function ReviewCard({ review, compact = false, showBook = false }: Review
             if (result?.error) {
                 setIsHelpful(isHelpful);
                 setHelpfulCount(helpfulCount);
-                alert(result.error);
+                toast.error(result.error);
                 return;
             }
 

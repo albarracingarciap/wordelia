@@ -1,5 +1,8 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+import { confirmDialog } from "@/components/ui/confirm";
+
 import * as React from "react";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
@@ -191,8 +194,8 @@ export function PlanEditor({ club }: { club?: unknown }) {
         setEditingId(null);
     };
 
-    const handleDelete = (id: string) => {
-        if (!confirm("¿Eliminar este checkpoint?")) return;
+    const handleDelete = async (id: string) => {
+        if (!(await confirmDialog({ title: "Eliminar checkpoint", message: "¿Eliminar este checkpoint?", confirmLabel: "Eliminar", tone: "danger" }))) return;
         setCheckpoints(prev => prev.filter(c => c.id !== id));
     };
 
@@ -201,7 +204,7 @@ export function PlanEditor({ club }: { club?: unknown }) {
         const result = await saveCheckpoints(clubId, checkpoints);
         setIsSaving(false);
         if (result?.error) {
-            alert("Error: " + result.error);
+            toast.error("Error: " + result.error);
         } else {
             setSavedOk(true);
             setTimeout(() => setSavedOk(false), 2500);
@@ -326,7 +329,7 @@ export function PlanEditor({ club }: { club?: unknown }) {
                             <h4 className="font-bold text-sm text-blue-900">Asistente de Planificación</h4>
                             <p className="text-xs text-blue-700/70">¿Quieres que la IA sugiera checkpoints basados en el libro?</p>
                         </div>
-                        <Button variant="outline" size="sm" className="bg-white border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => alert("Próximamente")}>Sugerir</Button>
+                        <Button variant="outline" size="sm" className="bg-white border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => toast.info("Próximamente")}>Sugerir</Button>
                     </div>
                 </div>
             </Card>

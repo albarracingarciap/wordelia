@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "@/components/ui/confirm";
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Trash2, Plus, Loader2 } from "lucide-react";
@@ -58,7 +60,7 @@ export function PromptsAdminClient({ initial }: { initial: CommunityPrompt[] }) 
                             {p.isActive ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                         </button>
                         <button
-                            onClick={() => { if (confirm("¿Eliminar este prompt?")) void run(() => adminDeletePrompt(p.id)); }}
+                            onClick={async () => { if (await confirmDialog({ title: "Eliminar prompt", message: "¿Eliminar este prompt?", confirmLabel: "Eliminar", tone: "danger" })) void run(() => adminDeletePrompt(p.id)); }}
                             title="Eliminar"
                             className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-coral/5 hover:text-coral"
                         >

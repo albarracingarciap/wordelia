@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "@/components/ui/confirm";
+
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -92,7 +94,13 @@ export default function SubscriptionManager({ subscription, payments = [] }: { s
 
     async function handleCancel() {
         if (!sub?.provider_subscription_id) return;
-        if (!confirm(`¿Seguro que quieres cancelar tu suscripción? Mantendrás el acceso hasta el ${formatDate(sub.current_period_end)}.`)) {
+        if (!(await confirmDialog({
+            title: "Cancelar suscripción",
+            message: `¿Seguro que quieres cancelar tu suscripción? Mantendrás el acceso hasta el ${formatDate(sub.current_period_end)}.`,
+            confirmLabel: "Cancelar suscripción",
+            cancelLabel: "Volver",
+            tone: "danger",
+        }))) {
             return;
         }
         setBusy(true);

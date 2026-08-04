@@ -3,6 +3,8 @@
 import { usePathname } from "next/navigation";
 import { AppShell } from "@/components/app-shell/AppShell";
 import { Navbar } from "@/components/landing/Navbar";
+import { ConfirmRoot } from "@/components/ui/confirm";
+import { Toaster } from "@/components/ui/toast";
 
 export default function AppLayout({
     children,
@@ -14,33 +16,28 @@ export default function AppLayout({
     const isOnboarding = pathname === "/app/onboarding";
     const isAdminArea = pathname === "/app/admin" || pathname?.startsWith("/app/admin/");
 
+    let content: React.ReactNode;
     if (isAdminArea) {
-        return (
-            <div className="min-h-screen bg-background">
-                {children}
-            </div>
-        );
-    }
-
-    if (isOnboarding) {
-        return (
-            <div className="min-h-screen bg-cream">
-                {/* No Navbar, no AppShell */}
-                {children}
-            </div>
-        );
-    }
-
-    if (isAdnPage) {
-        return (
+        content = <div className="min-h-screen bg-background">{children}</div>;
+    } else if (isOnboarding) {
+        content = <div className="min-h-screen bg-cream">{children}</div>;
+    } else if (isAdnPage) {
+        content = (
             <div className="min-h-screen bg-cream">
                 <Navbar />
-                <main className="pt-[72px]">
-                    {children}
-                </main>
+                <main className="pt-[72px]">{children}</main>
             </div>
         );
+    } else {
+        content = <AppShell>{children}</AppShell>;
     }
 
-    return <AppShell>{children}</AppShell>;
+    // Diálogos de confirmación y toasts disponibles en toda la zona /app.
+    return (
+        <>
+            {content}
+            <ConfirmRoot />
+            <Toaster />
+        </>
+    );
 }

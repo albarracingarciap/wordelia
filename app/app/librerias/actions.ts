@@ -165,6 +165,42 @@ export async function updateOrganization(orgId: string, fields: Record<string, a
     return { success: true };
 }
 
+/**
+ * Elimina PERMANENTEMENTE la librería. Solo el PROPIETARIO (no managers). En
+ * cascada se van miembros, suscripción, eventos, sedes, recomendaciones y los
+ * enlaces de "mi librería"; los clubs alojados NO se borran (su organization_id
+ * pasa a NULL) — dejan de estar alojados pero siguen existiendo. Distinto de
+ * "suspender" (admin), que solo desactiva (is_active=false) y es reversible.
+ */
+export async function deleteOrganization(orgId: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { error: 'No autenticado' };
+
+    const { data: org } = await supabase
+        .from('organizations')
+        .select('owner_id')
+        .eq('id', orgId)
+        .maybeSingle();
+    if (!org) return { error: 'Librería no encontrada.' };
+    if ((org as { owner_id: string }).owner_id !== user.id) {
+        return { error: 'Solo el propietario puede eliminar la librería.' };
+    }
+
+    // No hay policy de DELETE en organizations → borramos con service role tras
+    // comprobar la propiedad arriba.
+    const admin = createAdminClient() as unknown as { from: (t: string) => any };
+    const { error } = await admin.from('organizations').delete().eq('id', orgId);
+    if (error) {
+        console.error('Error deleting organization:', error);
+        return { error: 'No se pudo eliminar la librería.' };
+    }
+
+    revalidatePath('/app/librerias');
+    revalidatePath('/librerias');
+    return { success: true };
+}
+
 export async function getOrganizationBySlug(slug: string): Promise<Organization | null> {
     const supabase = await createClient();
     const { data, error } = await supabase

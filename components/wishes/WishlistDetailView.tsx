@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -67,7 +69,7 @@ export function WishlistDetailView({ wishlist, items, isOwner, candidates }: Wis
                     confidence: 1,
                 });
                 if (result.error) {
-                    alert(result.error);
+                    toast.error(result.error);
                     return;
                 }
             } else {

@@ -38,7 +38,7 @@ export function ProFeatureModal({ isOpen, onClose, featureName = "esta funcional
                 </div>
 
                 <div className="flex flex-col gap-3">
-                    <Button variant="primary" className="w-full justify-center" onClick={() => alert("Redirect to Pricing")}>
+                    <Button variant="primary" className="w-full justify-center" onClick={() => { window.location.href = "/planes"; }}>
                         Actualizar a Pro
                     </Button>
                     <Button variant="ghost" className="w-full justify-center text-grey/60" onClick={onClose}>

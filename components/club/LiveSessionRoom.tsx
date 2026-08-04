@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "@/components/ui/confirm";
+
 import * as React from "react";
 import Link from "next/link";
 import { ArrowLeft, Send, Users, Clock, Play, Square, ChevronLeft, ChevronRight, Radio, CalendarClock } from "lucide-react";
@@ -292,7 +294,7 @@ export function LiveSessionRoom({
                         )}
 
                         {isManager && (
-                            <Button variant="outline" fullWidth onClick={() => { if (confirm("¿Terminar la sesión para todos?")) void setSessionStatus(initialSession.id, "ended"); }} className="border-coral/30 text-coral hover:bg-coral/5">
+                            <Button variant="outline" fullWidth onClick={async () => { if (await confirmDialog({ title: "Terminar sesión", message: "¿Terminar la sesión para todos?", confirmLabel: "Terminar", tone: "danger" })) void setSessionStatus(initialSession.id, "ended"); }} className="border-coral/30 text-coral hover:bg-coral/5">
                                 <Square className="mr-2 h-4 w-4" /> Terminar sesión
                             </Button>
                         )}

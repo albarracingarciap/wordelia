@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Settings, Loader2 } from "lucide-react";
@@ -14,7 +16,7 @@ export function ManageOfficialButton({ clubId }: { clubId: string }) {
     const go = async () => {
         setBusy(true);
         const res = await enterOfficialClubManagement(clubId);
-        if (res?.error) { alert(res.error); setBusy(false); return; }
+        if (res?.error) { toast.error(res.error); setBusy(false); return; }
         router.push(`/app/clubs/${clubId}?from=admin&tab=manage`);
     };
 

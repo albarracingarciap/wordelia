@@ -8,6 +8,7 @@ import {
 } from "./actions";
 import { LibreriasDashboardClient } from "./LibreriasDashboardClient";
 import { getAppSettings } from "@/lib/app-settings";
+import { createClient } from "@/utils/supabase/server";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,9 @@ export default async function LibreriasDashboardPage({
         );
     }
 
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+
     const organizations = await getMyOrganizations();
     const active = organizations.find((o) => o.id === org) || organizations[0] || null;
 
@@ -53,6 +57,7 @@ export default async function LibreriasDashboardPage({
             events={events}
             members={members}
             locations={locations}
+            currentUserId={user?.id ?? null}
         />
     );
 }

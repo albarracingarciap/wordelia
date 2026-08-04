@@ -1,8 +1,9 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { BadgeCheck, Ban, Crown, Loader2 } from "lucide-react";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 import { setLibraryVerifiedAction, setLibraryActiveAction, setOrganizationTier } from "../actions";
 
 export function LibraryStatusBar({
@@ -18,54 +19,73 @@ export function LibraryStatusBar({
 }) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
+    const [confirmOpen, setConfirmOpen] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const run = (fn: () => Promise<{ success: true } | { error: string }>) => {
+        setError(null);
         startTransition(async () => {
             const res = await fn();
             if (!("error" in res)) router.refresh();
-            else alert(res.error);
+            else setError(res.error);
         });
     };
 
     const isPro = tier === "pro";
 
     return (
-        <div className="flex flex-wrap items-center gap-2">
-            <button
-                disabled={pending}
-                onClick={() => run(() => setLibraryVerifiedAction(orgId, !verified))}
-                className={`inline-flex items-center gap-1.5 text-xs font-medium py-1.5 px-3 rounded-md transition-colors disabled:opacity-50 ${
-                    verified ? "bg-teal/15 text-teal-dark" : "border border-input hover:bg-muted"
-                }`}
-            >
-                {pending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BadgeCheck className="w-3.5 h-3.5" />}
-                {verified ? "Verificada" : "Verificar"}
-            </button>
+        <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+                <button
+                    disabled={pending}
+                    onClick={() => run(() => setLibraryVerifiedAction(orgId, !verified))}
+                    className={`inline-flex items-center gap-1.5 text-xs font-medium py-1.5 px-3 rounded-md transition-colors disabled:opacity-50 ${
+                        verified ? "bg-teal/15 text-teal-dark" : "border border-input hover:bg-muted"
+                    }`}
+                >
+                    {pending ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <BadgeCheck className="w-3.5 h-3.5" />}
+                    {verified ? "Verificada" : "Verificar"}
+                </button>
 
-            <button
-                disabled={pending}
-                onClick={() => run(() => setOrganizationTier(orgId, isPro ? "free" : "pro"))}
-                className={`inline-flex items-center gap-1.5 text-xs font-medium py-1.5 px-3 rounded-md transition-colors disabled:opacity-50 ${
-                    isPro ? "bg-teal/15 text-teal-dark" : "border border-input hover:bg-muted"
-                }`}
-            >
-                <Crown className="w-3.5 h-3.5" />
-                {isPro ? "Pro activo" : "Activar Pro"}
-            </button>
+                <button
+                    disabled={pending}
+                    onClick={() => run(() => setOrganizationTier(orgId, isPro ? "free" : "pro"))}
+                    className={`inline-flex items-center gap-1.5 text-xs font-medium py-1.5 px-3 rounded-md transition-colors disabled:opacity-50 ${
+                        isPro ? "bg-teal/15 text-teal-dark" : "border border-input hover:bg-muted"
+                    }`}
+                >
+                    <Crown className="w-3.5 h-3.5" />
+                    {isPro ? "Pro activo" : "Activar Pro"}
+                </button>
 
-            <button
-                disabled={pending}
-                onClick={() => {
-                    const msg = isActive ? "¿Suspender esta librería?" : "¿Reactivar esta librería?";
-                    if (confirm(msg)) run(() => setLibraryActiveAction(orgId, !isActive));
-                }}
-                className={`inline-flex items-center gap-1.5 text-xs font-medium py-1.5 px-3 rounded-md transition-colors disabled:opacity-50 ${
-                    isActive ? "border border-coral/40 text-coral hover:bg-coral/5" : "bg-coral text-white hover:bg-coral/90"
-                }`}
-            >
-                <Ban className="w-3.5 h-3.5" />
-                {isActive ? "Suspender" : "Reactivar"}
-            </button>
+                <button
+                    disabled={pending}
+                    onClick={() => setConfirmOpen(true)}
+                    className={`inline-flex items-center gap-1.5 text-xs font-medium py-1.5 px-3 rounded-md transition-colors disabled:opacity-50 ${
+                        isActive ? "border border-coral/40 text-coral hover:bg-coral/5" : "bg-coral text-white hover:bg-coral/90"
+                    }`}
+                >
+                    <Ban className="w-3.5 h-3.5" />
+                    {isActive ? "Suspender" : "Reactivar"}
+                </button>
+            </div>
+
+            {error && <p className="text-xs font-medium text-coral">{error}</p>}
+
+            <ConfirmModal
+                open={confirmOpen}
+                title={isActive ? "Suspender librería" : "Reactivar librería"}
+                message={
+                    isActive
+                        ? "La librería se desactivará: dejará de mostrarse públicamente (perfil, eventos). Es reversible: podrás reactivarla cuando quieras. No se borra ningún dato."
+                        : "La librería volverá a estar activa y visible públicamente."
+                }
+                confirmLabel={isActive ? "Suspender" : "Reactivar"}
+                tone={isActive ? "danger" : "default"}
+                busy={pending}
+                onConfirm={() => { setConfirmOpen(false); run(() => setLibraryActiveAction(orgId, !isActive)); }}
+                onCancel={() => setConfirmOpen(false)}
+            />
         </div>
     );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+
 import { useEffect, useMemo, useRef, useState, useTransition, type ComponentType } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -73,7 +75,7 @@ export function GiftStoreModeView({ recipients, reservations, onExit, onAddPerso
                 bookId: book.isbn ?? book.id,
                 privateNote: "Capturado en modo tienda.",
             });
-            if (result?.error) alert(result.error);
+            if (result?.error) toast.error(result.error);
             setSearchOpen(false);
             router.refresh();
         });
@@ -91,7 +93,7 @@ export function GiftStoreModeView({ recipients, reservations, onExit, onAddPerso
     function handleIdeaPurchased(idea: GiftIdeaSummaryData) {
         startTransition(async () => {
             const result = await markGiftIdeaAsPurchased(idea.id, idea.recipientId);
-            if (result?.error) alert(result.error);
+            if (result?.error) toast.error(result.error);
             router.refresh();
         });
     }
@@ -99,7 +101,7 @@ export function GiftStoreModeView({ recipients, reservations, onExit, onAddPerso
     function handleReservationPurchased(item: ReservedItemData) {
         startTransition(async () => {
             const result = await markWishlistItemPurchased(item.id, item.wishlistId);
-            if (result?.error) alert(result.error);
+            if (result?.error) toast.error(result.error);
             router.refresh();
         });
     }
@@ -650,7 +652,7 @@ function GiftIsbnScannerPanel({
                 privateNote: "ISBN capturado en modo tienda. Revisa los datos del libro.",
             });
 
-        if (result?.error) alert(result.error);
+        if (result?.error) toast.error(result.error);
         onSaved();
     }
 
@@ -707,7 +709,7 @@ async function captureGiftCoverPhoto(recipientId: string, file: File) {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-        alert("Debes iniciar sesión para subir fotos.");
+        toast.error("Debes iniciar sesión para subir fotos.");
         return;
     }
 
@@ -718,7 +720,7 @@ async function captureGiftCoverPhoto(recipientId: string, file: File) {
         .upload(filePath, file, { cacheControl: "3600", upsert: false });
 
     if (uploadError) {
-        alert("No hemos podido subir la foto. Revisa que la migración del bucket de regalos esté aplicada.");
+        toast.error("No hemos podido subir la foto. Revisa que la migración del bucket de regalos esté aplicada.");
         return;
     }
 
@@ -729,7 +731,7 @@ async function captureGiftCoverPhoto(recipientId: string, file: File) {
         privateNote: "Foto capturada en modo tienda. Revisa el título y autor cuando puedas.",
     });
 
-    if (result?.error) alert(result.error);
+    if (result?.error) toast.error(result.error);
 }
 
 function normalizeIsbn(value: string) {

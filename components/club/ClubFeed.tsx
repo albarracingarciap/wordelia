@@ -1,5 +1,8 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+import { confirmDialog } from "@/components/ui/confirm";
+
 import * as React from "react";
 import { Button } from "../ui/Button";
 import { PostCard } from "./PostCard";
@@ -247,7 +250,7 @@ export function ClubFeed({
 
     const startRecording = async () => {
         if (!navigator.mediaDevices?.getUserMedia) {
-            alert("Tu navegador no permite grabar audio desde aqui.");
+            toast.error("Tu navegador no permite grabar audio desde aqui.");
             return;
         }
 
@@ -288,7 +291,7 @@ export function ClubFeed({
         } catch {
             setIsRequestingMicrophone(false);
             setIsRecording(false);
-            alert("No se pudo acceder al microfono.");
+            toast.error("No se pudo acceder al microfono.");
         }
     };
 
@@ -311,7 +314,7 @@ export function ClubFeed({
 
         const result = await createClubVoiceMessage(clubId, formData);
         if (result?.error) {
-            alert("Error: " + result.error);
+            toast.error("Error: " + result.error);
         } else {
             clearVoiceDraft();
             loadPosts();
@@ -329,7 +332,7 @@ export function ClubFeed({
         const result = await createPost(clubId, newPostContent, isSpoilerPost, checkpointIndex, postAsAnnouncement);
 
         if (result?.error) {
-            alert("Error: " + result.error);
+            toast.error("Error: " + result.error);
         } else {
             setNewPostContent("");
             setIsSpoilerPost(false);
@@ -356,24 +359,24 @@ export function ClubFeed({
     };
 
     const handleDelete = async (postId: string) => {
-        if (!confirm("Eliminar este comentario?")) return;
+        if (!(await confirmDialog({ title: "Eliminar comentario", message: "¿Eliminar este comentario?", confirmLabel: "Eliminar", tone: "danger" }))) return;
         const result = await deletePost(postId);
         if (result?.success) {
             setPosts(current => current.filter(p => p.id !== postId));
             router.refresh();
         } else {
-            alert("No se pudo eliminar.");
+            toast.error("No se pudo eliminar.");
         }
     };
 
     const handleDeleteVoice = async (messageId: string) => {
-        if (!confirm("Archivar este mensaje de voz?")) return;
+        if (!(await confirmDialog({ title: "Archivar mensaje de voz", message: "¿Archivar este mensaje de voz?", confirmLabel: "Archivar", tone: "danger" }))) return;
         const result = await deleteClubVoiceMessage(messageId);
         if (result?.success) {
             setVoiceMessages(current => current.filter(message => message.id !== messageId));
             router.refresh();
         } else {
-            alert(result?.error || "No se pudo archivar.");
+            toast.error(result?.error || "No se pudo archivar.");
         }
     };
 
@@ -385,7 +388,7 @@ export function ClubFeed({
             )));
             router.refresh();
         } else {
-            alert(result?.error || "No se pudo actualizar.");
+            toast.error(result?.error || "No se pudo actualizar.");
         }
     };
 

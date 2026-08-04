@@ -7,6 +7,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Crown, Shield, User, Loader2, Plus, Trash2, ArrowUpCircle, AlertTriangle, CheckCircle2 } from "lucide-react";
 import type { OrgTeamMember } from "../data";
 import { addOrgMemberAction, setOrgMemberRoleAction, removeOrgMemberAction, transferOwnershipAction } from "../actions";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 function roleBadge(role: string) {
     if (role === "owner")
@@ -22,6 +23,9 @@ export function EquipoTab({ orgId, team }: { orgId: string; team: OrgTeamMember[
     const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
     const [email, setEmail] = useState("");
     const [addRole, setAddRole] = useState("staff");
+    const [confirmAction, setConfirmAction] = useState<
+        { title: string; message: string; confirmLabel: string; act: () => void } | null
+    >(null);
 
     const run = (fn: () => Promise<{ success: true } | { error: string }>, okMsg: string) => {
         setFeedback(null);
@@ -113,7 +117,12 @@ export function EquipoTab({ orgId, team }: { orgId: string; team: OrgTeamMember[
                                 </select>
                                 <button
                                     disabled={pending}
-                                    onClick={() => { if (confirm(`¿Hacer propietario a ${m.name || m.email}? El actual pasará a manager.`)) run(() => transferOwnershipAction(orgId, m.userId), "Propiedad transferida."); }}
+                                    onClick={() => setConfirmAction({
+                                        title: "Transferir propiedad",
+                                        message: `¿Hacer propietario a ${m.name || m.email || "este usuario"}? El propietario actual pasará a manager.`,
+                                        confirmLabel: "Transferir",
+                                        act: () => run(() => transferOwnershipAction(orgId, m.userId), "Propiedad transferida."),
+                                    })}
                                     className="inline-flex items-center gap-1 text-xs text-teal-dark hover:underline disabled:opacity-50"
                                     title="Transferir propiedad"
                                 >
@@ -121,7 +130,12 @@ export function EquipoTab({ orgId, team }: { orgId: string; team: OrgTeamMember[
                                 </button>
                                 <button
                                     disabled={pending}
-                                    onClick={() => { if (confirm("¿Quitar del equipo?")) run(() => removeOrgMemberAction(orgId, m.userId), "Miembro quitado."); }}
+                                    onClick={() => setConfirmAction({
+                                        title: "Quitar del equipo",
+                                        message: `¿Quitar a ${m.name || m.email || "este usuario"} del equipo de la librería?`,
+                                        confirmLabel: "Quitar",
+                                        act: () => run(() => removeOrgMemberAction(orgId, m.userId), "Miembro quitado."),
+                                    })}
                                     className="inline-flex items-center gap-1 text-xs text-coral hover:underline disabled:opacity-50"
                                 >
                                     <Trash2 className="w-3.5 h-3.5" /> Quitar
@@ -131,6 +145,17 @@ export function EquipoTab({ orgId, team }: { orgId: string; team: OrgTeamMember[
                     </div>
                 ))}
             </div>
+
+            <ConfirmModal
+                open={confirmAction !== null}
+                title={confirmAction?.title ?? ""}
+                message={confirmAction?.message}
+                confirmLabel={confirmAction?.confirmLabel ?? "Confirmar"}
+                tone="danger"
+                busy={pending}
+                onConfirm={() => { const a = confirmAction; setConfirmAction(null); a?.act(); }}
+                onCancel={() => setConfirmAction(null)}
+            />
         </div>
     );
 }

@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+
 import { useEffect, useState } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
@@ -196,10 +198,10 @@ function BookHelper() {
                     router.push('/app/mi-lectura');
                 }
             } else {
-                alert("Error: " + res.error);
+                toast.error("Error: " + res.error);
             }
         } catch {
-            alert("Ocurrió un error inesperado");
+            toast.error("Ocurrió un error inesperado");
         } finally {
             setIsAdding(false);
         }

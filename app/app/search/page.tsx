@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Image from "next/image";
@@ -39,11 +41,11 @@ function SearchResults() {
                     router.push('/app/mi-lectura');
                 }
             } else {
-                alert("Error al añadir: " + result.error);
+                toast.error("Error al añadir: " + result.error);
             }
         } catch (error) {
             console.error(error);
-            alert("Error inesperado al añadir libro");
+            toast.error("Error inesperado al añadir libro");
         } finally {
             setAddingBookId(null);
         }

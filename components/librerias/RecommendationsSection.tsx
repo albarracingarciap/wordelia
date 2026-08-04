@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "@/components/ui/confirm";
+
 import * as React from "react";
 import { Sparkles, Plus, Trash2, Pencil, BookOpen, Eye, EyeOff, Loader2 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
@@ -127,7 +129,7 @@ export function RecommendationsSection({ orgId }: { orgId: string }) {
                                     </button>
                                     <button
                                         title="Eliminar estantería"
-                                        onClick={() => { if (confirm(`¿Eliminar «${list.title}» y sus recomendaciones?`)) void run(() => deleteRecommendationList(list.id)); }}
+                                        onClick={async () => { if (await confirmDialog({ title: "Eliminar lista", message: `¿Eliminar «${list.title}» y sus recomendaciones?`, confirmLabel: "Eliminar", tone: "danger" })) void run(() => deleteRecommendationList(list.id)); }}
                                         className="rounded-lg p-2 text-grey/50 transition-colors hover:bg-coral/5 hover:text-coral"
                                     >
                                         <Trash2 className="h-4 w-4" />
@@ -166,7 +168,7 @@ export function RecommendationsSection({ orgId }: { orgId: string }) {
                                                 </button>
                                                 <button
                                                     title="Quitar libro"
-                                                    onClick={() => { if (confirm(`¿Quitar «${it.title}» de la estantería?`)) void run(() => deleteRecommendationItem(it.id)); }}
+                                                    onClick={async () => { if (await confirmDialog({ title: "Quitar recomendación", message: `¿Quitar «${it.title}» de la estantería?`, confirmLabel: "Quitar", tone: "danger" })) void run(() => deleteRecommendationItem(it.id)); }}
                                                     className="rounded-lg p-1.5 text-grey/50 transition-colors hover:bg-coral/5 hover:text-coral"
                                                 >
                                                     <Trash2 className="h-3.5 w-3.5" />

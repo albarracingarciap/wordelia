@@ -1,4 +1,6 @@
 import * as React from "react";
+import { toast } from "@/components/ui/toast";
+import { confirmDialog } from "@/components/ui/confirm";
 import { SpoilerGuard } from "./SpoilerGuard";
 import { Trash2, Heart, MessageCircle, X } from "lucide-react";
 import { createReply, deletePost } from "@/app/app/clubs/[id]/actions";
@@ -64,7 +66,7 @@ export function PostCard({
         setIsSubmitting(true);
         const result = await createReply(clubId, id, replyContent.trim());
         if (result?.error) {
-            alert("Error: " + result.error);
+            toast.error("Error: " + result.error);
         } else {
             // Optimistic update
             setLocalReplies(prev => [...prev, {
@@ -86,7 +88,7 @@ export function PostCard({
     };
 
     const handleDeleteReply = async (replyId: string) => {
-        if (!confirm("¿Eliminar esta respuesta?")) return;
+        if (!(await confirmDialog({ title: "Eliminar respuesta", message: "¿Eliminar esta respuesta?", confirmLabel: "Eliminar", tone: "danger" }))) return;
         const result = await deletePost(replyId);
         if (result?.success) {
             setLocalReplies(prev => prev.filter(r => r.id !== replyId));

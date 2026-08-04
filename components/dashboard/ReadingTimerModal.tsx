@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+
 import * as React from "react";
 import { Dialog, Transition } from "@headlessui/react";
 import { Fragment } from "react";
@@ -91,7 +93,7 @@ export function ReadingTimerModal({ isOpen, onClose, onFinish, bookTitle }: Read
         setIsActive(false);
         setHasProgramFinished(true);
         playSessionAlarm();
-        window.alert("La sesión programada de lectura ha terminado");
+        toast.info("La sesión programada de lectura ha terminado");
     }, [isOpen, seconds, targetSeconds]);
 
     const formatTime = (totalSeconds: number) => {

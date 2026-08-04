@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef, type InputHTMLAttributes } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "@/components/ui/toast";
+import { confirmDialog } from "@/components/ui/confirm";
 import { createPortal } from "react-dom";
 import { WishlistItemData, WishlistDetailData } from "@/app/app/wishes/item-actions";
 import { WishlistCandidateData, addCandidateToWishlist, createWishlistCandidate, discardWishlistCandidate, updateWishlistCandidate } from "@/app/app/wishes/candidate-actions";
@@ -66,9 +68,15 @@ export function StoreModeView({ wishlist, items, candidates, isGuestView, isOwne
         setManualSearchOpen(true);
     }
 
-    function requestExit() {
+    async function requestExit() {
         if (isOwner && candidates.length > 0) {
-            const shouldExit = window.confirm(`Tienes ${candidates.length} ${candidates.length === 1 ? "libro capturado" : "libros capturados"} pendientes. ¿Quieres salir sin revisarlos?`);
+            const shouldExit = await confirmDialog({
+                title: "Salir del modo tienda",
+                message: `Tienes ${candidates.length} ${candidates.length === 1 ? "libro capturado" : "libros capturados"} pendientes. ¿Quieres salir sin revisarlos?`,
+                confirmLabel: "Salir sin revisar",
+                cancelLabel: "Seguir aquí",
+                tone: "danger",
+            });
             if (!shouldExit) return;
         }
 
@@ -385,7 +393,7 @@ function CandidateShelf({ candidates }: { candidates: WishlistCandidateData[] })
     async function handleAdd(candidate: WishlistCandidateData) {
         const result = await addCandidateToWishlist(candidate.id, candidate.wishlistId);
         if (result?.error) {
-            alert(result.error);
+            toast.error(result.error);
             return;
         }
         router.refresh();
@@ -394,7 +402,7 @@ function CandidateShelf({ candidates }: { candidates: WishlistCandidateData[] })
     async function handleDiscard(candidate: WishlistCandidateData) {
         const result = await discardWishlistCandidate(candidate.id, candidate.wishlistId);
         if (result?.error) {
-            alert(result.error);
+            toast.error(result.error);
             return;
         }
         router.refresh();
@@ -405,7 +413,7 @@ function CandidateShelf({ candidates }: { candidates: WishlistCandidateData[] })
         const parsedPrice = priceText ? Number(priceText.replace(",", ".")) : null;
 
         if (parsedPrice !== null && Number.isNaN(parsedPrice)) {
-            alert("El precio no tiene un formato valido.");
+            toast.error("El precio no tiene un formato valido.");
             return;
         }
 
@@ -419,7 +427,7 @@ function CandidateShelf({ candidates }: { candidates: WishlistCandidateData[] })
         });
 
         if (result?.error) {
-            alert(result.error);
+            toast.error(result.error);
             return;
         }
 
@@ -691,7 +699,7 @@ function IsbnScannerPanel({ wishlistId, onClose, onSaved }: { wishlistId: string
                 price: book.price,
                 confidence: 1,
             });
-            if (result.error) alert(result.error);
+            if (result.error) toast.error(result.error);
         } else {
             const result = await createWishlistCandidate(wishlistId, {
                 source: "isbn_scan",
@@ -701,7 +709,7 @@ function IsbnScannerPanel({ wishlistId, onClose, onSaved }: { wishlistId: string
                 notes: "No se encontraron datos automáticos para este ISBN.",
                 confidence: 0.35,
             });
-            if (result.error) alert(result.error);
+            if (result.error) toast.error(result.error);
         }
 
         onSaved();
@@ -766,7 +774,7 @@ async function captureCoverPhoto(wishlistId: string, file: File) {
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
-        alert("Debes iniciar sesión para subir fotos.");
+        toast.error("Debes iniciar sesión para subir fotos.");
         return;
     }
 
@@ -789,7 +797,7 @@ async function captureCoverPhoto(wishlistId: string, file: File) {
         .upload(filePath, upload, { cacheControl: "3600", upsert: false, contentType });
 
     if (uploadError) {
-        alert("No hemos podido subir la foto. Revisa que la migración del bucket esté aplicada.");
+        toast.error("No hemos podido subir la foto. Revisa que la migración del bucket esté aplicada.");
         return;
     }
 
@@ -803,7 +811,7 @@ async function captureCoverPhoto(wishlistId: string, file: File) {
         notes: "Foto capturada en modo tienda. Revisa los datos antes de añadirla a la lista.",
         confidence: 0.2,
     });
-    if (result.error) alert(result.error);
+    if (result.error) toast.error(result.error);
 }
 
 function ManualSearchPanel({ wishlistId, onClose, onSaved }: { wishlistId: string; onClose: () => void; onSaved: () => void }) {

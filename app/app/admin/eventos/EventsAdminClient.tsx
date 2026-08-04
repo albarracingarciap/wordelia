@@ -1,5 +1,8 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+import { confirmDialog } from "@/components/ui/confirm";
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Trash2, Plus, Loader2, Pencil, X, Coins, Users } from "lucide-react";
@@ -53,7 +56,7 @@ export function EventsAdminClient({ initial }: { initial: AdminEvent[] }) {
 
     const run = async (fn: () => Promise<any>) => {
         const res = await fn();
-        if (res?.error) { alert(res.error); return; }
+        if (res?.error) { toast.error(res.error); return; }
         router.refresh();
     };
 
@@ -152,7 +155,7 @@ export function EventsAdminClient({ initial }: { initial: AdminEvent[] }) {
                                     className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-teal/5 hover:text-teal">
                                     <Pencil className="h-4 w-4" />
                                 </button>
-                                <button onClick={() => { if (confirm("¿Eliminar este evento?")) void run(() => adminDeleteEvent(e.id)); }} title="Eliminar"
+                                <button onClick={async () => { if (await confirmDialog({ title: "Eliminar evento", message: "¿Eliminar este evento?", confirmLabel: "Eliminar", tone: "danger" })) void run(() => adminDeleteEvent(e.id)); }} title="Eliminar"
                                     className="rounded-lg p-2 text-muted-foreground transition-colors hover:bg-coral/5 hover:text-coral">
                                     <Trash2 className="h-4 w-4" />
                                 </button>

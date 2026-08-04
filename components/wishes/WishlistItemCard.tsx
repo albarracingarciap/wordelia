@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+
 import { useState, useTransition, useEffect } from "react";
 import Image from "next/image";
 import { WishlistItemData, removeItemFromWishlist, updateItemPriority, reserveWishlistItem, contributeToCrowdfunding, enableCrowdfunding, markWishlistItemPurchased, addDedication, removeDedication, updateCrowdfundingTarget, disableCrowdfunding } from "@/app/app/wishes/item-actions";
@@ -173,7 +175,7 @@ export function WishlistItemCard({ item, isGuestView, isOwner, wishlistTargetDat
                                     : item.dedication?.unlockDate
                                         ? `Este mensaje se desbloqueará el ${new Date(item.dedication.unlockDate).toLocaleDateString()}.`
                                         : `Este mensaje está bloqueado. El remitente decidirá cuándo puedes leerlo.`;
-                                alert(msg);
+                                toast.error(msg);
                             }
                         }}
                         className={`absolute bottom-0 right-0 p-1.5 rounded-tl-md shadow-sm border-t border-l border-grey/10 transition-colors ${canReadDedication ? 'bg-white/90 hover:bg-white text-xl' : 'bg-grey/10 text-lg opacity-80 cursor-not-allowed'}`}

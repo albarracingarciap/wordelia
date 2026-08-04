@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "@/components/ui/confirm";
+
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -405,8 +407,8 @@ export function UserDetailClient({
                         {subscription && subActive && (
                             <button
                                 disabled={pending}
-                                onClick={() => {
-                                    if (!confirm("¿Revocar el acceso de este usuario? La suscripción quedará expirada."))
+                                onClick={async () => {
+                                    if (!(await confirmDialog({ title: "Revocar acceso", message: "¿Revocar el acceso de este usuario? La suscripción quedará expirada.", confirmLabel: "Revocar", tone: "danger" })))
                                         return;
                                     run("revoke", () => revokePlanAction(profile.id), "Acceso revocado.");
                                 }}

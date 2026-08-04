@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "@/components/ui/confirm";
+
 import * as React from "react";
 import { useParams } from "next/navigation";
 import { Card } from "@/components/ui/Card";
@@ -281,7 +283,7 @@ export function ClubAnnouncements({ club }: { club?: any }) {
     };
 
     const handleDelete = async (id: string) => {
-        if (!confirm("¿Eliminar este anuncio?")) return;
+        if (!(await confirmDialog({ title: "Eliminar anuncio", message: "¿Eliminar este anuncio?", confirmLabel: "Eliminar", tone: "danger" }))) return;
         await deleteClubPost(id, clubId);
         await reload();
     };

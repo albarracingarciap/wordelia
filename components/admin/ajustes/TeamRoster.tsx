@@ -1,5 +1,8 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+import { confirmDialog } from "@/components/ui/confirm";
+
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
@@ -43,13 +46,13 @@ export function TeamRoster({ currentUserId }: { currentUserId: string }) {
             newRole === "user"
                 ? `quitar del equipo a ${member.full_name || member.email || "este usuario"}`
                 : `cambiar su rol a ${newRole.toUpperCase()}`;
-        if (!confirm(`¿Seguro que quieres ${label}?`)) return;
+        if (!(await confirmDialog({ title: "Confirmar cambio", message: `¿Seguro que quieres ${label}?`, tone: "danger" }))) return;
 
         setUpdatingId(member.id);
         try {
             const result = await updateUserRoleAction(member.id, newRole);
             if (result.error) {
-                alert(`Error: ${result.error}`);
+                toast.error(`Error: ${result.error}`);
             } else if (newRole === "user") {
                 // Ya no es staff: sale del roster.
                 setStaff((s) => s.filter((m) => m.id !== member.id));
@@ -58,7 +61,7 @@ export function TeamRoster({ currentUserId }: { currentUserId: string }) {
             }
         } catch (e) {
             console.error(e);
-            alert("Error de conexión al cambiar el rol.");
+            toast.error("Error de conexión al cambiar el rol.");
         } finally {
             setUpdatingId(null);
         }

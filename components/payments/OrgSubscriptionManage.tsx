@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "@/components/ui/confirm";
+
 import * as React from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
@@ -54,7 +56,7 @@ export default function OrgSubscriptionManage({ organizationId, subscriptionId, 
     }
 
     async function cancel() {
-        if (!confirm(`¿Cancelar la suscripción Pro? La librería mantendrá Pro hasta el ${formatDate(currentPeriodEnd)}.`)) return;
+        if (!(await confirmDialog({ title: "Cancelar Pro", message: `¿Cancelar la suscripción Pro? La librería mantendrá Pro hasta el ${formatDate(currentPeriodEnd)}.`, confirmLabel: "Cancelar Pro", cancelLabel: "Volver", tone: "danger" }))) return;
         setBusy(true);
         setMessage(null);
         try {

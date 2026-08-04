@@ -1,4 +1,5 @@
 import * as React from "react";
+import { confirmDialog } from "@/components/ui/confirm";
 import { Card } from "@/components/ui/Card";
 import { Chip } from "@/components/ui/Chip";
 import { Select } from "@/components/ui/Select";
@@ -22,12 +23,10 @@ export function StepPace({ data, onUpdate }: StepPaceProps) {
         );
     }
 
-    const handleUnitChange = (newUnit: string) => {
-        // If unit changes, we should probably warn or reset, or just accept it.
-        // For MVP, if checkpoints exist, we might want to clear them or just let the user edit them.
-        // Let's clear them to avoid confusion (e.g. p. 1-60 makes no sense as chapters).
+    const handleUnitChange = async (newUnit: string) => {
+        // Si hay checkpoints, avisar antes de borrarlos al cambiar de unidad.
         const confirmReset = data.checkpoints && data.checkpoints.length > 0
-            ? confirm("Al cambiar la unidad, se borrarán los checkpoints actuales. ¿Continuar?")
+            ? await confirmDialog({ title: "Cambiar unidad", message: "Al cambiar la unidad, se borrarán los checkpoints actuales. ¿Continuar?", confirmLabel: "Continuar", tone: "danger" })
             : true;
 
         if (confirmReset) {

@@ -1,5 +1,7 @@
 "use client";
 
+import { toast } from "@/components/ui/toast";
+
 import { useState, useTransition } from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -30,7 +32,7 @@ export function PersonCard({ recipient }: PersonCardProps) {
     function confirmDelete() {
         startTransition(async () => {
             const result = await deleteGiftRecipient(recipient.id);
-            if (result?.error) { alert(result.error); return; }
+            if (result?.error) { toast.error(result.error); return; }
             setConfirmOpen(false);
             router.refresh();
         });

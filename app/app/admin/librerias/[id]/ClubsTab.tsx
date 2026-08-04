@@ -7,11 +7,13 @@ import { useRouter } from "next/navigation";
 import { Users, Archive, ArchiveRestore, Unlink, ExternalLink, BookOpen, Loader2, AlertTriangle, CheckCircle2 } from "lucide-react";
 import type { OrgClub } from "../data";
 import { setClubArchivedAction, unlinkClubAction } from "../actions";
+import { ConfirmModal } from "@/components/ui/ConfirmModal";
 
 export function ClubsTab({ orgId, clubs }: { orgId: string; clubs: OrgClub[] }) {
     const router = useRouter();
     const [pending, startTransition] = useTransition();
     const [feedback, setFeedback] = useState<{ ok: boolean; msg: string } | null>(null);
+    const [unlinkId, setUnlinkId] = useState<string | null>(null);
 
     const run = (fn: () => Promise<{ success: true } | { error: string }>, okMsg: string) => {
         setFeedback(null);
@@ -86,7 +88,7 @@ export function ClubsTab({ orgId, clubs }: { orgId: string; clubs: OrgClub[] }) 
                             </button>
                             <button
                                 disabled={pending}
-                                onClick={() => { if (confirm("¿Desvincular este club de la librería? El club seguirá existiendo, pero deja de estar alojado aquí.")) run(() => unlinkClubAction(orgId, c.id), "Club desvinculado."); }}
+                                onClick={() => setUnlinkId(c.id)}
                                 className="inline-flex items-center gap-1 text-xs text-coral hover:underline disabled:opacity-50"
                             >
                                 <Unlink className="w-3.5 h-3.5" /> Desvincular
@@ -95,6 +97,21 @@ export function ClubsTab({ orgId, clubs }: { orgId: string; clubs: OrgClub[] }) 
                     </div>
                 ))}
             </div>
+
+            <ConfirmModal
+                open={unlinkId !== null}
+                title="Desvincular club"
+                message="El club se desvinculará de la librería. Seguirá existiendo, pero dejará de estar alojado aquí."
+                confirmLabel="Desvincular"
+                tone="danger"
+                busy={pending}
+                onConfirm={() => {
+                    const id = unlinkId;
+                    setUnlinkId(null);
+                    if (id) run(() => unlinkClubAction(orgId, id), "Club desvinculado.");
+                }}
+                onCancel={() => setUnlinkId(null)}
+            />
         </div>
     );
 }

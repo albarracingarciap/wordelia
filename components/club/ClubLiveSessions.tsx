@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "@/components/ui/confirm";
+
 import * as React from "react";
 import Link from "next/link";
 import { Radio, CalendarClock, Plus, Trash2, ChevronRight, X } from "lucide-react";
@@ -63,8 +65,8 @@ export function ClubLiveSessions({ clubId, isManager }: { clubId: string; isMana
         })();
     };
 
-    const removeSession = (id: string) => {
-        if (!confirm("¿Eliminar esta sesión?")) return;
+    const removeSession = async (id: string) => {
+        if (!(await confirmDialog({ title: "Eliminar sesión", message: "¿Eliminar esta sesión?", confirmLabel: "Eliminar", tone: "danger" }))) return;
         (async () => { await deleteLiveSession(id); await refresh(); })();
     };
 

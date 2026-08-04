@@ -1,5 +1,7 @@
 "use client";
 
+import { confirmDialog } from "@/components/ui/confirm";
+
 import * as React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -897,8 +899,8 @@ function AccountTab({ email }: { email: string }) {
                                 size="sm"
                                 className="mt-4 gap-2 border border-coral/20 text-coral hover:bg-coral/5"
                                 isLoading={loadingAction === "deactivate"}
-                                onClick={() => {
-                                    if (confirm("¿Quieres solicitar la baja y ocultar tu perfil público?")) {
+                                onClick={async () => {
+                                    if (await confirmDialog({ title: "Solicitar baja", message: "¿Quieres solicitar la baja y ocultar tu perfil público?", confirmLabel: "Solicitar baja", tone: "danger" })) {
                                         runAction("deactivate", requestAccountDeactivation, "Solicitud registrada. Tu perfil queda oculto.");
                                     }
                                 }}
