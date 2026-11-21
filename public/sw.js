@@ -12,7 +12,7 @@
  *
  * Al cambiar la lógica, subir CACHE_VERSION para invalidar la caché anterior.
  */
-const CACHE_VERSION = "wordelia-v1";
+const CACHE_VERSION = "wordelia-v2";
 const PRECACHE = ["/offline.html", "/icons/icon-192.png"];
 
 self.addEventListener("install", (event) => {
@@ -95,7 +95,12 @@ self.addEventListener("push", (event) => {
 
 self.addEventListener("notificationclick", (event) => {
     event.notification.close();
-    const target = (event.notification.data && event.notification.data.url) || "/app";
+    const raw = (event.notification.data && event.notification.data.url) || "/app";
+    // Marca la navegación como "entrada" para que el middleware pueda llevar al
+    // shell móvil /m (si hay equivalente y el usuario no eligió la versión completa).
+    const url = new URL(raw, self.location.origin);
+    if (url.origin === self.location.origin && url.pathname.startsWith("/app")) url.searchParams.set("entry", "1");
+    const target = url.href;
 
     event.waitUntil(
         self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {

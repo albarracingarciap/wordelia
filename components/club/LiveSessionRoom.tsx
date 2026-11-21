@@ -53,12 +53,15 @@ export function LiveSessionRoom({
     isManager,
     me,
     initialMessages,
+    backHref,
 }: {
     clubId: string;
     initialSession: LiveSession;
     isManager: boolean;
     me: Me;
     initialMessages: SessionMessage[];
+    /** Destino de "Volver al club" (por defecto la ficha de /app; el shell móvil pasa /m/clubs/[id]). */
+    backHref?: string;
 }) {
     const [session, setSession] = React.useState<LiveSession>(initialSession);
     const [messages, setMessages] = React.useState<SessionMessage[]>(initialMessages);
@@ -162,7 +165,7 @@ export function LiveSessionRoom({
 
     return (
         <div className="mx-auto max-w-6xl px-4 py-6">
-            <Link href={`/app/clubs/${clubId}`} className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-grey/50 transition-colors hover:text-teal">
+            <Link href={backHref ?? `/app/clubs/${clubId}`} className="mb-4 inline-flex items-center gap-2 text-sm font-semibold text-grey/50 transition-colors hover:text-teal">
                 <ArrowLeft className="h-4 w-4" /> Volver al club
             </Link>
 

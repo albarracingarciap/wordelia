@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
+import { ENTRY_PARAM, UI_MODE_COOKIE, isInternalNavigation, isMobileRequest, toMobilePath } from "@/lib/mobile-routing";
 
 export async function updateSession(request: NextRequest) {
     let response = NextResponse.next({
@@ -51,8 +52,9 @@ export async function updateSession(request: NextRequest) {
         !request.nextUrl.pathname.startsWith("/deseos") && // Allow public access to Wishlist landing
         request.nextUrl.pathname !== "/"
     ) {
-        // If not logged in and trying to access protected route (e.g. /app/*), redirect to login
-        if (request.nextUrl.pathname.startsWith("/app")) {
+        // If not logged in and trying to access protected route (/app/* o el shell móvil /m), redirect to login
+        const path = request.nextUrl.pathname;
+        if (path.startsWith("/app") || path === "/m" || path.startsWith("/m/")) {
             const url = request.nextUrl.clone();
             url.pathname = "/login";
             return NextResponse.redirect(url);
@@ -86,7 +88,35 @@ export async function updateSession(request: NextRequest) {
             url.pathname = "/app/mi-lectura";
             return NextResponse.redirect(url);
         }
+
+        // Shell móvil (M5): un móvil que ENTRA en /app con equivalente en /m va a /m,
+        // salvo que haya elegido la versión completa. Ver lib/mobile-routing.ts.
+        const mobileRedirect = mobileShellRedirect(request, isServerAction);
+        if (mobileRedirect) {
+            // Conserva las cookies de sesión refrescadas por Supabase.
+            response.cookies.getAll().forEach((c) => mobileRedirect.cookies.set(c));
+            return mobileRedirect;
+        }
     }
 
     return response;
+}
+
+function mobileShellRedirect(request: NextRequest, isServerAction: boolean): NextResponse | null {
+    const { pathname, searchParams } = request.nextUrl;
+    if (!pathname.startsWith("/app")) return null;
+    if (request.method !== "GET" || isServerAction) return null;
+    if (request.cookies.get(UI_MODE_COOKIE)?.value === "full") return null;
+    if (!isMobileRequest(request.headers)) return null;
+
+    const explicitEntry = searchParams.get(ENTRY_PARAM) === "1";
+    if (!explicitEntry && isInternalNavigation(request.headers)) return null;
+
+    const target = toMobilePath(pathname, searchParams);
+    if (!target) return null;
+
+    const url = request.nextUrl.clone();
+    url.pathname = target;
+    url.search = "";
+    return NextResponse.redirect(url);
 }

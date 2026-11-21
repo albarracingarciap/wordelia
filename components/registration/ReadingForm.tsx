@@ -36,14 +36,14 @@ interface ReadingFormProps {
     isModal?: boolean;
 }
 
-const NOTE_CHIPS = [
+export const NOTE_CHIPS = [
     { label: "Idea", icon: Lightbulb },
     { label: "Pregunta", icon: MessageCircleQuestion },
     { label: "Cita", icon: Quote },
     { label: "Personaje", icon: Puzzle },
 ];
 
-const EMOTION_OPTIONS = [
+export const EMOTION_OPTIONS = [
     { id: "asombro", label: "Asombro" },
     { id: "tristeza", label: "Tristeza" },
     { id: "enojo", label: "Enojo" },

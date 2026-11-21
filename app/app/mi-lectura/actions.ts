@@ -1372,7 +1372,9 @@ async function maybeNotifyChallengeMilestone(
 
 export interface LogReadingSessionInput {
     bookId: string;
-    durationMinutes: number;
+    /** Minutos de la sesión. null = no indicado (registro rápido): la sesión cuenta para
+     *  racha/progreso pero no para tiempo total ni velocidad de lectura. */
+    durationMinutes: number | null;
     isFinished: boolean;
     rating?: number;
     format?: string | null;
@@ -1424,9 +1426,9 @@ export async function logReadingSession(input: LogReadingSessionInput) {
                 user_id: user.id,
                 book_id: bookId,
                 edition_id: userBook?.edition_id || null,
-                start_time: new Date(Date.now() - durationMinutes * 60000).toISOString(), // Estimated start
+                start_time: new Date(Date.now() - (durationMinutes ?? 0) * 60000).toISOString(), // Estimated start
                 end_time: new Date().toISOString(),
-                duration_seconds: durationMinutes * 60,
+                duration_seconds: durationMinutes != null && durationMinutes > 0 ? Math.round(durationMinutes * 60) : null,
                 pages_read: isAudio ? null : pagesDelta,
                 marked_finished: isFinished
             })

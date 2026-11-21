@@ -1,8 +1,11 @@
 import type { MetadataRoute } from "next";
 
 // PWA (Fase 0). start_url apunta a /app: la app instalada abre la herramienta del
-// lector; la web pública sigue navegable por navegador. Iconos en /public/icons
-// (placeholder de marca — sustituir por el definitivo sin tocar este archivo).
+// lector; la web pública sigue navegable por navegador. En móvil el middleware
+// lleva esa entrada al shell /m (M5, lib/mobile-routing.ts); en escritorio se
+// queda en /app. Por eso se mantiene /app: una sola start_url sirve para ambos.
+// Iconos en /public/icons (placeholder de marca — sustituir por el definitivo
+// sin tocar este archivo).
 export default function manifest(): MetadataRoute.Manifest {
     return {
         name: "Wordelia",

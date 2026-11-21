@@ -73,7 +73,10 @@ function AddBookContent() {
 
     const initialQuery = searchParams.get("q")?.toString() || "";
     const requestedFrom = searchParams.get("from")?.toString();
-    const returnHref = requestedFrom?.startsWith("/app/") ? requestedFrom : "/app/mi-lectura";
+    // Retorno permitido solo a rutas internas de /app o del shell móvil /m.
+    const returnHref = requestedFrom && (requestedFrom.startsWith("/app/") || requestedFrom === "/m" || requestedFrom.startsWith("/m/"))
+        ? requestedFrom
+        : "/app/mi-lectura";
 
     const [searchQuery, setSearchQuery] = React.useState(initialQuery);
     const [results, setResults] = React.useState<BookSearchResult[]>([]);
@@ -81,7 +84,8 @@ function AddBookContent() {
     const [isAdding, setIsAdding] = React.useState<string | null>(null);
     const [openMenuFor, setOpenMenuFor] = React.useState<string | null>(null);
     const [showManualForm, setShowManualForm] = React.useState(false);
-    const [scannerOpen, setScannerOpen] = React.useState(false);
+    // ?scan=1 abre el escáner directamente (atajo "Añadir libro" del shell móvil /m).
+    const [scannerOpen, setScannerOpen] = React.useState(searchParams.get("scan") === "1");
     const [actionError, setActionError] = React.useState("");
     const [statusMessage, setStatusMessage] = React.useState("");
     const [manualData, setManualData] = React.useState({

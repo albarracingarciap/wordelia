@@ -21,9 +21,11 @@ interface StoreModeViewProps {
     isOwner: boolean;
     onAddBooks?: () => void;
     onExit: () => void;
+    /** "mobile": dentro del shell /m (sin cabecera superior de /app). */
+    variant?: "app" | "mobile";
 }
 
-export function StoreModeView({ wishlist, items, candidates, isGuestView, isOwner, onExit }: StoreModeViewProps) {
+export function StoreModeView({ wishlist, items, candidates, isGuestView, isOwner, onExit, variant = "app" }: StoreModeViewProps) {
     const router = useRouter();
     const [mounted, setMounted] = useState(false);
     const [myItems, setMyItems] = useState<string[]>([]);
@@ -86,7 +88,9 @@ export function StoreModeView({ wishlist, items, candidates, isGuestView, isOwne
     if (!mounted) return null;
 
     return createPortal(
-        <div className="fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] top-14 z-30 flex justify-center overflow-hidden bg-black/20 p-3 backdrop-blur-sm animate-in fade-in md:bottom-0 md:top-[72px] md:p-6">
+        <div className={variant === "mobile"
+            ? "fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] top-[env(safe-area-inset-top)] z-[45] flex justify-center overflow-hidden bg-black/20 p-2 backdrop-blur-sm animate-in fade-in"
+            : "fixed inset-x-0 bottom-[calc(4rem+env(safe-area-inset-bottom))] top-14 z-30 flex justify-center overflow-hidden bg-black/20 p-3 backdrop-blur-sm animate-in fade-in md:bottom-0 md:top-[72px] md:p-6"}>
             <div className="absolute inset-0" onClick={requestExit} />
 
             <section className="relative flex h-full min-h-0 w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-teal/10 bg-cream shadow-2xl">

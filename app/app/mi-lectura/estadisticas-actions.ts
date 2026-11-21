@@ -493,6 +493,7 @@ export async function getReadingInsights(timeZone?: string): Promise<ReadingInsi
     let totMin = 0;
     let totPag = 0;
     let pageMin = 0;   // minutos de lectura en formatos de página (para pág/hora, sin audio)
+    let timedPag = 0;  // páginas de sesiones CON minutos (las sesiones sin tiempo no cuentan para pág/hora)
     let audioMin = 0;  // minutos escuchados de audiolibros
     for (const s of (heatmapRes.data || []) as { duration_seconds: number | null; pages_read: number | null; start_time: string; book_id: string }[]) {
         const key = zonedParts(new Date(s.start_time), tz).dateKey;
@@ -506,7 +507,10 @@ export async function getReadingInsights(timeZone?: string): Promise<ReadingInsi
         totMin += min;
         totPag += pages;
         if (bookFormat.get(s.book_id) === "audio") audioMin += min;
-        else pageMin += min;
+        else {
+            pageMin += min;
+            if (min > 0) timedPag += pages;
+        }
     }
     const metric: "minutes" | "pages" | "sessions" = totMin > 0 ? "minutes" : totPag > 0 ? "pages" : "sessions";
     const heatmap: HeatmapDay[] = Array.from(dayAgg.entries()).map(([date, a]) => ({ date, value: a[metric] }));
@@ -558,7 +562,7 @@ export async function getReadingInsights(timeZone?: string): Promise<ReadingInsi
     // --- Velocidad de lectura (pág/hora) desde las sesiones del último año ---
     // Solo cuenta el tiempo de formatos de página; el audio no tiene páginas y
     // desvirtuaría la velocidad si se incluyera.
-    const pagesPerHour = pageMin > 0 && totPag > 0 ? Math.round(totPag / (pageMin / 60)) : null;
+    const pagesPerHour = pageMin > 0 && timedPag > 0 ? Math.round(timedPag / (pageMin / 60)) : null;
 
     // --- Días medios para terminar un libro ---
     let avgDaysToFinish: number | null = null;
