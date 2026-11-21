@@ -2,8 +2,8 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient, hasSupabaseAdminConfig } from "@/utils/supabase/admin";
-import { callMistral } from "@/lib/mistral";
-import { FEATURE_MAX_TOKENS } from "@/lib/assistant-config";
+import { callClaude } from "@/lib/claude";
+import { selectInChunks } from "@/lib/supabase-chunks";
 import { getReadingStats, getReadingInsights, type StatsRange } from "@/app/app/mi-lectura/estadisticas-actions";
 import {
     getAssistantAccess,
@@ -34,7 +34,12 @@ type GenreRow = { book_id: string; genres: { name?: string } | { name?: string }
 async function genresByBook(bookIds: string[]): Promise<Record<string, string[]>> {
     if (bookIds.length === 0) return {};
     const supabase = await createClient();
-    const { data } = await supabase.from("book_genres").select("book_id, genres(name)").in("book_id", bookIds);
+    // Troceado: con muchos libros la lista de ids desborda la URL (414) y antes
+    // el error se tragaba en silencio (perfil sin géneros / pool vacío).
+    const { data, error } = await selectInChunks<GenreRow>(bookIds, (chunk) =>
+        supabase.from("book_genres").select("book_id, genres(name)").in("book_id", chunk),
+    );
+    if (error) console.error("genresByBook:", error);
     const map: Record<string, string[]> = {};
     for (const row of (data || []) as GenreRow[]) {
         const g = Array.isArray(row.genres) ? row.genres[0] : row.genres;
@@ -136,12 +141,17 @@ async function buildCandidatePool(userId: string, topGenres: string[]): Promise<
 
     const genreMap = await genresByBook(poolIds);
 
-    const { data: booksData } = await supabase.from("books").select("id, title, author, preferred_edition_id").in("id", poolIds);
-    const books = (booksData || []) as { id: string; title: string | null; author: string | null; preferred_edition_id: string | null }[];
+    type BookRow = { id: string; title: string | null; author: string | null; preferred_edition_id: string | null };
+    const { data: booksData, error: booksError } = await selectInChunks<BookRow>(poolIds, (chunk) =>
+        supabase.from("books").select("id, title, author, preferred_edition_id").in("id", chunk),
+    );
+    if (booksError) console.error("buildCandidatePool books:", booksError);
+    const books = (booksData || []) as BookRow[];
     const editionIds = books.map((b) => b.preferred_edition_id).filter(Boolean) as string[];
-    const { data: edData } = editionIds.length
-        ? await supabase.from("editions").select("id, cover_url").in("id", editionIds)
-        : { data: [] as { id: string; cover_url: string | null }[] };
+    const { data: edData, error: edError } = await selectInChunks<{ id: string; cover_url: string | null }>(editionIds, (chunk) =>
+        supabase.from("editions").select("id, cover_url").in("id", chunk),
+    );
+    if (edError) console.error("buildCandidatePool editions:", edError);
     const coverByEdition = new Map<string, string | null>(((edData || []) as { id: string; cover_url: string | null }[]).map((e) => [e.id, e.cover_url]));
 
     const topSet = new Set(topGenres);
@@ -174,9 +184,20 @@ function safeParse(content: string): { bookId?: string; reason?: string } | null
     }
 }
 
+// Salida estructurada de "Tu próxima lectura" (la API garantiza este JSON).
+const NEXT_READ_SCHEMA = {
+    type: "object",
+    properties: {
+        bookId: { type: "string" },
+        reason: { type: "string" },
+    },
+    required: ["bookId", "reason"],
+    additionalProperties: false,
+};
+
 export type PeekResult = NextReadResult | { status: "empty" };
 
-// Solo lee caché/estado; NO llama a Mistral. Para pintar la tarjeta al cargar.
+// Solo lee caché/estado; NO llama a la IA. Para pintar la tarjeta al cargar.
 export async function peekNextRead(): Promise<PeekResult> {
     const access = await getAssistantAccess();
     if (!access.allowed || !access.userId) {
@@ -201,7 +222,7 @@ export async function getNextReadRecommendation(forceRefresh = false): Promise<N
     }
 
     // Cuota mensual + rate-limit (admin sin límite).
-    if (!(await hasMonthlyQuota(userId, access.isAdmin))) return { status: "limit" };
+    if (!(await hasMonthlyQuota(userId, access.isAdmin, "next_read"))) return { status: "limit" };
     if (!(await withinRateLimit(userId, access.isAdmin))) return { status: "error", message: "Vas muy rápido. Espera unos segundos e inténtalo de nuevo." };
 
     // Perfil del lector: géneros favoritos a partir de sus libros leídos.
@@ -235,13 +256,12 @@ export async function getNextReadRecommendation(forceRefresh = false): Promise<N
         "Eres el bibliotecario de Wordelia: cálido, culto y breve. Recomiendas al lector su PRÓXIMA lectura " +
         "eligiendo EXCLUSIVAMENTE uno de los libros de su lista de candidatos (nunca inventes ni sugieras libros " +
         "fuera de esa lista). Te basas en su perfil lector; si un candidato encaja y además ya está en su lista, es " +
-        'buena señal. Responde SOLO con un objeto JSON válido con las claves: "bookId" (el id exacto del candidato ' +
-        'elegido) y "reason" (2-3 frases en español, cálidas y personalizadas, que conecten el libro con sus gustos; ' +
-        "sin spoilers). No añadas texto fuera del JSON.";
+        'buena señal. Devuelve "bookId" (el id exacto del candidato elegido) y "reason" (2-3 frases en español, ' +
+        "cálidas y personalizadas, que conecten el libro con sus gustos; sin spoilers).";
     const user = `PERFIL DEL LECTOR:\n${digest}\n\nCANDIDATOS (elige uno por su id):\n${candidateLines}\n\nDevuelve el JSON.`;
 
     try {
-        const { content, usage } = await callMistral({ system, user, maxTokens: FEATURE_MAX_TOKENS.next_read, jsonMode: true });
+        const { content, usage } = await callClaude({ feature: "next_read", system, user, jsonSchema: NEXT_READ_SCHEMA });
         await logAiUsage(userId, "next_read", usage);
 
         const parsed = safeParse(content);
@@ -292,7 +312,7 @@ async function buildStatsDigest(tz?: string): Promise<{ digest: string; hasData:
     return { digest: lines.join("\n"), hasData: insights.booksThisYear > 0 || insights.daysRead > 0 };
 }
 
-// Solo lee caché; NO llama a Mistral.
+// Solo lee caché; NO llama a la IA.
 export async function peekStatsNarrative(): Promise<NarrativePeek> {
     const access = await getAssistantAccess();
     if (!access.allowed || !access.userId) {
@@ -318,7 +338,7 @@ export async function getStatsNarrative(tz?: string, forceRefresh = false): Prom
     const { digest, hasData } = await buildStatsDigest(tz);
     if (!hasData) return { status: "no_data" };
 
-    if (!(await hasMonthlyQuota(userId, access.isAdmin))) return { status: "limit" };
+    if (!(await hasMonthlyQuota(userId, access.isAdmin, "stats_narrative"))) return { status: "limit" };
     if (!(await withinRateLimit(userId, access.isAdmin))) return { status: "error", message: "Vas muy rápido. Espera unos segundos e inténtalo de nuevo." };
 
     const system =
@@ -329,7 +349,7 @@ export async function getStatsNarrative(tz?: string, forceRefresh = false): Prom
     const user = `ESTADÍSTICAS DEL LECTOR:\n${digest}\n\nEscribe el párrafo.`;
 
     try {
-        const { content, usage } = await callMistral({ system, user, maxTokens: FEATURE_MAX_TOKENS.stats_narrative });
+        const { content, usage } = await callClaude({ feature: "stats_narrative", system, user });
         await logAiUsage(userId, "stats_narrative", usage);
         const text = content.trim();
         if (!text) return { status: "error", message: "No hemos podido generar la narrativa." };

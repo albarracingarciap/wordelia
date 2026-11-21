@@ -3,8 +3,7 @@
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient, hasSupabaseAdminConfig } from "@/utils/supabase/admin";
 import { getBookResourceAvailability } from "@/app/app/recursos/actions";
-import { callMistral } from "@/lib/mistral";
-import { FEATURE_MAX_TOKENS } from "@/lib/assistant-config";
+import { callClaude } from "@/lib/claude";
 import { hasMonthlyQuota, withinRateLimit, logAiUsage, getCachedGeneration, saveGeneration } from "@/lib/assistant-access";
 
 // Umbral de anonimato: nunca resumimos emociones si hay muy pocos participantes
@@ -138,7 +137,7 @@ export async function getClubEmotionalMap(clubId: string, forceRefresh = false):
         return built.reason === "no_book" ? { status: "no_book" } : { status: "not_enough", participants: built.participants };
     }
 
-    if (!(await hasMonthlyQuota(userId, access.isAdmin))) return { status: "limit" };
+    if (!(await hasMonthlyQuota(userId, access.isAdmin, "club_emotions"))) return { status: "limit" };
     if (!(await withinRateLimit(userId, access.isAdmin))) return { status: "error", message: "Vas muy rápido. Espera unos segundos e inténtalo de nuevo." };
 
     const system =
@@ -150,7 +149,7 @@ export async function getClubEmotionalMap(clubId: string, forceRefresh = false):
     const user2 = `MAPA EMOCIONAL DEL CLUB (agregado, anónimo):\n${built.digest}\n\nEscribe la síntesis para el anfitrión.`;
 
     try {
-        const { content, usage } = await callMistral({ system, user: user2, maxTokens: FEATURE_MAX_TOKENS.club_emotions });
+        const { content, usage } = await callClaude({ feature: "club_emotions", system, user: user2 });
         await logAiUsage(userId, "club_emotions", usage);
         const text = content.trim();
         if (!text) return { status: "error", message: "No hemos podido generar el resumen." };
@@ -279,7 +278,7 @@ export async function getClubSessionPlan(clubId: string, forceRefresh = false): 
     const built = await buildSessionDigest(clubId);
     if (!built.ok) return built.reason === "no_book" ? { status: "no_book" } : { status: "no_resources" };
 
-    if (!(await hasMonthlyQuota(userId, access.isAdmin))) return { status: "limit" };
+    if (!(await hasMonthlyQuota(userId, access.isAdmin, "club_session"))) return { status: "limit" };
     if (!(await withinRateLimit(userId, access.isAdmin))) return { status: "error", message: "Vas muy rápido. Espera unos segundos e inténtalo de nuevo." };
 
     const system =
@@ -292,7 +291,7 @@ export async function getClubSessionPlan(clubId: string, forceRefresh = false): 
     const user2 = `MATERIAL DEL LIBRO:\n${built.digest}\n\nPrepara el plan de sesión.`;
 
     try {
-        const { content, usage } = await callMistral({ system, user: user2, maxTokens: FEATURE_MAX_TOKENS.club_session });
+        const { content, usage } = await callClaude({ feature: "club_session", system, user: user2 });
         await logAiUsage(userId, "club_session", usage);
         const text = content.trim();
         if (!text) return { status: "error", message: "No hemos podido preparar la sesión." };

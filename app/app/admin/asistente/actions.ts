@@ -2,7 +2,7 @@
 
 import { createClient } from "@/utils/supabase/server";
 import { createAdminClient } from "@/utils/supabase/admin";
-import { MONTHLY_ACTION_CAP } from "@/lib/assistant-config";
+import { FEATURE_POOL, MONTHLY_CAPS, type AssistantFeature } from "@/lib/assistant-config";
 
 export interface AiUsageSummary {
     monthActions: number;
@@ -11,8 +11,9 @@ export interface AiUsageSummary {
     monthOutputTokens: number;
     byFeature: { feature: string; actions: number; costUsd: number }[];
     byDay: { day: string; actions: number; costUsd: number }[];
-    topUsers: { userId: string; name: string; actions: number; costUsd: number }[];
-    cap: number;
+    /** general = próxima lectura + estadísticas + mapa emocional; session = preparar sesión. */
+    topUsers: { userId: string; name: string; actions: number; general: number; session: number; costUsd: number }[];
+    caps: { general: number; session: number };
 }
 
 const EMPTY: AiUsageSummary = {
@@ -23,7 +24,7 @@ const EMPTY: AiUsageSummary = {
     byFeature: [],
     byDay: [],
     topUsers: [],
-    cap: MONTHLY_ACTION_CAP,
+    caps: MONTHLY_CAPS,
 };
 
 async function assertAdmin(): Promise<boolean> {
@@ -94,10 +95,12 @@ export async function getAiUsageSummary(): Promise<AiUsageSummary> {
         .sort((x, y) => x.day.localeCompare(y.day));
 
     // Top usuarios (mes).
-    const userAgg: Record<string, { actions: number; micros: number }> = {};
+    const userAgg: Record<string, { actions: number; general: number; session: number; micros: number }> = {};
     for (const r of monthRows) {
-        const a = (userAgg[r.user_id] ||= { actions: 0, micros: 0 });
+        const a = (userAgg[r.user_id] ||= { actions: 0, general: 0, session: 0, micros: 0 });
         a.actions += 1;
+        if (FEATURE_POOL[r.feature as AssistantFeature] === "session") a.session += 1;
+        else a.general += 1;
         a.micros += r.cost_micros || 0;
     }
     const topEntries = Object.entries(userAgg).sort((x, y) => y[1].micros - x[1].micros).slice(0, 10);
@@ -112,6 +115,8 @@ export async function getAiUsageSummary(): Promise<AiUsageSummary> {
         userId,
         name: nameById.get(userId) || userId.slice(0, 8),
         actions: a.actions,
+        general: a.general,
+        session: a.session,
         costUsd: usd(a.micros),
     }));
 
@@ -123,6 +128,6 @@ export async function getAiUsageSummary(): Promise<AiUsageSummary> {
         byFeature,
         byDay,
         topUsers,
-        cap: MONTHLY_ACTION_CAP,
+        caps: MONTHLY_CAPS,
     };
 }

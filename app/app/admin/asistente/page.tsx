@@ -28,7 +28,7 @@ export default async function AdminAssistantPage() {
         <div className="space-y-6">
             <div>
                 <h1 className="text-3xl font-bold tracking-tight">Asistente IA · Consumo</h1>
-                <p className="text-muted-foreground">Uso y coste estimado de las funciones de IA (Mistral). Coste = tokens × tarifa de lista.</p>
+                <p className="text-muted-foreground">Uso y coste estimado de las funciones de IA (Claude: Haiku y Sonnet). Coste = tokens × tarifa de lista.</p>
             </div>
 
             <div className="grid gap-4 md:grid-cols-3">
@@ -74,20 +74,20 @@ export default async function AdminAssistantPage() {
                     ) : (
                         <div className="space-y-2">
                             {s.topUsers.map((u) => {
-                                const near = u.actions >= s.cap * 0.8;
+                                const near = u.general >= s.caps.general * 0.8 || u.session >= s.caps.session * 0.8;
                                 return (
                                     <div key={u.userId} className="flex items-center justify-between gap-3 text-sm">
                                         <span className="truncate font-medium">{u.name}</span>
                                         <span className="flex items-center gap-2 text-muted-foreground">
                                             {near && <AlertTriangle className="w-3.5 h-3.5 text-amber-500" />}
-                                            {u.actions}/{s.cap} · {fmtUsd(u.costUsd)}
+                                            {u.general}/{s.caps.general} · sesión {u.session}/{s.caps.session} · {fmtUsd(u.costUsd)}
                                         </span>
                                     </div>
                                 );
                             })}
                         </div>
                     )}
-                    <p className="mt-3 text-xs text-muted-foreground">Cap mensual por usuario: {s.cap} acciones (admin sin límite). ⚠ = ≥80% del cap.</p>
+                    <p className="mt-3 text-xs text-muted-foreground">Topes mensuales por usuario: {s.caps.general} acciones (próxima lectura, estadísticas y mapa emocional) y {s.caps.session} de preparar sesión (admin sin límite). ⚠ = ≥80% de algún tope.</p>
                 </div>
             </div>
 

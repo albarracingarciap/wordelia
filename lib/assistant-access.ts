@@ -6,11 +6,14 @@ import { isSubscriptionActive } from "@/lib/subscription-access";
 import {
     estimateCostMicros,
     FEATURE_CACHE_TTL_MS,
-    MONTHLY_ACTION_CAP,
+    FEATURE_POOL,
+    MONTHLY_CAPS,
     RATE_LIMIT_PER_MIN,
+    poolFeatures,
     type AssistantFeature,
+    type QuotaPool,
 } from "@/lib/assistant-config";
-import type { MistralUsage } from "@/lib/mistral";
+import type { AiUsage } from "@/lib/claude";
 
 export interface AssistantAccess {
     userId: string | null;
@@ -43,8 +46,8 @@ export async function getAssistantAccess(): Promise<AssistantAccess> {
     return { userId: user.id, isAdmin, plan, allowed, reason: allowed ? undefined : "coming_soon" };
 }
 
-// Nº de acciones de IA del usuario en el mes natural en curso.
-export async function getMonthlyActionCount(userId: string): Promise<number> {
+// Nº de acciones de IA del usuario en el mes natural en curso, dentro de una bolsa.
+export async function getMonthlyActionCount(userId: string, pool: QuotaPool): Promise<number> {
     const supabase = await createClient();
     const start = new Date();
     start.setDate(1);
@@ -53,15 +56,19 @@ export async function getMonthlyActionCount(userId: string): Promise<number> {
         .from("ai_usage")
         .select("*", { count: "exact", head: true })
         .eq("user_id", userId)
+        .in("feature", poolFeatures(pool))
         .gte("created_at", start.toISOString());
     return count || 0;
 }
 
-// True si al usuario le queda cuota mensual (admin no tiene límite).
-export async function hasMonthlyQuota(userId: string, isAdmin: boolean): Promise<boolean> {
+// True si al usuario le queda cuota mensual para esa función (admin no tiene límite).
+// Bolsas: 120/mes compartidas entre próxima lectura, estadísticas y mapa emocional;
+// 30/mes para preparar sesión.
+export async function hasMonthlyQuota(userId: string, isAdmin: boolean, feature: AssistantFeature): Promise<boolean> {
     if (isAdmin) return true;
-    const used = await getMonthlyActionCount(userId);
-    return used < MONTHLY_ACTION_CAP;
+    const pool = FEATURE_POOL[feature];
+    const used = await getMonthlyActionCount(userId, pool);
+    return used < MONTHLY_CAPS[pool];
 }
 
 // True si el usuario no ha superado el rate-limit por minuto (admin sin límite).
@@ -78,14 +85,14 @@ export async function withinRateLimit(userId: string, isAdmin: boolean): Promise
 }
 
 // Registra el consumo de una llamada (tokens + coste estimado).
-export async function logAiUsage(userId: string, feature: AssistantFeature, usage: MistralUsage): Promise<void> {
+export async function logAiUsage(userId: string, feature: AssistantFeature, usage: AiUsage): Promise<void> {
     const supabase = await createClient();
     await supabase.from("ai_usage").insert({
         user_id: userId,
         feature,
         input_tokens: usage.inputTokens,
         output_tokens: usage.outputTokens,
-        cost_micros: estimateCostMicros(usage.inputTokens, usage.outputTokens),
+        cost_micros: estimateCostMicros(feature, usage.inputTokens, usage.outputTokens),
     });
 }
 
