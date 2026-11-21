@@ -21,11 +21,26 @@ function getAuthErrorMessage(message: string) {
         return 'Email o contraseña incorrectos. Revisa los datos e inténtalo de nuevo.';
     }
 
+    // Fallos de ENVÍO del correo (SMTP de auth / límite de envíos de Supabase). Van
+    // antes del caso genérico 'email': antes acababan como "Revisa el email
+    // introducido" aunque el email estuviera bien.
+    if (normalized.includes('rate limit') || normalized.includes('too many')) {
+        return 'Hemos enviado demasiados correos en poco tiempo. Espera unos minutos e inténtalo de nuevo.';
+    }
+
+    if (normalized.includes('sending') || normalized.includes('smtp') || normalized.includes('confirmation email')) {
+        return 'No hemos podido enviarte el correo de confirmación. Inténtalo de nuevo en unos minutos o escríbenos a hola@wordelia.es.';
+    }
+
+    if (normalized.includes('signups not allowed') || normalized.includes('signup is disabled')) {
+        return 'El registro está temporalmente cerrado. Escríbenos a hola@wordelia.es.';
+    }
+
     if (normalized.includes('password')) {
         return 'La contraseña no cumple los requisitos mínimos.';
     }
 
-    if (normalized.includes('email')) {
+    if (normalized.includes('invalid') && normalized.includes('email')) {
         return 'Revisa el email introducido.';
     }
 
@@ -137,6 +152,8 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
     })
 
     if (error) {
+        // El mensaje al usuario es genérico: el detalle real queda en el log.
+        console.error('[signup] supabase.auth.signUp:', error.status, error.code, error.message)
         return { error: getAuthErrorMessage(error.message) }
     }
 
