@@ -201,7 +201,7 @@ export type PeekResult = NextReadResult | { status: "empty" };
 export async function peekNextRead(): Promise<PeekResult> {
     const access = await getAssistantAccess();
     if (!access.allowed || !access.userId) {
-        return { status: "locked", reason: access.reason === "unauthenticated" ? "unauthenticated" : "coming_soon" };
+        return { status: "locked", reason: access.reason ?? "requires_plan" };
     }
     const cached = await getCachedGeneration<{ book: NextReadBook; reason: string }>(access.userId, "next_read");
     if (cached?.book) return { status: "ok", book: cached.book, reason: cached.reason, cached: true };
@@ -211,7 +211,7 @@ export async function peekNextRead(): Promise<PeekResult> {
 export async function getNextReadRecommendation(forceRefresh = false): Promise<NextReadResult> {
     const access = await getAssistantAccess();
     if (!access.allowed || !access.userId) {
-        return { status: "locked", reason: access.reason === "unauthenticated" ? "unauthenticated" : "coming_soon" };
+        return { status: "locked", reason: access.reason ?? "requires_plan" };
     }
     const userId = access.userId;
 
@@ -316,7 +316,7 @@ async function buildStatsDigest(tz?: string): Promise<{ digest: string; hasData:
 export async function peekStatsNarrative(): Promise<NarrativePeek> {
     const access = await getAssistantAccess();
     if (!access.allowed || !access.userId) {
-        return { status: "locked", reason: access.reason === "unauthenticated" ? "unauthenticated" : "coming_soon" };
+        return { status: "locked", reason: access.reason ?? "requires_plan" };
     }
     const cached = await getCachedGeneration<{ text: string }>(access.userId, "stats_narrative");
     if (cached?.text) return { status: "ok", text: cached.text, cached: true };
@@ -326,7 +326,7 @@ export async function peekStatsNarrative(): Promise<NarrativePeek> {
 export async function getStatsNarrative(tz?: string, forceRefresh = false): Promise<NarrativeResult> {
     const access = await getAssistantAccess();
     if (!access.allowed || !access.userId) {
-        return { status: "locked", reason: access.reason === "unauthenticated" ? "unauthenticated" : "coming_soon" };
+        return { status: "locked", reason: access.reason ?? "requires_plan" };
     }
     const userId = access.userId;
 

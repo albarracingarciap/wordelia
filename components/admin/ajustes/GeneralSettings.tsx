@@ -190,7 +190,7 @@ export function GeneralSettings({ initialSettings }: { initialSettings: AppSetti
                         checked={flags.asistente_ia}
                         onChange={(v) => setFlags({ ...flags, asistente_ia: v })}
                         label="Asistente literario IA"
-                        hint="Activa el asistente con IA del plan Bibliófilo (aún en construcción)."
+                        hint="Activa las funciones de IA para el plan Bibliófilo y las herramientas de club para librerías. Apagado: solo admin/editor (el resto ve «próximamente»)."
                     />
                 </div>
             </Card>

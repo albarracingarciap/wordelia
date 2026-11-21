@@ -172,9 +172,9 @@ function PlansContent() {
                         <p className="text-sm text-grey/80">Sí, puedes mejorar o cancelar tu suscripción en cualquier momento desde tu perfil.</p>
                     </div>
                     <div className="rounded-xl border border-teal/5 bg-white p-6">
-                        <h4 className="mb-2 font-bold text-teal-dark">Las funciones con IA del plan Bibliófilo llevan un asterisco, ¿cuándo estarán disponibles?</h4>
+                        <h4 className="mb-2 font-bold text-teal-dark">¿Qué hacen las funciones con IA del plan Bibliófilo?</h4>
                         <p className="text-sm text-grey/80">
-                            Las funciones marcadas con <strong>*</strong> (recomendaciones de lectura con IA, tus estadísticas contadas por IA y las herramientas de club con IA) estarán disponibles en <strong>septiembre de 2026</strong>. Todo lo demás del plan Bibliófilo —guías de discusión y genomas literarios ilimitados, novedades cada mes, acceso anticipado y soporte prioritario— lo tienes desde el primer día. Cuando activemos las funciones de IA se añadirán a tu plan <strong>sin coste adicional</strong> y sin que tengas que hacer nada.
+                            La IA trabaja con tus propios datos de lectura: te sugiere tu <strong>próxima lectura</strong> entre los libros de tu lista y del catálogo, te cuenta tus <strong>estadísticas en palabras</strong> y, si organizas un club, resume su <strong>mapa emocional</strong> (siempre de forma anónima) y te ayuda a <strong>preparar cada sesión</strong> a partir de la guía y el genoma del libro. Incluye un uso mensual amplio pensado para el día a día. Las librerías con espacio en Wordelia tienen también las herramientas de club en sus clubs.
                         </p>
                     </div>
                     {founderWindowOpen && (

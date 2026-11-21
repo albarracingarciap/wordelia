@@ -1,6 +1,5 @@
 "use client";
 
-import { toast } from "@/components/ui/toast";
 import { confirmDialog } from "@/components/ui/confirm";
 
 import * as React from "react";
@@ -10,13 +9,11 @@ import { Select } from "@/components/ui/Select";
 import { Button } from "@/components/ui/Button";
 import { CheckpointModal } from "@/components/clubs/create/CheckpointModal"; // Reuse existing modal? Or move it.
 
-import { ProFeatureModal } from "@/components/ui/ProFeatureModal";
 
 interface ReadingSetupProps {
     book: any;
     onBack: () => void;
     onSave: (config: any) => void;
-    isPro?: boolean; // New prop to check subscription status
     initialConfig?: {
         startDate?: string;
         pace?: string;
@@ -27,7 +24,7 @@ interface ReadingSetupProps {
     isSaving?: boolean;
 }
 
-export function ReadingSetup({ book, onBack, onSave, isPro = false, initialConfig = null, isSaving = false }: ReadingSetupProps) {
+export function ReadingSetup({ book, onBack, onSave, initialConfig = null, isSaving = false }: ReadingSetupProps) {
     const [config, setConfig] = React.useState({
         startDate: initialConfig?.startDate || new Date().toISOString().split('T')[0],
         pace: initialConfig?.pace || "Estándar (2 check/sem)",
@@ -37,17 +34,7 @@ export function ReadingSetup({ book, onBack, onSave, isPro = false, initialConfi
     });
 
     const [isCheckpointModalOpen, setIsCheckpointModalOpen] = React.useState(false);
-    const [isProModalOpen, setIsProModalOpen] = React.useState(false);
     const [editingCheckpoint, setEditingCheckpoint] = React.useState<any>(null);
-
-    const handleAiGenerate = () => {
-        if (!isPro) {
-            setIsProModalOpen(true);
-            return;
-        }
-        toast.info("Generando con IA… (simulación)");
-        // Add AI generation logic here
-    };
 
     const updateField = (field: string, value: any) => {
         setConfig(prev => ({ ...prev, [field]: value }));
@@ -164,14 +151,8 @@ export function ReadingSetup({ book, onBack, onSave, isPro = false, initialConfi
 
                 {/* 5. Checkpoints */}
                 <div className="bg-[#FAF9F6] border border-teal/10 rounded-xl p-6">
-                    <div className="flex justify-between items-center mb-4">
+                    <div className="mb-4">
                         <h4 className="font-bold text-teal text-sm uppercase tracking-wider">Plan de lectura {config.pace === 'Personalizado' ? '(Manual)' : '(Borrador)'}</h4>
-                        <button
-                            className="text-xs font-bold text-coral hover:underline flex items-center gap-1"
-                            onClick={handleAiGenerate}
-                        >
-                            <span>✨</span> Generar con IA
-                        </button>
                     </div>
 
                     <div className="space-y-2">
@@ -222,11 +203,6 @@ export function ReadingSetup({ book, onBack, onSave, isPro = false, initialConfi
                 unitLabel={unitLabel}
             />
 
-            <ProFeatureModal
-                isOpen={isProModalOpen}
-                onClose={() => setIsProModalOpen(false)}
-                featureName="Plan de Lectura"
-            />
         </div>
     );
 }

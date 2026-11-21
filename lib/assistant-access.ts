@@ -3,6 +3,7 @@
 // (`ai`) o rol admin/editor. Las funciones de club añadirán librerías en F3.
 import { createClient } from "@/utils/supabase/server";
 import { isSubscriptionActive } from "@/lib/subscription-access";
+import { getAppSettings } from "@/lib/app-settings";
 import {
     estimateCostMicros,
     FEATURE_CACHE_TTL_MS,
@@ -28,22 +29,24 @@ export async function getAssistantAccess(): Promise<AssistantAccess> {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { userId: null, isAdmin: false, plan: null, allowed: false, reason: "unauthenticated" };
 
-    const [profileRes, subRes] = await Promise.all([
+    const [profileRes, subRes, settings] = await Promise.all([
         supabase.from("profiles").select("role").eq("id", user.id).maybeSingle(),
         supabase.from("user_subscriptions").select("plan, status, current_period_end").eq("user_id", user.id).maybeSingle(),
+        getAppSettings(),
     ]);
 
     const role = (profileRes.data as { role?: string } | null)?.role;
     const isAdmin = role === "admin" || role === "editor";
     const sub = subRes.data as { plan: string; status: string; current_period_end: string | null } | null;
     const plan = sub && isSubscriptionActive(sub.status, sub.current_period_end) ? sub.plan : null;
-    // Temporal (hasta septiembre de 2026): las funciones de IA solo están activas
-    // para admin/editor (para poder probarlas). El plan Bibliófilo aún no las
-    // desbloquea; al resto se le muestra "próximamente". Restaurar a
-    // `isAdmin || plan === "ai"` cuando se activen.
-    const allowed = isAdmin;
+    // Interruptor maestro: Admin → Ajustes → "Asistente literario IA" (flags.asistente_ia).
+    // Encendido → plan Bibliófilo (y admin/editor). Apagado → solo admin/editor y al
+    // resto se le muestra "próximamente" (sirve para cortar la IA sin desplegar).
+    const aiOpen = settings.flags.asistente_ia;
+    const allowed = isAdmin || (aiOpen && plan === "ai");
+    const reason = allowed ? undefined : aiOpen ? "requires_plan" : "coming_soon";
 
-    return { userId: user.id, isAdmin, plan, allowed, reason: allowed ? undefined : "coming_soon" };
+    return { userId: user.id, isAdmin, plan, allowed, reason };
 }
 
 // Nº de acciones de IA del usuario en el mes natural en curso, dentro de una bolsa.

@@ -4,6 +4,7 @@ import * as React from "react";
 import { Sparkles, RefreshCw, HeartPulse, CalendarClock } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { AIComingSoonModal } from "@/components/ai/AIComingSoonModal";
+import { BibliofiloUpsell } from "@/components/ai/BibliofiloUpsell";
 import { peekClubEmotionalMap, getClubEmotionalMap, type ClubEmotionResult } from "@/app/app/asistente/club-actions";
 import { peekClubSessionPlan, getClubSessionPlan, type ClubSessionResult } from "@/app/app/asistente/club-actions";
 
@@ -39,9 +40,11 @@ export function ClubHostTools({ clubId }: { clubId: string }) {
     const [sesBusy, setSesBusy] = React.useState(false);
     const [modalOpen, setModalOpen] = React.useState(false);
 
-    // Herramientas IA restringidas a admin (hasta septiembre 2026): al resto se
-    // le muestran las opciones, pero el clic abre el aviso "próximamente".
+    // IA apagada desde Admin → Ajustes: se muestran las opciones y el clic abre el
+    // aviso "próximamente".
     const comingSoon = emotion.status === "locked" && emotion.reason === "coming_soon";
+    // Anfitrión sin Bibliófilo (y el club no es de su librería): gancho a /planes.
+    const requiresPlan = emotion.status === "locked" && emotion.reason === "requires_plan";
 
     React.useEffect(() => {
         let active = true;
@@ -66,9 +69,9 @@ export function ClubHostTools({ clubId }: { clubId: string }) {
     };
 
     if (emotion.status === "loading") return null;
-    // "coming_soon" (host no-admin) SÍ muestra las herramientas; el clic abre el
-    // aviso. No-host / no-auth (otros locked) → nada.
-    if (emotion.status === "locked" && !comingSoon) return null;
+    // "coming_soon" y "requires_plan" (anfitrión) SÍ muestran las herramientas.
+    // No-anfitrión / sin sesión (otros locked) → nada.
+    if (emotion.status === "locked" && !comingSoon && !requiresPlan) return null;
 
     return (
         <section className="mb-6 space-y-4">
@@ -83,7 +86,9 @@ export function ClubHostTools({ clubId }: { clubId: string }) {
                     refreshing={emoBusy}
                     showRefresh={emotion.status === "ok"}
                 />
-                {emotion.status === "ok" ? (
+                {requiresPlan ? (
+                    <BibliofiloUpsell description="Sintetiza cómo ha vivido el grupo la lectura, de forma anónima." />
+                ) : emotion.status === "ok" ? (
                     <>
                         <p className="whitespace-pre-wrap text-sm leading-relaxed text-grey-dark">{emotion.text}</p>
                         <p className="mt-3 border-t border-teal/5 pt-2 text-[11px] text-grey/40">Basado en {emotion.participants} lectores · agregado y anónimo · {emotion.bookTitle}</p>
@@ -113,7 +118,9 @@ export function ClubHostTools({ clubId }: { clubId: string }) {
                     refreshing={sesBusy}
                     showRefresh={session.status === "ok"}
                 />
-                {session.status === "ok" ? (
+                {requiresPlan ? (
+                    <BibliofiloUpsell description="Agenda y preguntas de análisis a partir de la guía y el genoma del libro." />
+                ) : session.status === "ok" ? (
                     <>
                         <div className="whitespace-pre-wrap text-sm leading-relaxed text-grey-dark">{session.text}</div>
                         <p className="mt-3 border-t border-teal/5 pt-2 text-[11px] text-grey/40">A partir de la guía y el genoma de {session.bookTitle}</p>

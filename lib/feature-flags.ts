@@ -3,7 +3,7 @@
 // consumirlo. La lectura server vive en lib/app-settings.ts (getAppSettings).
 
 export interface FeatureFlags {
-    /** Asistente literario IA (plan Bibliófilo). Reservado: la feature aún no existe. */
+    /** Asistente literario IA: interruptor maestro (Bibliófilo + librerías). Apagado → solo admin/editor. */
     asistente_ia: boolean;
     /** Espacio para librerías (clubs alojados). Controla ruta y enlace de nav. */
     librerias: boolean;

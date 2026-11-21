@@ -23,9 +23,9 @@ export function AIComingSoonModal({ isOpen, onClose }: { isOpen: boolean; onClos
                 <h3 className="font-serif text-2xl text-teal-dark">Muy pronto ✨</h3>
 
                 <p className="mt-3 leading-relaxed text-grey/80">
-                    Las funciones con <strong>IA</strong> de Wordelia estarán disponibles en{" "}
-                    <strong>septiembre de 2026</strong> para los usuarios del plan <strong>Bibliófilo</strong>.
-                    Estamos afinándolas para que la experiencia sea excelente.
+                    Las funciones con <strong>IA</strong> de Wordelia no están disponibles en este momento.
+                    Estamos afinándolas para los usuarios del plan <strong>Bibliófilo</strong>; vuelve a
+                    probar en unos días.
                 </p>
 
                 <div className="mt-7 flex flex-col gap-3">

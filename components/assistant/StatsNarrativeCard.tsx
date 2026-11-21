@@ -3,6 +3,7 @@
 import * as React from "react";
 import { Sparkles, RefreshCw, ArrowRight } from "lucide-react";
 import { AIComingSoonModal } from "@/components/ai/AIComingSoonModal";
+import { BibliofiloUpsell } from "@/components/ai/BibliofiloUpsell";
 import { peekStatsNarrative, getStatsNarrative, type NarrativeResult } from "@/app/app/asistente/actions";
 
 type ViewState = NarrativeResult | { status: "empty" } | { status: "loading" };
@@ -12,8 +13,10 @@ export function StatsNarrativeCard() {
     const [generating, setGenerating] = React.useState(false);
     const [modalOpen, setModalOpen] = React.useState(false);
 
-    // Función IA restringida a admin (hasta septiembre 2026): al resto, aviso.
+    // IA apagada desde Admin → Ajustes: el clic abre el aviso "próximamente".
     const comingSoon = state.status === "locked" && state.reason === "coming_soon";
+    // Sin plan Bibliófilo: se enseña la función con el gancho a /planes.
+    const requiresPlan = state.status === "locked" && state.reason === "requires_plan";
 
     React.useEffect(() => {
         let active = true;
@@ -38,8 +41,8 @@ export function StatsNarrativeCard() {
     };
 
     if (state.status === "loading") return null;
-    // "coming_soon" (no-admin) SÍ se muestra: el clic abre el aviso. Sin sesión, no.
-    if (state.status === "locked" && state.reason !== "coming_soon") return null;
+    // "coming_soon" y "requires_plan" SÍ se muestran (aviso / gancho). Sin sesión, no.
+    if (state.status === "locked" && !comingSoon && !requiresPlan) return null;
     // Sin datos suficientes: mejor no mostrar nada aún.
     if (state.status === "no_data") return null;
 
@@ -60,7 +63,9 @@ export function StatsNarrativeCard() {
                 )}
             </div>
 
-            {state.status === "ok" ? (
+            {requiresPlan ? (
+                <BibliofiloUpsell description="Deja que Wordelia resuma tu año lector en un párrafo." />
+            ) : state.status === "ok" ? (
                 <p className="font-serif text-lg leading-relaxed text-teal-dark">{state.text}</p>
             ) : state.status === "limit" ? (
                 <p className="text-sm text-grey/60">Has alcanzado tu límite de generaciones de este mes.</p>

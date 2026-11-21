@@ -6,6 +6,7 @@ import Link from "next/link";
 import { Sparkles, RefreshCw, BookOpen, ArrowRight } from "lucide-react";
 import { Card } from "@/components/ui/Card";
 import { AIComingSoonModal } from "@/components/ai/AIComingSoonModal";
+import { BibliofiloUpsell } from "@/components/ai/BibliofiloUpsell";
 import { peekNextRead, getNextReadRecommendation, type NextReadResult } from "@/app/app/asistente/actions";
 
 const sectionTitleClass = "text-xs font-bold uppercase tracking-widest text-grey/40 lg:text-sm";
@@ -17,9 +18,10 @@ export function NextReadCard() {
     const [generating, setGenerating] = React.useState(false);
     const [modalOpen, setModalOpen] = React.useState(false);
 
-    // Función IA restringida a admin (hasta septiembre 2026): al resto se le
-    // muestra el aviso "próximamente" en vez de generar.
+    // IA apagada desde Admin → Ajustes: el clic abre el aviso "próximamente".
     const comingSoon = state.status === "locked" && state.reason === "coming_soon";
+    // Sin plan Bibliófilo: se enseña la función con el gancho a /planes.
+    const requiresPlan = state.status === "locked" && state.reason === "requires_plan";
 
     React.useEffect(() => {
         let active = true;
@@ -42,10 +44,10 @@ export function NextReadCard() {
         }
     };
 
-    // Mientras carga, nada. Si no hay sesión, tampoco. Para "coming_soon"
-    // (no-admin) SÍ mostramos la tarjeta: el clic abrirá el aviso.
+    // Mientras carga, nada. Si no hay sesión, tampoco. "coming_soon" y
+    // "requires_plan" SÍ muestran la tarjeta (aviso / gancho a Bibliófilo).
     if (state.status === "loading") return null;
-    if (state.status === "locked" && state.reason !== "coming_soon") return null;
+    if (state.status === "locked" && !comingSoon && !requiresPlan) return null;
 
     return (
         <section>
@@ -57,7 +59,9 @@ export function NextReadCard() {
             </div>
 
             <Card className="bg-white">
-                {state.status === "ok" ? (
+                {requiresPlan ? (
+                    <BibliofiloUpsell compact description="Deja que el bibliotecario de Wordelia elija tu próxima lectura según tus gustos." />
+                ) : state.status === "ok" ? (
                     <div className="space-y-3">
                         <div className="flex gap-3">
                             <div className="relative h-20 w-14 shrink-0 overflow-hidden rounded-lg bg-grey/10 shadow-sm">

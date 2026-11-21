@@ -4,6 +4,8 @@ import { createClient } from "@/utils/supabase/server";
 import { createAdminClient, hasSupabaseAdminConfig } from "@/utils/supabase/admin";
 import { getBookResourceAvailability } from "@/app/app/recursos/actions";
 import { callClaude } from "@/lib/claude";
+import { getAppSettings } from "@/lib/app-settings";
+import { isSubscriptionActive } from "@/lib/subscription-access";
 import { hasMonthlyQuota, withinRateLimit, logAiUsage, getCachedGeneration, saveGeneration } from "@/lib/assistant-access";
 
 // Umbral de anonimato: nunca resumimos emociones si hay muy pocos participantes
@@ -40,11 +42,26 @@ export async function getClubHostAccess(clubId: string): Promise<ClubHostAccess>
     const isAdmin = globalRole === "admin" || globalRole === "editor";
 
     if (!isHost) return { isHost: false, isAdmin, allowed: false, reason: "not_host" };
-    // Temporal (hasta septiembre de 2026): las herramientas de club con IA solo
-    // están activas para admin/editor. Restaurar el acceso por plan Bibliófilo y
-    // por librería (isBibliofilo || isLibraryMember) cuando se activen.
-    const allowed = isAdmin;
-    return { isHost, isAdmin, allowed, reason: allowed ? undefined : "coming_soon" };
+    if (isAdmin) return { isHost, isAdmin, allowed: true };
+
+    // Interruptor maestro (Admin → Ajustes → "Asistente literario IA"): apagado →
+    // solo admin/editor, al resto "próximamente".
+    const settings = await getAppSettings();
+    if (!settings.flags.asistente_ia) return { isHost, isAdmin, allowed: false, reason: "coming_soon" };
+
+    const [subRes, orgMemberRes] = await Promise.all([
+        supabase.from("user_subscriptions").select("plan, status, current_period_end").eq("user_id", user.id).maybeSingle(),
+        club.organization_id
+            ? supabase.from("organization_members").select("role").eq("organization_id", club.organization_id).eq("user_id", user.id).maybeSingle()
+            : Promise.resolve({ data: null }),
+    ]);
+    const sub = subRes.data as { plan: string; status: string; current_period_end: string | null } | null;
+    const isBibliofilo = !!sub && sub.plan === "ai" && isSubscriptionActive(sub.status, sub.current_period_end);
+    // Club de una librería y el anfitrión es miembro del equipo de esa librería.
+    const isLibraryMember = !!orgMemberRes.data;
+
+    const allowed = isBibliofilo || isLibraryMember;
+    return { isHost, isAdmin, allowed, reason: allowed ? undefined : "requires_plan" };
 }
 
 export type ClubEmotionResult =
