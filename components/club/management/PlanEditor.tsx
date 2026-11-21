@@ -25,6 +25,7 @@ interface PlanEditorClub {
         pace_unit?: string | null;
         checkpoints?: Checkpoint[] | null;
     } | null;
+    plannedBook?: { book?: { title?: string | null } | null } | null;
 }
 
 interface CheckpointFormProps {
@@ -211,6 +212,22 @@ export function PlanEditor({ club }: { club?: unknown }) {
         }
     };
 
+    // Los checkpoints pertenecen a la lectura activa: sin ella no hay nada que planificar
+    // aquí (los de una lectura programada se editan desde "Editar" en su tarjeta).
+    if (!planClub?.currentBook) {
+        const plannedTitle = planClub?.plannedBook?.book?.title;
+        return (
+            <Card>
+                <h3 className="text-lg font-serif text-teal">Plan de lectura</h3>
+                <p className="mt-4 rounded-2xl bg-cream/60 px-4 py-6 text-center text-sm leading-relaxed text-grey/60">
+                    {planClub?.plannedBook
+                        ? <>Aún no hay lectura activa. Los checkpoints de la lectura programada{plannedTitle ? <> (<span className="font-semibold text-teal-dark">{plannedTitle}</span>)</> : null} se configuran desde <span className="font-semibold text-teal-dark">Editar</span> en su tarjeta, o aquí cuando la comiences.</>
+                        : "Elige el libro que va a leer el club para poder configurar sus checkpoints."}
+                </p>
+            </Card>
+        );
+    }
+
     return (
         <div className="space-y-6">
             <Card>
@@ -318,20 +335,6 @@ export function PlanEditor({ club }: { club?: unknown }) {
                         )}
                     </div>
                 )}
-
-                {/* AI Assistant */}
-                <div className="mt-8 pt-6 border-t border-black/5">
-                    <div className="flex items-center gap-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100">
-                        <div className="w-10 h-10 rounded-lg bg-blue-100 text-blue-600 flex items-center justify-center shrink-0">
-                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" /></svg>
-                        </div>
-                        <div className="flex-1">
-                            <h4 className="font-bold text-sm text-blue-900">Asistente de Planificación</h4>
-                            <p className="text-xs text-blue-700/70">¿Quieres que la IA sugiera checkpoints basados en el libro?</p>
-                        </div>
-                        <Button variant="outline" size="sm" className="bg-white border-blue-200 text-blue-700 hover:bg-blue-50" onClick={() => toast.info("Próximamente")}>Sugerir</Button>
-                    </div>
-                </div>
             </Card>
         </div>
     );

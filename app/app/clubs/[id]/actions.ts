@@ -1881,15 +1881,21 @@ export async function saveCheckpoints(clubId: string, checkpoints: Array<{ id: s
         return { error: "Sin permisos" };
     }
 
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
         .from('club_books')
         .update({ checkpoints })
         .eq('club_id', clubId)
-        .eq('status', 'current');
+        .eq('status', 'current')
+        .select('id');
 
     if (error) {
         console.error("Error saving checkpoints:", error);
         return { error: error.message };
+    }
+    // Sin lectura activa no se actualiza ninguna fila: antes se devolvía éxito
+    // y los checkpoints se perdían en silencio.
+    if (!updated || updated.length === 0) {
+        return { error: "El club no tiene una lectura activa. Elige o comienza un libro antes de configurar checkpoints." };
     }
 
     revalidatePath(`/app/clubs/${clubId}`);
