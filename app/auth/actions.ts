@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation'
 import { cookies } from 'next/headers'
 import { createClient } from '@/utils/supabase/server'
 import { getAppSettings } from '@/lib/app-settings'
+import { getAppOrigin } from '@/lib/app-origin'
 
 type AuthActionState = {
     error: string;
@@ -62,11 +63,6 @@ function getRequestedPlan(intent: string | null, plan: string | null) {
 function getSafeRedirect(next: FormDataEntryValue | null, fallback = '/app/mi-lectura') {
     const target = String(next || '')
     return target.startsWith('/') && !target.startsWith('//') ? target : fallback
-}
-
-// URL base pública del sitio, para el enlace de confirmación del email.
-function getSiteUrl() {
-    return process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 }
 
 export async function login(_prevState: AuthActionState, formData: FormData): Promise<AuthActionState> {
@@ -139,7 +135,7 @@ export async function signup(_prevState: AuthActionState, formData: FormData): P
         options: {
             // Tras confirmar el email, PayPal-style: el enlace vuelve a nuestro
             // callback, que crea la sesión y registra el referido pendiente.
-            emailRedirectTo: `${getSiteUrl()}/auth/callback`,
+            emailRedirectTo: `${await getAppOrigin()}/auth/callback`,
             data: {
                 full_name: name,
                 signup_source: signupSource,
@@ -195,7 +191,7 @@ export async function resendConfirmation(_prevState: AuthActionState, formData: 
     const { error } = await supabase.auth.resend({
         type: 'signup',
         email,
-        options: { emailRedirectTo: `${getSiteUrl()}/auth/callback` },
+        options: { emailRedirectTo: `${await getAppOrigin()}/auth/callback` },
     })
     if (error) {
         return { error: getAuthErrorMessage(error.message) }
@@ -216,7 +212,7 @@ export async function requestPasswordReset(_prevState: ResetState, formData: For
     }
     const supabase = await createClient()
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${getSiteUrl()}/auth/callback?next=/auth/nueva-password`,
+        redirectTo: `${await getAppOrigin()}/auth/callback?next=/auth/nueva-password`,
     })
     if (error) {
         console.error('[requestPasswordReset]', error)

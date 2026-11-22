@@ -1,14 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { getAppOrigin } from "@/lib/app-origin";
 import { reviseSubscription } from "@/lib/paypal";
 import { resolvePlanId } from "@/lib/paypal-plans";
 import type { BillingPeriod } from "@/lib/pricing";
 
 export const dynamic = "force-dynamic";
-
-function appOrigin() {
-    return process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-}
 
 // Change the plan of an existing subscription (upgrade/downgrade). Returns an
 // approveUrl when PayPal needs the buyer to confirm (typically upgrades). The
@@ -60,7 +57,7 @@ export async function POST(request: NextRequest) {
     if (!newPlanId) return NextResponse.json({ error: "no_plan" }, { status: 400 });
 
     try {
-        const origin = appOrigin();
+        const origin = await getAppOrigin();
         const result = await reviseSubscription(
             subscriptionId,
             newPlanId,

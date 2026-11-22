@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/utils/supabase/server";
+import { getAppOrigin } from "@/lib/app-origin";
 import { createSubscription } from "@/lib/paypal";
 import { resolvePlanId } from "@/lib/paypal-plans";
 import { getPrice, type BillingPeriod, type ProductType } from "@/lib/pricing";
@@ -8,10 +9,6 @@ export const dynamic = "force-dynamic";
 
 // Recurring products only. resource/club stay on the one-off Orders API.
 const SUPPORTED_PRODUCT_TYPES: ProductType[] = ["org_subscription", "user_plan"];
-
-function appOrigin() {
-    return process.env.NEXT_PUBLIC_SITE_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-}
 
 export async function POST(request: NextRequest) {
     const supabase = await createClient();
@@ -56,7 +53,7 @@ export async function POST(request: NextRequest) {
     if (!price) return NextResponse.json({ error: "no_price" }, { status: 400 });
 
     try {
-        const origin = appOrigin();
+        const origin = await getAppOrigin();
         const sub = await createSubscription(
             planId,
             `${productType}:${referenceId}`,

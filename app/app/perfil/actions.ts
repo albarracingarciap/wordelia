@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/utils/supabase/server";
+import { getAppOrigin } from "@/lib/app-origin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { SECONDARY_GOAL_BY_KEY, normalizeSecondaryKeys, type SecondaryGoalStatus } from "@/lib/secondary-goals";
@@ -300,10 +301,7 @@ export async function requestPasswordReset() {
 
     if (!user?.email) return { error: "No se ha encontrado el email de la cuenta" };
 
-    const origin =
-        process.env.NEXT_PUBLIC_SITE_URL ||
-        process.env.NEXT_PUBLIC_APP_URL ||
-        "http://localhost:3000";
+    const origin = await getAppOrigin();
 
     const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
         redirectTo: `${origin}/app/perfil/editar`
