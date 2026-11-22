@@ -2,9 +2,14 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import type { EmailOtpType } from '@supabase/supabase-js'
 import { createClient } from '@/utils/supabase/server'
+import { getAppOrigin } from '@/lib/app-origin'
 
 export async function GET(request: Request) {
-    const { searchParams, origin } = new URL(request.url)
+    const { searchParams } = new URL(request.url)
+    // Origen público (wordelia.es). NO usar new URL(request.url).origin: dentro del
+    // contenedor es el host interno (https://localhost:3001) y las redirecciones
+    // acababan en localhost.
+    const origin = await getAppOrigin()
     const code = searchParams.get('code')
     const tokenHash = searchParams.get('token_hash')
     const type = searchParams.get('type') as EmailOtpType | null
@@ -54,16 +59,7 @@ export async function GET(request: Request) {
             }
         }
 
-        const forwardedHost = request.headers.get('x-forwarded-host') // original origin before load balancer
-        const isLocalEnv = process.env.NODE_ENV === 'development'
-        if (isLocalEnv) {
-            // we can be sure that there is no load balancer in between, so no need to watch for X-Forwarded-Host
-            return NextResponse.redirect(`${origin}${dest}`)
-        } else if (forwardedHost) {
-            return NextResponse.redirect(`https://${forwardedHost}${dest}`)
-        } else {
-            return NextResponse.redirect(`${origin}${dest}`)
-        }
+        return NextResponse.redirect(`${origin}${dest}`)
     }
 
     // return the user to an error page with instructions
