@@ -82,7 +82,7 @@ export default function OnboardingPage() {
     // Import supabase client for client-side checks/uploads
     const supabase = createClient();
 
-    // Al montar: preselecciona el plan que venía del registro y detecta si el
+    // Al montar: rellena el nombre y preselecciona el plan que venían del registro, y detecta si el
     // usuario ya tiene una suscripción activa.
     useEffect(() => {
         const client = createClient();
@@ -90,6 +90,12 @@ export default function OnboardingPage() {
         (async () => {
             const { data: { user } } = await client.auth.getUser();
             if (!user || !active) return;
+
+            // Nombre ya introducido en el registro (email: full_name; Google:
+            // full_name/name). Solo rellena si el usuario no ha escrito nada aún.
+            const meta = user.user_metadata ?? {};
+            const registeredName = String(meta.full_name || meta.name || "").trim();
+            if (registeredName) setFullName((prev) => prev || registeredName);
 
             const requested = user.user_metadata?.requested_plan;
             if (requested === "explorador" || requested === "voraz" || requested === "ai") {
